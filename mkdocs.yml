@@ -52,19 +52,17 @@ nav:
         API Overview: concepts/api-overview.md
         Conformance: concepts/conformance.md
         Roles and Personas: concepts/roles-and-personas.md
-        Use Cases: concepts/use-cases.md
     - Implementations: implementations.md
     - FAQ: faq.md
-    - Glossary: concepts/glossary.md
   - Guides:
     - User Guides:
       - Getting started: guides/index.md
     - Implementer's Guide: guides/implementers.md
   - Reference:
+    - API Reference: reference/spec.md
     - API Types:
       - InferencePool: api-types/inferencepool.md
       - InferenceModel: api-types/inferencemodel.md
-    - API specification: reference/spec.md
   - Enhancements:
     - Overview: gieps/overview.md
   - Contributing:
