@@ -1,16 +1,9 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 
 approvers:
-- ArangoGutierrez
-- Jeffwan
-- SergeyKanzhelev
-- terrytangyuan
-- smarterclayton
-- ahg-g
-- kfswain
+- gateway-api-inference-extension-maintainers
+- wg-serving-leads
 
 reviewers:
-- ahg-g
-- robscott
-- kfswain
-- liu-cong
+- gateway-api-inference-extension-reviewers
+- gateway-api-inference-extension-maintainers
