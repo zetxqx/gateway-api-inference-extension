@@ -58,23 +58,29 @@ type InferenceModelList struct {
 // creation timestamp, will be selected to remain valid. In the event of a race
 // condition, one will be selected at random.
 type InferenceModelSpec struct {
-	// ModelName is the name of the model as the users set in the "model" parameter in the requests.
-	// The name should be unique among the workloads that reference the same backend pool.
-	// This is the parameter that will be used to match the request with. In the future, we may
-	// allow to match on other request parameters. The other approach to support matching
-	// on other request parameters is to use a different ModelName per HTTPFilter.
-	// Names can be reserved without implementing an actual model in the pool.
+	// ModelName is the name of the model as it will be set in the "model" parameter for an incoming request.
+	// ModelNames must be unique for a referencing InferencePool
+	// (names can be reused for a different pool in the same cluster).
+	// The modelName with the oldest creation timestamp is retained, and the incoming
+	// InferenceModel is sets the Ready status to false with a corresponding reason.
+	// In the rare case of a race condition, one Model will be selected randomly to be considered valid, and the other rejected.
+	// Names can be reserved without an underlying model configured in the pool.
 	// This can be done by specifying a target model and setting the weight to zero,
 	// an error will be returned specifying that no valid target model is found.
 	//
-	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MaxLength=256
 	// +kubebuilder:validation:Required
 	ModelName string `json:"modelName"`
 
 	// Criticality defines how important it is to serve the model compared to other models referencing the same pool.
+	// Criticality impacts how traffic is handled in resource constrained situations. It handles this by
+	// queuing or rejecting requests of lower criticality. InferenceModels of an equivalent Criticality will
+	// fairly share resources over throughput of tokens. In the future, the metric used to calculate fairness,
+	// and the proportionality of fairness will be configurable.
 	//
+	// Default values for this field will not be set, to allow for future additions of new field that may 'one of' with this field.
+	// Any implementations that may consume this field may treat an unset value as the 'Standard' range.
 	// +optional
-	// +kubebuilder:default="Default"
 	Criticality *Criticality `json:"criticality,omitempty"`
 
 	// TargetModels allow multiple versions of a model for traffic splitting.
@@ -83,6 +89,7 @@ type InferenceModelSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:XValidation:message="Weights should be set for all models, or none of the models.",rule="self.all(model, has(model.weight)) || self.all(model, !has(model.weight))"
 	TargetModels []TargetModel `json:"targetModels,omitempty"`
 
 	// PoolRef is a reference to the inference pool, the pool must exist in the same namespace.
@@ -120,16 +127,19 @@ type PoolObjectReference struct {
 }
 
 // Criticality defines how important it is to serve the model compared to other models.
-// +kubebuilder:validation:Enum=Critical;Default;Sheddable
+// Criticality is intentionally a bounded enum to contain the possibilities that need to be supported by the load balancing algorithm. Any reference to the Criticality field must be optional(use a pointer), and set no default.
+// This allows us to union this with a oneOf field in the future should we wish to adjust/extend this behavior.
+// +kubebuilder:validation:Enum=Critical;Standard;Sheddable
 type Criticality string
 
 const (
 	// Critical defines the highest level of criticality. Requests to this band will be shed last.
 	Critical Criticality = "Critical"
 
-	// Default defines the default criticality level and is more important than Sheddable but less
+	// Standard defines the base criticality level and is more important than Sheddable but less
 	// important than Critical. Requests in this band will be shed before critical traffic.
-	Default Criticality = "Default"
+	// Most models are expected to fall within this band.
+	Standard Criticality = "Standard"
 
 	// Sheddable defines the lowest level of criticality. Requests to this band will be shed before
 	// all other bands.
@@ -160,16 +170,13 @@ type TargetModel struct {
 	// implementation supports. Weight is not a percentage and the sum of
 	// weights does not need to equal 100.
 	//
-	// If only one model is specified and it has a weight greater than 0, 100%
-	// of the traffic is forwarded to that model. If weight is set to 0, no
-	// traffic should be forwarded for this model. If unspecified, weight
-	// defaults to 1.
+	// If a weight is set for any targetModel, it must be set for all targetModels.
+	// Conversely weights are optional, so long as ALL targetModels do not specify a weight.
 	//
 	// +optional
-	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1000000
-	Weight int32 `json:"weight,omitempty"`
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // InferenceModelStatus defines the observed state of InferenceModel
