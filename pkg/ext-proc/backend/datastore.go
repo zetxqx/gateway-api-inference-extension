@@ -1,12 +1,16 @@
 package backend
 
 import (
+	"context"
 	"errors"
 	"math/rand"
+	"strconv"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api-inference-extension/api/v1alpha1"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/ext-proc/util/logging"
 )
@@ -110,4 +114,42 @@ func IsCritical(model *v1alpha1.InferenceModel) bool {
 		return true
 	}
 	return false
+}
+
+func (ds *K8sDatastore) LabelsMatch(podLabels map[string]string) bool {
+	poolSelector := selectorFromInferencePoolSelector(ds.inferencePool.Spec.Selector)
+	podSet := labels.Set(podLabels)
+	return poolSelector.Matches(podSet)
+}
+
+func (ds *K8sDatastore) flushPodsAndRefetch(ctx context.Context, ctrlClient client.Client, newServerPool *v1alpha1.InferencePool) {
+	podList := &corev1.PodList{}
+	if err := ctrlClient.List(ctx, podList, &client.ListOptions{
+		LabelSelector: selectorFromInferencePoolSelector(newServerPool.Spec.Selector),
+		Namespace:     newServerPool.Namespace,
+	}); err != nil {
+		klog.Error(err, "error listing clients")
+	}
+	ds.pods.Clear()
+
+	for _, k8sPod := range podList.Items {
+		pod := Pod{
+			Name:    k8sPod.Name,
+			Address: k8sPod.Status.PodIP + ":" + strconv.Itoa(int(newServerPool.Spec.TargetPortNumber)),
+		}
+		ds.pods.Store(pod, true)
+	}
+
+}
+
+func selectorFromInferencePoolSelector(selector map[v1alpha1.LabelKey]v1alpha1.LabelValue) labels.Selector {
+	return labels.SelectorFromSet(stripLabelKeyAliasFromLabelMap(selector))
+}
+
+func stripLabelKeyAliasFromLabelMap(labels map[v1alpha1.LabelKey]v1alpha1.LabelValue) map[string]string {
+	outMap := make(map[string]string)
+	for k, v := range labels {
+		outMap[string(k)] = string(v)
+	}
+	return outMap
 }

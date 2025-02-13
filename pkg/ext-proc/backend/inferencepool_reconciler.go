@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,7 +22,6 @@ type InferencePoolReconciler struct {
 	Record             record.EventRecorder
 	PoolNamespacedName types.NamespacedName
 	Datastore          *K8sDatastore
-	Zone               string
 }
 
 func (c *InferencePoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -32,11 +32,15 @@ func (c *InferencePoolReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	serverPool := &v1alpha1.InferencePool{}
 	if err := c.Get(ctx, req.NamespacedName, serverPool); err != nil {
-		klog.Error(err, "unable to get InferencePool")
+		klog.Error(err, ": unable to get InferencePool")
 		return ctrl.Result{}, err
 	}
-
-	c.updateDatastore(serverPool)
+	if c.Datastore.inferencePool == nil || !reflect.DeepEqual(serverPool.Spec.Selector, c.Datastore.inferencePool.Spec.Selector) {
+		c.updateDatastore(serverPool)
+		c.Datastore.flushPodsAndRefetch(ctx, c.Client, serverPool)
+	} else {
+		c.updateDatastore(serverPool)
+	}
 
 	return ctrl.Result{}, nil
 }
