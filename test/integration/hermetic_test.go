@@ -478,6 +478,7 @@ func BeforeSuit() {
 	// Adjust from defaults
 	serverRunner.PoolName = "vllm-llama2-7b-pool"
 	serverRunner.Datastore = backend.NewK8sDataStore()
+	serverRunner.SecureServing = false
 
 	if err := serverRunner.SetupWithManager(mgr); err != nil {
 		logutil.Fatal(err, "Failed to setup server runner")
