@@ -4,11 +4,10 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	klog "k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -24,7 +23,7 @@ type InferencePoolReconciler struct {
 	Scheme             *runtime.Scheme
 	Record             record.EventRecorder
 	PoolNamespacedName types.NamespacedName
-	Datastore          *K8sDatastore
+	Datastore          Datastore
 }
 
 func (c *InferencePoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -37,26 +36,39 @@ func (c *InferencePoolReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	loggerDefault.Info("Reconciling InferencePool", "name", req.NamespacedName)
 
 	serverPool := &v1alpha1.InferencePool{}
+
 	if err := c.Get(ctx, req.NamespacedName, serverPool); err != nil {
+		if errors.IsNotFound(err) {
+			loggerDefault.Info("InferencePool not found. Clearing the datastore", "name", req.NamespacedName)
+			c.Datastore.Clear()
+			return ctrl.Result{}, nil
+		}
 		loggerDefault.Error(err, "Unable to get InferencePool", "name", req.NamespacedName)
 		return ctrl.Result{}, err
+	} else if !serverPool.DeletionTimestamp.IsZero() {
+		loggerDefault.Info("InferencePool is marked for deletion. Clearing the datastore", "name", req.NamespacedName)
+		c.Datastore.Clear()
+		return ctrl.Result{}, nil
 	}
-	if c.Datastore.inferencePool == nil || !reflect.DeepEqual(serverPool.Spec.Selector, c.Datastore.inferencePool.Spec.Selector) {
-		c.updateDatastore(logger, serverPool)
-		c.Datastore.flushPodsAndRefetch(ctx, c.Client, serverPool)
-	} else {
-		c.updateDatastore(logger, serverPool)
-	}
+
+	c.updateDatastore(ctx, serverPool)
 
 	return ctrl.Result{}, nil
 }
 
-func (c *InferencePoolReconciler) updateDatastore(logger logr.Logger, serverPool *v1alpha1.InferencePool) {
-	pool, _ := c.Datastore.getInferencePool()
-	if pool == nil ||
-		serverPool.ObjectMeta.ResourceVersion != pool.ObjectMeta.ResourceVersion {
-		logger.V(logutil.DEFAULT).Info("Updating inference pool", "target", klog.KMetadata(&serverPool.ObjectMeta))
-		c.Datastore.setInferencePool(serverPool)
+func (c *InferencePoolReconciler) updateDatastore(ctx context.Context, newPool *v1alpha1.InferencePool) {
+	logger := log.FromContext(ctx)
+	oldPool, err := c.Datastore.PoolGet()
+	c.Datastore.PoolSet(newPool)
+	if err != nil || !reflect.DeepEqual(newPool.Spec.Selector, oldPool.Spec.Selector) {
+		logger.V(logutil.DEFAULT).Info("Updating inference pool endpoints", "selector", newPool.Spec.Selector)
+		// A full resync is required to address two cases:
+		// 1) At startup, the pod events may get processed before the pool is synced with the datastore,
+		//    and hence they will not be added to the store since pool selector is not known yet
+		// 2) If the selector on the pool was updated, then we will not get any pod events, and so we need
+		//    to resync the whole pool: remove pods in the store that don't match the new selector and add
+		//    the ones that may have existed already to the store.
+		c.Datastore.PodResyncAll(ctx, c.Client)
 	}
 }
 

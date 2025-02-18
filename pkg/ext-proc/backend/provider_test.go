@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -8,12 +9,17 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/ext-proc/util/logging"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
 	pod1 = &PodMetrics{
-		Pod: Pod{Name: "pod1"},
+		Pod: Pod{
+			NamespacedName: types.NamespacedName{
+				Name: "pod1",
+			},
+		},
 		Metrics: Metrics{
 			WaitingQueueSize:    0,
 			KVCacheUsagePercent: 0.2,
@@ -25,7 +31,11 @@ var (
 		},
 	}
 	pod2 = &PodMetrics{
-		Pod: Pod{Name: "pod2"},
+		Pod: Pod{
+			NamespacedName: types.NamespacedName{
+				Name: "pod2",
+			},
+		},
 		Metrics: Metrics{
 			WaitingQueueSize:    1,
 			KVCacheUsagePercent: 0.2,
@@ -39,51 +49,65 @@ var (
 )
 
 func TestProvider(t *testing.T) {
-	logger := logutil.NewTestLogger()
-
 	tests := []struct {
 		name      string
 		pmc       PodMetricsClient
-		datastore *K8sDatastore
-		initErr   bool
+		datastore Datastore
 		want      []*PodMetrics
 	}{
 		{
-			name: "Init success",
-			datastore: &K8sDatastore{
-				pods: populateMap(pod1.Pod, pod2.Pod),
-			},
+			name: "Probing metrics success",
 			pmc: &FakePodMetricsClient{
-				Res: map[Pod]*PodMetrics{
-					pod1.Pod: pod1,
-					pod2.Pod: pod2,
+				Res: map[types.NamespacedName]*PodMetrics{
+					pod1.NamespacedName: pod1,
+					pod2.NamespacedName: pod2,
 				},
 			},
-			want: []*PodMetrics{pod1, pod2},
+			datastore: &datastore{
+				pods: populateMap(pod1, pod2),
+			},
+			want: []*PodMetrics{
+				pod1,
+				pod2,
+			},
 		},
 		{
-			name: "Fetch metrics error",
+			name: "Only pods in the datastore are probed",
 			pmc: &FakePodMetricsClient{
-				Err: map[Pod]error{
-					pod2.Pod: errors.New("injected error"),
-				},
-				Res: map[Pod]*PodMetrics{
-					pod1.Pod: pod1,
+				Res: map[types.NamespacedName]*PodMetrics{
+					pod1.NamespacedName: pod1,
+					pod2.NamespacedName: pod2,
 				},
 			},
-			datastore: &K8sDatastore{
-				pods: populateMap(pod1.Pod, pod2.Pod),
+			datastore: &datastore{
+				pods: populateMap(pod1),
+			},
+			want: []*PodMetrics{
+				pod1,
+			},
+		},
+		{
+			name: "Probing metrics error",
+			pmc: &FakePodMetricsClient{
+				Err: map[types.NamespacedName]error{
+					pod2.NamespacedName: errors.New("injected error"),
+				},
+				Res: map[types.NamespacedName]*PodMetrics{
+					pod1.NamespacedName: pod1,
+				},
+			},
+			datastore: &datastore{
+				pods: populateMap(pod1, pod2),
 			},
 			want: []*PodMetrics{
 				pod1,
 				// Failed to fetch pod2 metrics so it remains the default values.
 				{
-					Pod: Pod{Name: "pod2"},
+					Pod: Pod{NamespacedName: pod2.NamespacedName},
 					Metrics: Metrics{
 						WaitingQueueSize:    0,
 						KVCacheUsagePercent: 0,
 						MaxActiveModels:     0,
-						ActiveModels:        map[string]int{},
 					},
 				},
 			},
@@ -93,25 +117,24 @@ func TestProvider(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			p := NewProvider(test.pmc, test.datastore)
-			err := p.Init(logger, time.Millisecond, time.Millisecond, time.Millisecond)
-			if test.initErr != (err != nil) {
-				t.Fatalf("Unexpected error, got: %v, want: %v", err, test.initErr)
-			}
-			metrics := p.AllPodMetrics()
-			lessFunc := func(a, b *PodMetrics) bool {
-				return a.String() < b.String()
-			}
-			if diff := cmp.Diff(test.want, metrics, cmpopts.SortSlices(lessFunc)); diff != "" {
-				t.Errorf("Unexpected output (-want +got): %v", diff)
-			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_ = p.Init(ctx, time.Millisecond, time.Millisecond)
+			assert.EventuallyWithT(t, func(t *assert.CollectT) {
+				metrics := test.datastore.PodGetAll()
+				diff := cmp.Diff(test.want, metrics, cmpopts.SortSlices(func(a, b *PodMetrics) bool {
+					return a.String() < b.String()
+				}))
+				assert.Equal(t, "", diff, "Unexpected diff (+got/-want)")
+			}, 5*time.Second, time.Millisecond)
 		})
 	}
 }
 
-func populateMap(pods ...Pod) *sync.Map {
+func populateMap(pods ...*PodMetrics) *sync.Map {
 	newMap := &sync.Map{}
 	for _, pod := range pods {
-		newMap.Store(pod, true)
+		newMap.Store(pod.NamespacedName, &PodMetrics{Pod: Pod{NamespacedName: pod.NamespacedName, Address: pod.Address}})
 	}
 	return newMap
 }

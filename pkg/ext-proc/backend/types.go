@@ -1,17 +1,15 @@
 // Package backend is a library to interact with backend model servers such as probing metrics.
 package backend
 
-import "fmt"
+import (
+	"fmt"
 
-type PodSet map[Pod]bool
+	"k8s.io/apimachinery/pkg/types"
+)
 
 type Pod struct {
-	Name    string
-	Address string
-}
-
-func (p Pod) String() string {
-	return p.Name + ":" + p.Address
+	NamespacedName types.NamespacedName
+	Address        string
 }
 
 type Metrics struct {
@@ -31,7 +29,7 @@ type PodMetrics struct {
 }
 
 func (pm *PodMetrics) String() string {
-	return fmt.Sprintf("Pod: %+v; Metrics: %+v", pm.Pod, pm.Metrics)
+	return fmt.Sprintf("Pod: %+v; Address: %+v; Metrics: %+v", pm.NamespacedName, pm.Address, pm.Metrics)
 }
 
 func (pm *PodMetrics) Clone() *PodMetrics {
@@ -40,7 +38,10 @@ func (pm *PodMetrics) Clone() *PodMetrics {
 		cm[k] = v
 	}
 	clone := &PodMetrics{
-		Pod: pm.Pod,
+		Pod: Pod{
+			NamespacedName: pm.NamespacedName,
+			Address:        pm.Address,
+		},
 		Metrics: Metrics{
 			ActiveModels:            cm,
 			RunningQueueSize:        pm.RunningQueueSize,
