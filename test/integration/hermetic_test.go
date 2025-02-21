@@ -100,7 +100,7 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 			wantHeaders: []*configPb.HeaderValueOption{
 				{
 					Header: &configPb.HeaderValue{
-						Key:      runserver.DefaultTargetEndpointKey,
+						Key:      runserver.DefaultDestinationEndpointHintKey,
 						RawValue: []byte("address-1:8000"),
 					},
 				},
@@ -111,17 +111,9 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 					},
 				},
 			},
-			wantMetadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					runserver.DefaultTargetEndpointKey: {
-						Kind: &structpb.Value_StringValue{
-							StringValue: "address-1:8000",
-						},
-					},
-				},
-			},
-			wantBody: []byte("{\"max_tokens\":100,\"model\":\"my-model-12345\",\"prompt\":\"test1\",\"temperature\":0}"),
-			wantErr:  false,
+			wantMetadata: makeMetadata("address-1:8000"),
+			wantBody:     []byte("{\"max_tokens\":100,\"model\":\"my-model-12345\",\"prompt\":\"test1\",\"temperature\":0}"),
+			wantErr:      false,
 		},
 		{
 			name: "select active lora, low queue",
@@ -156,7 +148,7 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 			wantHeaders: []*configPb.HeaderValueOption{
 				{
 					Header: &configPb.HeaderValue{
-						Key:      runserver.DefaultTargetEndpointKey,
+						Key:      runserver.DefaultDestinationEndpointHintKey,
 						RawValue: []byte("address-1:8000"),
 					},
 				},
@@ -167,17 +159,9 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 					},
 				},
 			},
-			wantMetadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					runserver.DefaultTargetEndpointKey: {
-						Kind: &structpb.Value_StringValue{
-							StringValue: "address-1:8000",
-						},
-					},
-				},
-			},
-			wantBody: []byte("{\"max_tokens\":100,\"model\":\"sql-lora-1fdg2\",\"prompt\":\"test2\",\"temperature\":0}"),
-			wantErr:  false,
+			wantMetadata: makeMetadata("address-1:8000"),
+			wantBody:     []byte("{\"max_tokens\":100,\"model\":\"sql-lora-1fdg2\",\"prompt\":\"test2\",\"temperature\":0}"),
+			wantErr:      false,
 		},
 		{
 			name: "select no lora despite active model, avoid excessive queue size",
@@ -213,7 +197,7 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 			wantHeaders: []*configPb.HeaderValueOption{
 				{
 					Header: &configPb.HeaderValue{
-						Key:      runserver.DefaultTargetEndpointKey,
+						Key:      runserver.DefaultDestinationEndpointHintKey,
 						RawValue: []byte("address-2:8000"),
 					},
 				},
@@ -224,17 +208,9 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 					},
 				},
 			},
-			wantMetadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					runserver.DefaultTargetEndpointKey: {
-						Kind: &structpb.Value_StringValue{
-							StringValue: "address-2:8000",
-						},
-					},
-				},
-			},
-			wantBody: []byte("{\"max_tokens\":100,\"model\":\"sql-lora-1fdg2\",\"prompt\":\"test3\",\"temperature\":0}"),
-			wantErr:  false,
+			wantMetadata: makeMetadata("address-2:8000"),
+			wantBody:     []byte("{\"max_tokens\":100,\"model\":\"sql-lora-1fdg2\",\"prompt\":\"test3\",\"temperature\":0}"),
+			wantErr:      false,
 		},
 		{
 			name: "noncritical and all models past threshold, shed request",
@@ -312,7 +288,7 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 			wantHeaders: []*configPb.HeaderValueOption{
 				{
 					Header: &configPb.HeaderValue{
-						Key:      runserver.DefaultTargetEndpointKey,
+						Key:      runserver.DefaultDestinationEndpointHintKey,
 						RawValue: []byte("address-0:8000"),
 					},
 				},
@@ -323,17 +299,9 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 					},
 				},
 			},
-			wantMetadata: &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					runserver.DefaultTargetEndpointKey: {
-						Kind: &structpb.Value_StringValue{
-							StringValue: "address-0:8000",
-						},
-					},
-				},
-			},
-			wantBody: []byte("{\"max_tokens\":100,\"model\":\"sql-lora-1fdg3\",\"prompt\":\"test5\",\"temperature\":0}"),
-			wantErr:  false,
+			wantMetadata: makeMetadata("address-0:8000"),
+			wantBody:     []byte("{\"max_tokens\":100,\"model\":\"sql-lora-1fdg3\",\"prompt\":\"test5\",\"temperature\":0}"),
+			wantErr:      false,
 		},
 	}
 
@@ -554,4 +522,24 @@ func readDocuments(fp string) ([][]byte, error) {
 		docs = append(docs, doc)
 	}
 	return docs, nil
+}
+
+func makeMetadata(endpoint string) *structpb.Struct {
+	return &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			runserver.DefaultDestinationEndpointHintMetadataNamespace: {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							runserver.DefaultDestinationEndpointHintKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: endpoint,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
