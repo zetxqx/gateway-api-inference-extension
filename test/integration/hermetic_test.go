@@ -360,11 +360,12 @@ func setUpHermeticServer(podMetrics []*datastore.PodMetrics) (client extProcPb.E
 	go func() {
 		serverRunner.Datastore.PodDeleteAll()
 		for _, pm := range podMetrics {
-			pod := utiltesting.MakePod(pm.NamespacedName.Name, pm.NamespacedName.Namespace).
+			pod := utiltesting.MakePod(pm.NamespacedName.Name).
+				Namespace(pm.NamespacedName.Namespace).
 				ReadyCondition().
 				IP(pm.Address).
-				Obj()
-			serverRunner.Datastore.PodUpdateOrAddIfNotExist(&pod)
+				ObjRef()
+			serverRunner.Datastore.PodUpdateOrAddIfNotExist(pod)
 			serverRunner.Datastore.PodUpdateMetricsIfExist(pm.NamespacedName, &pm.Metrics)
 		}
 		serverRunner.Provider = backend.NewProvider(pmc, serverRunner.Datastore)
@@ -429,7 +430,7 @@ func BeforeSuit(t *testing.T) func() {
 	serverRunner.Datastore = datastore.NewDatastore()
 	serverRunner.SecureServing = false
 
-	if err := serverRunner.SetupWithManager(mgr); err != nil {
+	if err := serverRunner.SetupWithManager(context.Background(), mgr); err != nil {
 		logutil.Fatal(logger, err, "Failed to setup server runner")
 	}
 
