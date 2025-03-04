@@ -158,6 +158,7 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 					KVCacheUsagePercent: 0.2,
 					ActiveModels: map[string]int{
 						"foo": 1,
+						"bar": 1,
 					},
 				}),
 			},
@@ -200,7 +201,7 @@ func TestKubeInferenceModelRequest(t *testing.T) {
 					},
 				}),
 				extprocutils.FakePodMetrics(1, datastore.Metrics{
-					WaitingQueueSize:    50,
+					WaitingQueueSize:    200,
 					KVCacheUsagePercent: 0.1,
 					ActiveModels: map[string]int{
 						"foo":            1,
