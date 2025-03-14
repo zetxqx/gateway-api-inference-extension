@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	"sigs.k8s.io/gateway-api-inference-extension/internal/runnable"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/vllm"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	runserver "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/server"
@@ -92,6 +91,17 @@ var (
 		"certPath", "", "The path to the certificate for secure serving. The certificate and private key files "+
 			"are assumed to be named tls.crt and tls.key, respectively. If not set, and secureServing is enabled, "+
 			"then a self-signed certificate is used.")
+	// metric flags
+	totalQueuedRequestsMetric = flag.String("totalQueuedRequestsMetric",
+		"vllm:num_requests_waiting",
+		"Prometheus metric for the number of queued requests.")
+	kvCacheUsagePercentageMetric = flag.String("kvCacheUsagePercentageMetric",
+		"vllm:gpu_cache_usage_perc",
+		"Prometheus metric for the fraction of KV-cache blocks currently in use (from 0 to 1).")
+	// LoRA metrics
+	loraInfoMetric = flag.String("loraInfoMetric",
+		"vllm:lora_requests_info",
+		"Prometheus metric for the LoRA info metrics (must be in vLLM label format).")
 
 	setupLog = ctrl.Log.WithName("setup")
 )
@@ -143,9 +153,21 @@ func run() error {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	pmf := backendmetrics.NewPodMetricsFactory(&vllm.PodMetricsClientImpl{}, *refreshMetricsInterval)
+	// Set up mapper for metric scraping.
+	mapping, err := backendmetrics.NewMetricMapping(
+		*totalQueuedRequestsMetric,
+		*kvCacheUsagePercentageMetric,
+		*loraInfoMetric,
+	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create metric mapping from flags.")
+		return err
+	}
+
+	pmf := backendmetrics.NewPodMetricsFactory(&backendmetrics.PodMetricsClientImpl{MetricMapping: mapping}, *refreshMetricsInterval)
 	// Setup runner.
 	datastore := datastore.NewDatastore(ctx, pmf)
+
 	serverRunner := &runserver.ExtProcServerRunner{
 		GrpcPort:                                 *grpcPort,
 		DestinationEndpointHintMetadataNamespace: *destinationEndpointHintMetadataNamespace,
