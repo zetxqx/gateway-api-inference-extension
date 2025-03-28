@@ -1,9 +1,12 @@
 # Getting started with Gateway API Inference Extension
 
-This quickstart guide is intended for engineers familiar with k8s and model servers (vLLM in this instance). The goal of this guide is to get a first, single InferencePool up and running! 
+??? example "Experimental"
+
+    This project is still in an alpha state and breaking changes may occur in the future.
+
+This quickstart guide is intended for engineers familiar with k8s and model servers (vLLM in this instance). The goal of this guide is to get an Inference Gateway up and running! 
 
 ## **Prerequisites**
- - Envoy Gateway [v1.3.0](https://gateway.envoyproxy.io/docs/install/install-yaml/#install-with-yaml) or higher
  - A cluster with:
     - Support for services of type `LoadBalancer`. (This can be validated by ensuring your Envoy Gateway is up and running).
    For example, with Kind, you can follow [these steps](https://kind.sigs.k8s.io/docs/user/loadbalancer).
@@ -39,11 +42,10 @@ This quickstart guide is intended for engineers familiar with k8s and model serv
 
       This setup is using the formal `vllm-cpu` image, which according to the documentation can run vLLM on x86 CPU platform.
       For this setup, we use approximately 9.5GB of memory and 12 CPUs for each replica.  
-      While it is possible to deploy the model server with less resources, this is not recommended.  
-      For example, in our tests, loading the model using 8GB of memory and 1 CPU was possible but took almost 3.5 minutes and inference requests took unreasonable time.  
-      In general, there is a tradeoff between the memory and CPU we allocate to our pods and the performance. The more memory and CPU we allocate the better performance we can get.  
-      After running multiple configurations of these values we decided in this sample to use 9.5GB of memory and 12 CPUs for each replica, which gives reasonable response times. You can increase those numbers and potentially may even get better response times.
-      For modifying the allocated resources, adjust the numbers in `./config/manifests/vllm/cpu-deployment.yaml` as needed.  
+      
+      While it is possible to deploy the model server with less resources, this is not recommended. For example, in our tests, loading the model using 8GB of memory and 1 CPU was possible but took almost 3.5 minutes and inference requests took unreasonable time. In general, there is a tradeoff between the memory and CPU we allocate to our pods and the performance. The more memory and CPU we allocate the better performance we can get.
+      
+      After running multiple configurations of these values we decided in this sample to use 9.5GB of memory and 12 CPUs for each replica, which gives reasonable response times. You can increase those numbers and potentially may even get better response times. For modifying the allocated resources, adjust the numbers in [cpu-deployment.yaml](https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/cpu-deployment.yaml) as needed.  
 
       Deploy a sample vLLM deployment with the proper protocol to work with the LLM Instance Gateway.
       ```bash
@@ -52,60 +54,172 @@ This quickstart guide is intended for engineers familiar with k8s and model serv
 
 ### Install the Inference Extension CRDs
 
-   ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/crd/bases/inference.networking.x-k8s.io_inferencepools.yaml
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/crd/bases/inference.networking.x-k8s.io_inferencemodels.yaml
-   ```
-   
+=== "Latest Release"
+
+      ```bash
+      VERSION=v0.2.0
+      kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$VERSION/manifests.yaml
+      ```
+
+=== "Dev Version"
+
+      ```bash
+      kubectl apply -k https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd
+      ```
+
 ### Deploy InferenceModel
 
    Deploy the sample InferenceModel which is configured to load balance traffic between the `food-review-0` and `food-review-1`
    [LoRA adapters](https://docs.vllm.ai/en/latest/features/lora.html) of the sample model server.
+
    ```bash
    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencemodel.yaml
    ```
 
-### Update Envoy Gateway Config to enable Patch Policy**
-
-   Our custom LLM Gateway ext-proc is patched into the existing envoy gateway via `EnvoyPatchPolicy`. To enable this feature, we must extend the Envoy Gateway config map. To do this, simply run:
-   ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/enable_patch_policy.yaml
-   kubectl rollout restart deployment envoy-gateway -n envoy-gateway-system
-   ```
-   Additionally, if you would like to enable the admin interface, you can uncomment the admin lines and run this again.
-
-### Deploy Gateway
-
-   ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gateway.yaml
-   ```
-   > **_NOTE:_** This file couples together the gateway infra and the HTTPRoute infra for a convenient, quick startup. Creating additional/different InferencePools on the same gateway will require an additional set of: `Backend`, `HTTPRoute`, the resources included in the `./config/manifests/gateway/ext-proc.yaml` file, and an additional `./config/manifests/gateway/patch_policy.yaml` file. ***Should you choose to experiment, familiarity with xDS and Envoy are very useful.***
-
-   Confirm that the Gateway was assigned an IP address and reports a `Programmed=True` status:
-   ```bash
-   $ kubectl get gateway inference-gateway
-   NAME                CLASS               ADDRESS         PROGRAMMED   AGE
-   inference-gateway   inference-gateway   <MY_ADDRESS>    True         22s
-   ```
 ### Deploy the InferencePool and Extension
 
    ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencepool.yaml
+   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencepool-resources.yaml
    ```
-### Deploy Envoy Gateway Custom Policies
+
+### Deploy Inference Gateway
+
+   Choose one of the following options to deploy an Inference Gateway.
+
+=== "GKE"
+
+      1. Enable the Gateway API and configure proxy-only subnets when necessary. See [Deploy Gateways](https://cloud.google.com/kubernetes-engine/docs/how-to/deploying-gateways) 
+      for detailed instructions.
+
+      1. Deploy Gateway and HealthCheckPolicy resources
+
+         ```bash
+         kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gke/gateway.yaml
+         kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gke/healthcheck.yaml
+         ```
+
+         Confirm that the Gateway was assigned an IP address and reports a `Programmed=True` status:
+         ```bash
+         $ kubectl get gateway inference-gateway
+         NAME                CLASS               ADDRESS         PROGRAMMED   AGE
+         inference-gateway   inference-gateway   <MY_ADDRESS>    True         22s
+         ```
+
+=== "Istio"
+
+      Please note that this feature is currently in an experimental phase and is not intended for production use. 
+      The implementation and user experience are subject to changes as we continue to iterate on this project.
+
+      1.  Requirements
+
+         - Gateway API [CRDs](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api) installed.
+
+      1. Install Istio
+      
+         ```
+         TAG=1.26-alpha.80c74f7f43482c226f4f4b10b4dda6261b67a71f
+         # on Linux
+         wget https://storage.googleapis.com/istio-build/dev/$TAG/istioctl-$TAG-linux-amd64.tar.gz
+         tar -xvf istioctl-$TAG-linux-amd64.tar.gz
+         # on macOS
+         wget https://storage.googleapis.com/istio-build/dev/$TAG/istioctl-$TAG-osx.tar.gz
+         tar -xvf istioctl-$TAG-osx.tar.gz
+         # on Windows
+         wget https://storage.googleapis.com/istio-build/dev/$TAG/istioctl-$TAG-win.zip
+         unzip istioctl-$TAG-win.zip
+
+         ./istioctl install --set tag=$TAG --set hub=gcr.io/istio-testing
+         ```
+
+      1. If you run the Endpoint Picker (EPP) with the `--secureServing` flag set to `true` (the default mode), it is currently using a self-signed certificate. As a security measure, Istio does not trust self-signed certificates by default. As a temporary workaround, you can apply the destination rule to bypass TLS verification for EPP. A more secure TLS implementation in EPP is being discussed in [Issue 582](https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/582).
+
+         ```bash
+         kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/istio/destination-rule.yaml
+         ```
+
+      1. Deploy Gateway
+
+         ```bash
+         kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/istio/gateway.yaml
+         ```
+
+      1. Label the gateway
+
+         ```bash
+         kubectl label gateway llm-gateway istio.io/enable-inference-extproc=true
+         ```
+
+         Confirm that the Gateway was assigned an IP address and reports a `Programmed=True` status:
+         ```bash
+         $ kubectl get gateway inference-gateway
+         NAME                CLASS               ADDRESS         PROGRAMMED   AGE
+         inference-gateway   inference-gateway   <MY_ADDRESS>    True         22s
+         ```
+
+=== "Kgateway"
+
+      [Kgateway](https://kgateway.dev/) v2.0.0 adds support for inference extension as a **technical preview**. This means do not
+      run Kgateway with inference extension in production environments. Refer to [Issue 10411](https://github.com/kgateway-dev/kgateway/issues/10411)
+      for the list of caveats, supported features, etc.
+
+      1. Requirements
+
+         - [Helm](https://helm.sh/docs/intro/install/) installed.
+         - Gateway API [CRDs](https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api) installed.
+
+      1. Install Kgateway CRDs
+
+         ```bash
+         helm upgrade -i --create-namespace --namespace kgateway-system --version $VERSION kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds
+         ```
+
+      1. Install Kgateway
+
+         ```bash
+         helm upgrade -i --namespace kgateway-system --version $VERSION kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway
+         --set inferenceExtension.enabled=true
+         ```
+
+      1. Deploy Gateway
+
+         ```bash
+         kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/kgateway/gateway.yaml
+         ```
+
+         Confirm that the Gateway was assigned an IP address and reports a `Programmed=True` status:
+         ```bash
+         $ kubectl get gateway inference-gateway
+         NAME                CLASS               ADDRESS         PROGRAMMED   AGE
+         inference-gateway   kgateway            <MY_ADDRESS>    True         22s
+         ```
+
+### Deploy the HTTPRoute
 
    ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/patch_policy.yaml
+   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/httproute.yaml
    ```
-   > **_NOTE:_** This is also per InferencePool, and will need to be configured to support the new pool should you wish to experiment further.
-   
-### **OPTIONALLY**: Apply Traffic Policy
 
-   For high-traffic benchmarking you can apply this manifest to avoid any defaults that can cause timeouts/errors.
+### Configure Timeouts
 
-   ```bash
-   kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/traffic_policy.yaml
-   ```
+   Given that default timeouts for above implementations may be insufficient for most inference workloads, it is recommended to configure a timeout appropriate for your intended use case.
+
+=== "GKE"
+
+      ```bash
+      kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gke/gcp-backend-policy.yaml
+      ```
+
+=== "Istio"
+
+      ```bash
+      kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/httproute-with-timeout.yaml
+      ```
+
+=== "Kgateway"
+
+      ```bash
+      kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/httproute-with-timeout.yaml
+      ```
 
 ### Try it out
 
@@ -113,7 +227,7 @@ This quickstart guide is intended for engineers familiar with k8s and model serv
 
    ```bash
    IP=$(kubectl get gateway/inference-gateway -o jsonpath='{.status.addresses[0].value}')
-   PORT=8081
+   PORT=80
 
    curl -i ${IP}:${PORT}/v1/completions -H 'Content-Type: application/json' -d '{
    "model": "food-review",
@@ -126,18 +240,32 @@ This quickstart guide is intended for engineers familiar with k8s and model serv
 ### Cleanup
 
    The following cleanup assumes you would like to clean ALL resources that were created in this quickstart guide.  
-   please be careful not to delete resources you'd like to keep.
-   ```bash
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/traffic_policy.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/extension_policy.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/patch_policy.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencepool.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gateway.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/enable_patch_policy.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencemodel.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/crd/bases/inference.networking.x-k8s.io_inferencepools.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/crd/bases/inference.networking.x-k8s.io_inferencemodels.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/cpu-deployment.yaml --ignore-not-found
-   kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/gpu-deployment.yaml --ignore-not-found
-   kubectl delete secret hf-token --ignore-not-found
-   ```
+   Please be careful not to delete resources you'd like to keep.
+
+   1. Uninstall the Inference Pool
+
+      ```bash
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencepool-resources.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferencemodel.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/cpu-deployment.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/gpu-deployment.yaml --ignore-not-found
+      kubectl delete secret hf-token --ignore-not-found
+      ```
+
+   1. Uninstall the Gateway
+
+      ```bash
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gke/gateway.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gke/healthcheck.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/gke/gcp-backend-policy.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/istio/gateway.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/istio/destination-rule.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/kgateway/gateway.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/gateway/httproute.yaml --ignore-not-found
+      ```
+
+   1. Uninstall the CRDs
+
+      ```bash
+      kubectl delete -k https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd --ignore-not-found
+      ```
