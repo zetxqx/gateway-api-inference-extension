@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +35,7 @@ import (
 	inferenceapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2" // Adjust if your API version is different
 
 	// Import necessary utilities from the core Gateway API conformance suite
-	"sigs.k8s.io/gateway-api/conformance/utils/config"
+	"sigs.k8s.io/gateway-api-inference-extension/conformance/utils/config"
 )
 
 // checkCondition is a helper function similar to findConditionInList or CheckCondition
@@ -67,45 +66,48 @@ func checkCondition(t *testing.T, conditions []metav1.Condition, expectedConditi
 // InferencePoolMustHaveCondition waits for the specified InferencePool resource
 // to exist and report the expected status condition within one of its parent statuses.
 // It polls the InferencePool's status until the condition is met or the timeout occurs.
-func InferencePoolMustHaveCondition(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, poolNN types.NamespacedName, expectedCondition metav1.Condition) {
+func InferencePoolMustHaveCondition(t *testing.T, c client.Client, poolNN types.NamespacedName, expectedCondition metav1.Condition) {
 	t.Helper() // Marks this function as a test helper
 
+	var timeoutConfig config.InferenceExtensionTimeoutConfig = config.DefaultInferenceExtensionTimeoutConfig()
 	var lastObservedPool *inferenceapi.InferencePool
 	var lastError error
 	var conditionFound bool
-	var interval time.Duration = 5 * time.Second // pull interval for status checks.
 
-	// TODO: Make retry interval configurable.
-	waitErr := wait.PollUntilContextTimeout(context.Background(), interval, timeoutConfig.DefaultTestTimeout, true, func(ctx context.Context) (bool, error) {
-		pool := &inferenceapi.InferencePool{} // This is the type instance used for Get
-		err := c.Get(ctx, poolNN, pool)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("InferencePool %s not found yet. Retrying.", poolNN.String())
+	waitErr := wait.PollUntilContextTimeout(
+		context.Background(),
+		timeoutConfig.InferencePoolMustHaveConditionInterval,
+		timeoutConfig.InferencePoolMustHaveConditionTimeout,
+		true, func(ctx context.Context) (bool, error) {
+			pool := &inferenceapi.InferencePool{} // This is the type instance used for Get
+			err := c.Get(ctx, poolNN, pool)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					t.Logf("InferencePool %s not found yet. Retrying.", poolNN.String())
+					lastError = err
+					return false, nil
+				}
+				t.Logf("Error fetching InferencePool %s (type: %s): %v. Retrying.", poolNN.String(), reflect.TypeOf(pool).String(), err)
 				lastError = err
 				return false, nil
 			}
-			t.Logf("Error fetching InferencePool %s (type: %s): %v. Retrying.", poolNN.String(), reflect.TypeOf(pool).String(), err)
-			lastError = err
-			return false, nil
-		}
-		lastObservedPool = pool
-		lastError = nil
-		conditionFound = false
+			lastObservedPool = pool
+			lastError = nil
+			conditionFound = false
 
-		if len(pool.Status.Parents) == 0 {
-			t.Logf("InferencePool %s has no parent statuses reported yet.", poolNN.String())
-			return false, nil
-		}
-
-		for _, parentStatus := range pool.Status.Parents {
-			if checkCondition(t, parentStatus.Conditions, expectedCondition) {
-				conditionFound = true
-				return true, nil
+			if len(pool.Status.Parents) == 0 {
+				t.Logf("InferencePool %s has no parent statuses reported yet.", poolNN.String())
+				return false, nil
 			}
-		}
-		return false, nil
-	})
+
+			for _, parentStatus := range pool.Status.Parents {
+				if checkCondition(t, parentStatus.Conditions, expectedCondition) {
+					conditionFound = true
+					return true, nil
+				}
+			}
+			return false, nil
+		})
 
 	if waitErr != nil || !conditionFound {
 		debugMsg := ""
