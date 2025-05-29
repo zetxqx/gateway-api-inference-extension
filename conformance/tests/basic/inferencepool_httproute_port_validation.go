@@ -49,11 +49,10 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 	},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		const (
-			appBackendNamespace = "gateway-conformance-app-backend"
-			infraNamespace      = "gateway-conformance-infra"
-			gatewayName         = "conformance-gateway"
-			poolName            = "target-pool-port-validation"
-			// backendDeploymentName should be the metadata.name of the Deployment in the YAML.
+			appBackendNamespace   = "gateway-conformance-app-backend"
+			infraNamespace        = "gateway-conformance-infra"
+			gatewayName           = "conformance-gateway"
+			poolName              = "target-pool-port-validation"
 			backendDeploymentName = "infra-backend-deployment-port-test"
 		)
 
@@ -77,7 +76,7 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 				gatewayAddr,
 				hostname,
 				path,
-				backendDeploymentName, // Use the correct Deployment name here
+				backendDeploymentName,
 				appBackendNamespace,
 			)
 		})
@@ -97,7 +96,7 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 				gatewayAddr,
 				hostname,
 				path,
-				backendDeploymentName, // Use the correct Deployment name here
+				backendDeploymentName,
 				appBackendNamespace,
 			)
 		})
