@@ -111,8 +111,9 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 
 	// Environment variables
-	schedulerV2           = envutil.GetEnvBool("EXPERIMENTAL_USE_SCHEDULER_V2", false, setupLog)
-	prefixCacheScheduling = envutil.GetEnvBool("ENABLE_PREFIX_CACHE_SCHEDULING", false, setupLog)
+	schedulerV2                       = envutil.GetEnvBool("EXPERIMENTAL_USE_SCHEDULER_V2", false, setupLog)
+	prefixCacheScheduling             = envutil.GetEnvBool("ENABLE_PREFIX_CACHE_SCHEDULING", false, setupLog)
+	reqHeaderBasedSchedulerForTesting = envutil.GetEnvBool("ENABLE_REQ_HEADER_BASED_SCHEDULER_FOR_TESTING", false, setupLog)
 )
 
 func loadPrefixCacheConfig() prefix.Config {
@@ -223,6 +224,12 @@ func run() error {
 
 		schedulerConfig := scheduling.NewSchedulerConfig(profilepicker.NewAllProfilesPicker(), map[string]*framework.SchedulerProfile{"schedulerv2": schedulerProfile})
 		scheduler = scheduling.NewSchedulerWithConfig(datastore, schedulerConfig)
+	}
+
+	if reqHeaderBasedSchedulerForTesting {
+		predicatableSchedulerProfile := framework.NewSchedulerProfile().WithFilters(filter.NewHeaderBasedTestingFilter()).WithPicker(picker.NewRandomPicker())
+		scheduler = scheduling.NewSchedulerWithConfig(datastore, scheduling.NewSchedulerConfig(
+			profilepicker.NewAllProfilesPicker(), map[string]*framework.SchedulerProfile{"req-header-based-scheduler": predicatableSchedulerProfile}))
 	}
 
 	saturationDetector := saturationdetector.NewDetector(sdConfig, datastore, ctrl.Log)

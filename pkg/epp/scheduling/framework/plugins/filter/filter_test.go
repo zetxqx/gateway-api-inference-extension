@@ -170,6 +170,51 @@ func TestFilter(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "TestHeaderBasedFilter, header endpoint unset in request",
+			req:    &types.LLMRequest{}, // Delieverately unset the header.
+			filter: &HeaderBasedTestingFilter{},
+			input: []types.Pod{
+				&types.PodMetrics{
+					Pod: &backend.Pod{
+						Address: "test-endpoint",
+					},
+				},
+			},
+			output: []types.Pod{},
+		},
+		{
+			name:   "TestHeaderBasedFilter, header endpoint set in request but no match",
+			req:    &types.LLMRequest{Headers: map[string]string{headerTestEppEndPointSelectionKey: "test-endpoint"}},
+			filter: &HeaderBasedTestingFilter{},
+			input: []types.Pod{
+				&types.PodMetrics{
+					Pod: &backend.Pod{
+						Address: "test-endpoint-unmatch",
+					},
+				},
+			},
+			output: []types.Pod{},
+		},
+		{
+			name:   "TestHeaderBasedFilter, header endpoint set",
+			req:    &types.LLMRequest{Headers: map[string]string{headerTestEppEndPointSelectionKey: "test-endpoint"}},
+			filter: &HeaderBasedTestingFilter{},
+			input: []types.Pod{
+				&types.PodMetrics{
+					Pod: &backend.Pod{
+						Address: "test-endpoint",
+					},
+				},
+			},
+			output: []types.Pod{
+				&types.PodMetrics{
+					Pod: &backend.Pod{
+						Address: "test-endpoint",
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
