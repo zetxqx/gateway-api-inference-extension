@@ -69,6 +69,74 @@ spec:
   extensionRef:
     name: target-pool-port-validation-epp
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: target-pool-port-validation-epp
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: target-pool-port-validation-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: target-pool-port-validation-epp
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: target-pool-port-validation-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: target-pool-port-validation-epp
+  template:
+    metadata:
+      labels:
+        app: target-pool-port-validation-epp
+    spec:
+      terminationGracePeriodSeconds: 130
+      containers:
+        - name: epp
+          image: us-central1-docker.pkg.dev/k8s-staging-images/gateway-api-inference-extension/epp:main
+          imagePullPolicy: Always
+          args:
+            - -poolName
+            - "target-pool-port-validation"
+            - "-poolNamespace"
+            - "gateway-conformance-app-backend"
+            - -v
+            - "4"
+            - --zap-encoder
+            - "json"
+            - -grpcPort
+            - "9002"
+            - -grpcHealthPort
+            - "9003"
+          ports:
+            - containerPort: 9002
+            - containerPort: 9003
+            - name: metrics
+              containerPort: 9090
+          livenessProbe:
+            grpc:
+              port: 9003
+              service: inference-extension
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 9003
+              service: inference-extension
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
 # --- HTTPRoute Scenario 1: Port Unspecified ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

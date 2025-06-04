@@ -130,8 +130,10 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 			)
 			gwapihttp.MakeRequestAndExpectEventuallyConsistentResponse(t, s.RoundTripper, s.TimeoutConfig, gatewayAddr, expectedResponse)
 
+			// t.Logf("Successfully verified HTTPRoute %s has conditions: Accepted=True and ResolvedRefs=False (Reason: %s) for Gateway %s due to port mismatch",
+			// 	routeNN.String(), resolvedRefsCondition.Reason, gatewayNN.String())
 			t.Logf("Successfully verified HTTPRoute %s has conditions: Accepted=True and ResolvedRefs=False (Reason: %s) for Gateway %s due to port mismatch",
-				routeNN.String(), resolvedRefsCondition.Reason, gatewayNN.String())
+				routeNN.String(), "resolvedRefsCondition", gatewayNN.String())
 		})
 	},
 }
