@@ -78,7 +78,6 @@ func TestSchedule(t *testing.T) {
 			req: &types.LLMRequest{
 				Headers:   map[string]string{"test-epp-endpoint-selection": "matched-endpoint"},
 				RequestId: uuid.NewString(),
-				Critical:  true,
 			},
 			wantRes: map[string]*types.Result{
 				"req-header-based-profile": {

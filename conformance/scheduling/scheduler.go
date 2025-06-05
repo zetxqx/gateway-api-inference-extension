@@ -24,10 +24,9 @@ import (
 	profilepicker "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/profile-picker"
 )
 
-// TODO: rephrase
-// NewReqHeaderBasedScheduler creates a request header based scheduler for conformance tests.
-// The scheduler pick the exact endpoint from the endpoint specified in the reqeust header with field name: "test-epp-endpoint-selection".
-// If the field is not specified in the request header or the value does not match any existing pods endpoints, it will return empty.
+// NewReqHeaderBasedScheduler creates a scheduler for conformance tests that selects
+// an endpoint based on the "test-epp-endpoint-selection" request header. If the
+// header is missing or the specified endpoint doesn't exist, no endpoint is returned.
 func NewReqHeaderBasedScheduler(datastore scheduling.Datastore) *scheduling.Scheduler {
 	predicatableSchedulerProfile := framework.NewSchedulerProfile().WithFilters(filter.NewHeaderBasedTestingFilter()).WithPicker(picker.NewMaxScorePicker())
 	return scheduling.NewSchedulerWithConfig(datastore, scheduling.NewSchedulerConfig(
