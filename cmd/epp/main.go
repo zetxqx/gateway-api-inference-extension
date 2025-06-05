@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	conformance_epp "sigs.k8s.io/gateway-api-inference-extension/conformance/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/internal/runnable"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
@@ -226,9 +227,7 @@ func run() error {
 	}
 
 	if reqHeaderBasedSchedulerForTesting {
-		predicatableSchedulerProfile := framework.NewSchedulerProfile().WithFilters(filter.NewHeaderBasedTestingFilter()).WithPicker(picker.NewRandomPicker())
-		scheduler = scheduling.NewSchedulerWithConfig(datastore, scheduling.NewSchedulerConfig(
-			profilepicker.NewAllProfilesPicker(), map[string]*framework.SchedulerProfile{"req-header-based-scheduler": predicatableSchedulerProfile}))
+		scheduler = conformance_epp.NewReqHeaderBasedScheduler(datastore)
 	}
 
 	saturationDetector := saturationdetector.NewDetector(sdConfig, datastore, ctrl.Log)
