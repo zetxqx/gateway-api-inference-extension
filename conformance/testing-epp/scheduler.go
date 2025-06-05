@@ -17,7 +17,7 @@ limitations under the License.
 package scheduling
 
 import (
-	"sigs.k8s.io/gateway-api-inference-extension/conformance/scheduling/plugins/filter"
+	"sigs.k8s.io/gateway-api-inference-extension/conformance/testing-epp/plugins/filter"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/picker"

@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	conformance_epp "sigs.k8s.io/gateway-api-inference-extension/conformance/scheduling"
+	conformance_epp "sigs.k8s.io/gateway-api-inference-extension/conformance/testing-epp"
 	"sigs.k8s.io/gateway-api-inference-extension/internal/runnable"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
