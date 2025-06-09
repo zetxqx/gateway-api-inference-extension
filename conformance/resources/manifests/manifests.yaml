@@ -70,4 +70,3 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
-
