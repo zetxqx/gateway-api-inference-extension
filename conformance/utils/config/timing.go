@@ -45,7 +45,6 @@ type InferenceExtensionTimeoutConfig struct {
 
 // DefaultInferenceExtensionTimeoutConfig returns a new InferenceExtensionTimeoutConfig with default values.
 func DefaultInferenceExtensionTimeoutConfig() InferenceExtensionTimeoutConfig {
-
 	return InferenceExtensionTimeoutConfig{
 		TimeoutConfig:                          gatewayconfig.DefaultTimeoutConfig(), // Initialize embedded struct
 		InferencePoolMustHaveConditionTimeout:  300 * time.Second,
