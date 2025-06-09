@@ -64,7 +64,7 @@ spec:
   extensionRef:
     # group: "" # Optional
     # kind: Service # Optional
-    name: infra-backend-v1-epp
+    name: infra-backend-endpoint-picker
 
 ---
 # --- HTTPRoute Definition ---
