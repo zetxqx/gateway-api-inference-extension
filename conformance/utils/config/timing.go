@@ -51,6 +51,6 @@ func DefaultInferenceExtensionTimeoutConfig() InferenceExtensionTimeoutConfig {
 		InferencePoolMustHaveConditionTimeout:  300 * time.Second,
 		InferencePoolMustHaveConditionInterval: 10 * time.Second,
 		GatewayObjectPollInterval:              5 * time.Second,
-		HTTPRouteDeletionReconciliationTimeout: 60 * time.Second,
+		HTTPRouteDeletionReconciliationTimeout: 5 * time.Second,
 	}
 }
