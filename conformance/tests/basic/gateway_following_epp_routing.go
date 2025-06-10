@@ -18,16 +18,17 @@ package basic
 
 import (
 	"testing"
+	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1" // For standard condition types
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/types" // For standard condition types
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features" // For standard feature names
 
 	// Import the tests package to append to ConformanceTests
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
 	k8sutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/kubernetes"
+	trafficutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/traffic"
 )
 
 func init() {
@@ -39,25 +40,75 @@ func init() {
 // InferencePoolAccepted defines the test case for verifying basic InferencePool acceptance.
 var GatwayFollowingEPPRouting = suite.ConformanceTest{
 	ShortName:   "GatwayFollowingEPPRouting",
-	Description: "A minimal InferencePool resource should be accepted by the controller and report an Accepted condition",
-	Manifests:   []string{"tests/basic/inferencepool_accepted.yaml"},
+	Description: "Inference gateway should redirect traffic to an endpoints belonging to what EPP respond endpoints list.", // TODO
+	Manifests:   []string{"tests/basic/gateway_following_epp_routing.yaml"},
 	Features: []features.FeatureName{
 		features.FeatureName("SupportInferencePool"),
 		features.SupportGateway,
 	},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		// created by the associated manifest file.
-		poolNN := types.NamespacedName{Name: "inferencepool-basic-accepted", Namespace: "gateway-conformance-app-backend"}
+		const (
+			appBackendNamespace      = "gateway-conformance-app-backend"
+			infraNamespace           = "gateway-conformance-infra"
+			poolName                 = "normal-gateway-pool"
+			sharedPrimaryGatewayName = "conformance-gateway"
+			httpRoutePrimaryName     = "httproute-for-primary-gw"
+			hostnamePrimaryGw        = "primary.example.com"
+			pathPrimaryGw            = "/primary-gateway-test"
+			backendServicePodName    = "infra-backend-deployment"
+		)
+
+		poolNN := types.NamespacedName{Name: poolName, Namespace: appBackendNamespace}
+		httpRoutePrimaryNN := types.NamespacedName{Name: httpRoutePrimaryName, Namespace: appBackendNamespace}
+		gatewayPrimaryNN := types.NamespacedName{Name: sharedPrimaryGatewayName, Namespace: infraNamespace}
+
+		// inferenceTimeoutConfig := config.DefaultInferenceExtensionTimeoutConfig()
+
+		k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, httpRoutePrimaryNN, gatewayPrimaryNN)
+		gwPrimaryAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewayPrimaryNN)
+		time.Sleep(300 * time.Second)
 
 		t.Run("InferencePool should have Accepted condition set to True", func(t *testing.T) {
-			// Define the expected status condition. We use the standard "Accepted"
-			// condition type from the Gateway API for consistency.
-			acceptedCondition := metav1.Condition{
-				Type:   string(gatewayv1.GatewayConditionAccepted), // Standard condition type
-				Status: metav1.ConditionTrue,
-				Reason: "", // "" means we don't strictly check the Reason for this basic test.
+			t.Logf("InferencePool %s has parent status Accepted:True as expected with one references.", poolNN.String())
+			ipAddress, err := k8sutils.GetPodIPByLabelWithControllerRuntime(t, s.Client, appBackendNamespace, map[string]string{"app": "infra-backend"})
+			if err != nil {
+				require.NoErrorf(t, err, "error getting podIpAdress")
 			}
-			k8sutils.InferencePoolMustHaveCondition(t, s.Client, poolNN, acceptedCondition)
+			t.Logf("Getting IPAddress is %v.", ipAddress)
+
+			trafficutils.MakeRequestAndExpectSuccessV2(
+				t,
+				s.RoundTripper,
+				s.TimeoutConfig,
+				gwPrimaryAddr,
+				hostnamePrimaryGw,
+				pathPrimaryGw,
+				backendServicePodName,
+				appBackendNamespace,
+				map[string]string{"Test-Epp-Endpoint-Selection": ipAddress},
+			)
+		})
+
+		t.Run("InferencePool should have Accepted condition set to True", func(t *testing.T) {
+			t.Logf("InferencePool %s has parent status Accepted:True as expected with one references.", poolNN.String())
+			ipAddress, err := k8sutils.GetPodIPByLabelWithControllerRuntime(t, s.Client, appBackendNamespace, map[string]string{"app": "infra-backend"})
+			if err != nil {
+				require.NoErrorf(t, err, "error getting podIpAdress")
+			}
+			t.Logf("Getting IPAddress is %v.", ipAddress)
+
+			wrongAddress := "10.0.0.17"
+			trafficutils.MakeRequestAndExpectSuccessV2(
+				t,
+				s.RoundTripper,
+				s.TimeoutConfig,
+				gwPrimaryAddr,
+				hostnamePrimaryGw,
+				pathPrimaryGw,
+				backendServicePodName,
+				appBackendNamespace,
+				map[string]string{"test-epp-endpoint-selection": wrongAddress},
+			)
 		})
 	},
 }

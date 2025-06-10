@@ -35,11 +35,23 @@ func BuildExpectedHTTPResponse(
 	backendName string,
 	backendNamespace string,
 ) gwhttp.ExpectedResponse {
+	return BuildExpectedHTTPResponseWithHeaders(requestHost, requestPath, expectedStatusCode, backendName, backendNamespace, nil)
+}
+
+func BuildExpectedHTTPResponseWithHeaders(
+	requestHost string,
+	requestPath string,
+	expectedStatusCode int,
+	backendName string,
+	backendNamespace string,
+	headers map[string]string,
+) gwhttp.ExpectedResponse {
 	resp := gwhttp.ExpectedResponse{
 		Request: gwhttp.Request{
-			Host:   requestHost,
-			Path:   requestPath,
-			Method: "GET",
+			Host:    requestHost,
+			Path:    requestPath,
+			Method:  "GET",
+			Headers: headers,
 		},
 		Response: gwhttp.Response{
 			StatusCode: expectedStatusCode,
@@ -51,9 +63,10 @@ func BuildExpectedHTTPResponse(
 	if expectedStatusCode == http.StatusOK {
 		resp.ExpectedRequest = &gwhttp.ExpectedRequest{
 			Request: gwhttp.Request{
-				Host:   requestHost,
-				Path:   requestPath,
-				Method: "GET",
+				Host:    requestHost,
+				Path:    requestPath,
+				Headers: headers,
+				Method:  "GET",
 			},
 		}
 	}
@@ -80,6 +93,32 @@ func MakeRequestAndExpectSuccess(
 		backendName,
 		backendNamespace,
 	)
+	gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, r, timeoutConfig, gatewayAddress, expectedResponse)
+}
+
+// MakeRequestAndExpectSuccess is a helper function that builds an expected success (200 OK) response
+// and then calls MakeRequestAndExpectEventuallyConsistentResponse.
+func MakeRequestAndExpectSuccessV2(
+	t *testing.T,
+	r roundtripper.RoundTripper,
+	timeoutConfig gwconfig.TimeoutConfig,
+	gatewayAddress string,
+	requestHost string,
+	requestPath string,
+	backendName string,
+	backendNamespace string,
+	headers map[string]string,
+) {
+	t.Helper()
+	expectedResponse := BuildExpectedHTTPResponseWithHeaders(
+		requestHost,
+		requestPath,
+		http.StatusOK,
+		backendName,
+		backendNamespace,
+		headers,
+	)
+	expectedResponse.BackendSetResponseHeaders = map[string]string{"Hello": "world!"}
 	gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, r, timeoutConfig, gatewayAddress, expectedResponse)
 }
 
