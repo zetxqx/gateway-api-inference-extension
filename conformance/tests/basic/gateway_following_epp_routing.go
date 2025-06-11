@@ -17,6 +17,7 @@ limitations under the License.
 package basic
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -53,6 +54,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			infraNamespace      = "gateway-conformance-infra"
 			hostname            = "primary.example.com"
 			path                = "/primary-gateway-test"
+			backendName         = "infra-backend-deployment"
 		)
 
 		httpRouteNN := types.NamespacedName{Name: "httproute-for-primary-gw", Namespace: appBackendNamespace}
@@ -86,13 +88,15 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gwAddr,
-				hostname,
-				path,
-				"infra-backend-deployment", // This might be better as a constant if used often
-				appBackendNamespace,
-				eppHeader,
-				correctRequestBody,
-				"POST",
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Headers:   eppHeader,
+					Method:    http.MethodPost,
+					Body:      correctRequestBody,
+					Backend:   backendName,
+					Namespace: appBackendNamespace,
+				},
 			)
 		})
 
@@ -101,18 +105,21 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			t.Logf("Sending request to %s with EPP header routing to invalid IP %s", gwAddr, invalidIP)
 			eppHeader := map[string]string{"test-epp-endpoint-selection": invalidIP}
 
-			trafficutils.MakeRequestAndExpectTooManyRequest(
+			trafficutils.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gwAddr,
-				hostname,
-				path,
-				"infra-backend-deployment",
-				appBackendNamespace,
-				eppHeader,
-				correctRequestBody,
-				"POST",
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Headers:   eppHeader,
+					Method:    http.MethodPost,
+					Body:      correctRequestBody,
+					Namespace: appBackendNamespace,
+
+					ExpectedStatusCode: http.StatusTooManyRequests,
+				},
 			)
 		})
 
@@ -121,18 +128,21 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
 			t.Logf("Sending request to %s with a malformed body (missing model)", gwAddr)
 
-			trafficutils.MakeRequestAndExpectBadRequest(
+			trafficutils.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gwAddr,
-				hostname,
-				path,
-				"infra-backend-deployment",
-				appBackendNamespace,
-				eppHeader,
-				requestBodyWithoutModel,
-				"POST",
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Headers:   eppHeader,
+					Method:    http.MethodPost,
+					Body:      requestBodyWithoutModel,
+					Namespace: appBackendNamespace,
+
+					ExpectedStatusCode: http.StatusBadRequest,
+				},
 			)
 		})
 
@@ -144,19 +154,23 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
 			t.Logf("Sending request to %s with a malformed body (nonexist model)", gwAddr)
 
-			trafficutils.MakeRequestAndExpectNotFoundV2(
+			trafficutils.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gwAddr,
-				hostname,
-				path,
-				"infra-backend-deployment",
-				appBackendNamespace,
-				eppHeader,
-				requestBodyNonExistModel,
-				"POST",
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Headers:   eppHeader,
+					Method:    http.MethodPost,
+					Body:      requestBodyNonExistModel,
+					Namespace: appBackendNamespace,
+
+					ExpectedStatusCode: http.StatusNotFound,
+				},
 			)
+
 		})
 	},
 }

@@ -274,30 +274,50 @@ func GetGatewayEndpoint(t *testing.T, k8sClient client.Client, timeoutConfig gat
 	return gwAddr
 }
 
-// GetOnePodIPWithLabel finds a pod with labels in a specific namespace and returns its IP address.
-func GetOnePodIPWithLabel(t *testing.T, c client.Client, namespace string, labels map[string]string) (string, error) {
+// GetPodIPsWithLabel retrieves a list of Pod IP addresses.
+// It finds pods matching the given labels in a specific namespace.
+// The 'count' parameter specifies the maximum number of IPs to return.
+// If 'count' is 0, it will return all found IP addresses.
+func GetPodIPsWithLabel(t *testing.T, c client.Client, namespace string, labels map[string]string, count int) ([]string, error) {
 	t.Helper()
 
 	podList := &corev1.PodList{}
-
 	listOptions := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
 	}
 
-	t.Logf("Retrieving backend Pod IP address in namespace %s", namespace)
+	t.Logf("Searching for Pods with labels %v in namespace %s", labels, namespace)
 	if err := c.List(context.Background(), podList, listOptions...); err != nil {
-		return "", fmt.Errorf("failed to list pods with labels '%v' in namespace '%s': %w", labels, namespace, err)
+		return nil, fmt.Errorf("failed to list pods with labels '%v' in namespace '%s': %w", labels, namespace, err)
 	}
 
 	if len(podList.Items) == 0 {
-		return "", fmt.Errorf("no pods found with labels '%v' in namespace '%s'", labels, namespace)
+		return nil, fmt.Errorf("no pods found with labels '%v' in namespace '%s'", labels, namespace)
 	}
 
-	podIP := podList.Items[0].Status.PodIP
-	if podIP == "" {
-		return "", fmt.Errorf("pod %s found, but it does not have an IP address yet", podList.Items[0].Name)
+	var podIPs []string
+	for _, pod := range podList.Items {
+		podIPs = append(podIPs, pod.Status.PodIP)
+		if count > 0 && len(podIPs) == count {
+			break
+		}
+	}
+	return podIPs, nil
+}
+
+// GetOnePodIPWithLabel finds a single pod with labels in a specific namespace and returns its IP address.
+// This function is a wrapper around GetPodIPsWithLabel for convenience.
+func GetOnePodIPWithLabel(t *testing.T, c client.Client, namespace string, labels map[string]string) (string, error) {
+	t.Helper()
+
+	podIPs, err := GetPodIPsWithLabel(t, c, namespace, labels, 1)
+	if err != nil {
+		return "", nil
 	}
 
-	return podIP, nil
+	if len(podIPs) == 0 {
+		return "", fmt.Errorf("no pods were found with labels '%v' in namespace '%s'", labels, namespace)
+	}
+	return podIPs[0], nil
 }
