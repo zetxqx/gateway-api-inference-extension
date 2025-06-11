@@ -17,17 +17,11 @@ limitations under the License.
 package basic
 
 import (
-	"net/http"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
-
-	gwapihttp "sigs.k8s.io/gateway-api/conformance/utils/http"
 
 	// Local project imports
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
@@ -101,39 +95,25 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 			)
 		})
 
-		t.Run("Scenario 3: HTTPRoute backendRef to InferencePool with Port Specified and Non-Matching", func(t *testing.T) {
+		// TODO: Add a warning check after the required change is made per discussion in github.com/kubernetes-sigs/gateway-api-inference-extension/discussions/918
+		t.Run("Scenario 3: HTTPRoute backendRef to InferencePool with Port Specified and Non-Matching. Request still passing because HTTP Port is ignored when inferencePool is backendRef", func(t *testing.T) {
 			routeNN := types.NamespacedName{Name: "httproute-pool-port-non-matching", Namespace: appBackendNamespace}
 			hostname := "port-non-matching.example.com"
 			path := "/test-port-non-matching"
 
-			acceptedCondition := metav1.Condition{
-				Type:   string(gatewayv1.RouteConditionAccepted),
-				Status: metav1.ConditionTrue,
-				Reason: string(gatewayv1.RouteReasonAccepted),
-			}
-			kubernetes.HTTPRouteMustHaveCondition(t, s.Client, s.TimeoutConfig, routeNN, gatewayNN, acceptedCondition)
-
-			resolvedRefsCondition := metav1.Condition{
-				Type:   string(gatewayv1.RouteConditionResolvedRefs),
-				Status: metav1.ConditionFalse,
-				Reason: string(gatewayv1.RouteReasonBackendNotFound),
-			}
-			kubernetes.HTTPRouteMustHaveCondition(t, s.Client, s.TimeoutConfig, routeNN, gatewayNN, resolvedRefsCondition)
+			k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, routeNN, gatewayNN)
 			k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN)
 
-			expectedResponse := trafficutils.BuildExpectedHTTPResponse(
+			trafficutils.MakeRequestAndExpectSuccess(
+				t,
+				s.RoundTripper,
+				s.TimeoutConfig,
+				gatewayAddr,
 				hostname,
 				path,
-				http.StatusServiceUnavailable,
-				"",
-				"",
+				backendDeploymentName,
+				appBackendNamespace,
 			)
-			gwapihttp.MakeRequestAndExpectEventuallyConsistentResponse(t, s.RoundTripper, s.TimeoutConfig, gatewayAddr, expectedResponse)
-
-			// t.Logf("Successfully verified HTTPRoute %s has conditions: Accepted=True and ResolvedRefs=False (Reason: %s) for Gateway %s due to port mismatch",
-			// 	routeNN.String(), resolvedRefsCondition.Reason, gatewayNN.String())
-			t.Logf("Successfully verified HTTPRoute %s has conditions: Accepted=True and ResolvedRefs=False (Reason: %s) for Gateway %s due to port mismatch",
-				routeNN.String(), "resolvedRefsCondition", gatewayNN.String())
 		})
 	},
 }

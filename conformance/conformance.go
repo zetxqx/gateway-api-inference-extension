@@ -25,7 +25,6 @@ import (
 	"io/fs"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -154,10 +153,6 @@ func DefaultOptions(t *testing.T) confsuite.ConformanceOptions {
 
 	baseManifestsValue := "resources/manifests/manifests.yaml"
 
-	// DO NOT SUBMIT: delete before submitting
-	timeConfig := confconfig.DefaultTimeoutConfig()
-	timeConfig.HTTPRouteMustHaveCondition = 600 * time.Second
-	timeConfig.MaxTimeToConsistency = 600 * time.Second
 	opts := confsuite.ConformanceOptions{
 		Client:               c,
 		ClientOptions:        clientOptions,
@@ -168,7 +163,7 @@ func DefaultOptions(t *testing.T) confsuite.ConformanceOptions {
 		Debug:                *confflags.ShowDebug,
 		CleanupBaseResources: *confflags.CleanupBaseResources,
 		SupportedFeatures:    sets.New[features.FeatureName](),
-		TimeoutConfig:        timeConfig,
+		TimeoutConfig:        confconfig.DefaultTimeoutConfig(),
 		SkipTests:            skipTests,
 		ExemptFeatures:       exemptFeatures,
 		RunTest:              *confflags.RunTest,
