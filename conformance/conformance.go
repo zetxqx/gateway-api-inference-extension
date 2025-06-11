@@ -176,6 +176,8 @@ func DefaultOptions(t *testing.T) confsuite.ConformanceOptions {
 		ManifestFS:           []fs.FS{&Manifests},
 		ReportOutputPath:     *confflags.ReportOutput,
 		SkipProvisionalTests: *confflags.SkipProvisionalTests,
+		// TODO: make AllowCRDsMismatch to false when the gateway-api new version is released.
+		AllowCRDsMismatch: true,
 		// TODO: Add the inference extension specific fields to ConformanceOptions struct if needed,
 		// or handle them during report generation.
 		// GatewayAPIInferenceExtensionChannel: inferenceExtensionChannel,
