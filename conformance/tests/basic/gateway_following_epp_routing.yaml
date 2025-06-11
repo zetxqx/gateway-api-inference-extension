@@ -19,8 +19,6 @@ spec:
   template:
     metadata:
       labels:
-        ai.gke.io/inference-server: vllm
-        ai.gke.io/model: gemma-2-2b-it
         app: infra-backend
     spec:
       containers:
@@ -54,11 +52,11 @@ spec:
 apiVersion: inference.networking.x-k8s.io/v1alpha2
 kind: InferenceModel
 metadata:
-  name: gemma2b
+  name: conformance-fake-model-server
   namespace: gateway-conformance-app-backend
 spec:
-  modelName: google/gemma-2-2b-it
-  criticality: Critical # TODO mark it as critical to by pass 
+  modelName: conformance-fake-model
+  criticality: Critical # Mark it as critical to bypass the saturation check since the model server is fake and don't have such metrics. 
   poolRef:
     name: normal-gateway-pool
 ---

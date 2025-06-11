@@ -274,30 +274,26 @@ func GetGatewayEndpoint(t *testing.T, k8sClient client.Client, timeoutConfig gat
 	return gwAddr
 }
 
-// GetPodIPByLabelWithControllerRuntime uses the controller-runtime client to find a pod
-// by a label in a specific namespace and returns its IP address.
-func GetPodIPByLabelWithControllerRuntime(t *testing.T, c client.Client, namespace string, labels map[string]string) (string, error) {
+// GetOnePodIPWithLabel finds a pod with labels in a specific namespace and returns its IP address.
+func GetOnePodIPWithLabel(t *testing.T, c client.Client, namespace string, labels map[string]string) (string, error) {
 	t.Helper()
-	// Create a PodList object to store the results of the query.
+
 	podList := &corev1.PodList{}
 
-	// Define the options for the list query.
 	listOptions := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
 	}
 
-	// List the pods that match the specified options.
+	t.Logf("Retrieving backend Pod IP address in namespace %s", namespace)
 	if err := c.List(context.Background(), podList, listOptions...); err != nil {
 		return "", fmt.Errorf("failed to list pods with labels '%v' in namespace '%s': %w", labels, namespace, err)
 	}
 
-	// Check if any pods were found.
 	if len(podList.Items) == 0 {
 		return "", fmt.Errorf("no pods found with labels '%v' in namespace '%s'", labels, namespace)
 	}
 
-	// Return the IP address of the first pod in the list.
 	podIP := podList.Items[0].Status.PodIP
 	if podIP == "" {
 		return "", fmt.Errorf("pod %s found, but it does not have an IP address yet", podList.Items[0].Name)

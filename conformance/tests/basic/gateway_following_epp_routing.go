@@ -27,6 +27,7 @@ import (
 
 	// Import the tests package to append to ConformanceTests
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
+	"sigs.k8s.io/gateway-api-inference-extension/conformance/utils/config"
 	k8sutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/kubernetes"
 	trafficutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/traffic"
 )
@@ -40,7 +41,7 @@ func init() {
 // InferencePoolAccepted defines the test case for verifying basic InferencePool acceptance.
 var GatwayFollowingEPPRouting = suite.ConformanceTest{
 	ShortName:   "GatwayFollowingEPPRouting",
-	Description: "Inference gateway should redirect traffic to an endpoints belonging to what EPP respond endpoints list.", // TODO
+	Description: "Inference gateway should redirect traffic to an endpoints belonging to what EPP respond endpoints list",
 	Manifests:   []string{"tests/basic/gateway_following_epp_routing.yaml"},
 	Features: []features.FeatureName{
 		features.FeatureName("SupportInferencePool"),
@@ -48,66 +49,113 @@ var GatwayFollowingEPPRouting = suite.ConformanceTest{
 	},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		const (
-			appBackendNamespace      = "gateway-conformance-app-backend"
-			infraNamespace           = "gateway-conformance-infra"
-			poolName                 = "normal-gateway-pool"
-			sharedPrimaryGatewayName = "conformance-gateway"
-			httpRoutePrimaryName     = "httproute-for-primary-gw"
-			hostnamePrimaryGw        = "primary.example.com"
-			pathPrimaryGw            = "/primary-gateway-test"
-			backendServicePodName    = "infra-backend-deployment"
+			appBackendNamespace = "gateway-conformance-app-backend"
+			infraNamespace      = "gateway-conformance-infra"
+			hostname            = "primary.example.com"
+			path                = "/primary-gateway-test"
 		)
 
-		poolNN := types.NamespacedName{Name: poolName, Namespace: appBackendNamespace}
-		httpRoutePrimaryNN := types.NamespacedName{Name: httpRoutePrimaryName, Namespace: appBackendNamespace}
-		gatewayPrimaryNN := types.NamespacedName{Name: sharedPrimaryGatewayName, Namespace: infraNamespace}
+		httpRouteNN := types.NamespacedName{Name: "httproute-for-primary-gw", Namespace: appBackendNamespace}
+		gatewayNN := types.NamespacedName{Name: "conformance-gateway", Namespace: infraNamespace}
+		poolNN := types.NamespacedName{Name: "normal-gateway-pool", Namespace: appBackendNamespace}
+		backendPodLabels := map[string]string{"app": "infra-backend"}
 
-		// inferenceTimeoutConfig := config.DefaultInferenceExtensionTimeoutConfig()
+		k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, httpRouteNN, gatewayNN)
+		k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN)
+		gwAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewayNN)
 
-		k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, httpRoutePrimaryNN, gatewayPrimaryNN)
-		gwPrimaryAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewayPrimaryNN)
-		time.Sleep(300 * time.Second)
+		backendPodIP, err := k8sutils.GetOnePodIPWithLabel(t, s.Client, appBackendNamespace, backendPodLabels)
+		require.NoError(t, err, "Failed to get backend Pod IP address")
 
-		t.Run("InferencePool should have Accepted condition set to True", func(t *testing.T) {
-			t.Logf("InferencePool %s has parent status Accepted:True as expected with one references.", poolNN.String())
-			ipAddress, err := k8sutils.GetPodIPByLabelWithControllerRuntime(t, s.Client, appBackendNamespace, map[string]string{"app": "infra-backend"})
-			if err != nil {
-				require.NoErrorf(t, err, "error getting podIpAdress")
-			}
-			t.Logf("Getting IPAddress is %v.", ipAddress)
+		inferenceTimeoutConfig := config.DefaultInferenceExtensionTimeoutConfig()
+		// TODO: replace this with a poll and check.
+		t.Log("Waiting for the httpRoute and inferecePool ready to serve traffic.")
+		time.Sleep(inferenceTimeoutConfig.WaitForHttpRouteAndInferencePoolReadyTimeout)
+
+		correctRequestBody := `{
+            "model": "conformance-fake-model",
+			"prompt": "Write as if you were a critic: San Francisc"
+        }`
+
+		t.Run("Gateway should route traffic to a valid endpoint specified by EPP", func(t *testing.T) {
+			t.Logf("Sending request to %s with EPP header routing to valid IP %s", gwAddr, backendPodIP)
+			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
 
 			trafficutils.MakeRequestAndExpectSuccessV2(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
-				gwPrimaryAddr,
-				hostnamePrimaryGw,
-				pathPrimaryGw,
-				backendServicePodName,
+				gwAddr,
+				hostname,
+				path,
+				"infra-backend-deployment", // This might be better as a constant if used often
 				appBackendNamespace,
-				map[string]string{"Test-Epp-Endpoint-Selection": ipAddress},
+				eppHeader,
+				correctRequestBody,
+				"POST",
 			)
 		})
 
-		t.Run("InferencePool should have Accepted condition set to True", func(t *testing.T) {
-			t.Logf("InferencePool %s has parent status Accepted:True as expected with one references.", poolNN.String())
-			ipAddress, err := k8sutils.GetPodIPByLabelWithControllerRuntime(t, s.Client, appBackendNamespace, map[string]string{"app": "infra-backend"})
-			if err != nil {
-				require.NoErrorf(t, err, "error getting podIpAdress")
-			}
-			t.Logf("Getting IPAddress is %v.", ipAddress)
+		t.Run("Gateway should route traffic specified by EPP even an invalidIP and should get response with error code 429", func(t *testing.T) {
+			invalidIP := "256.256.256.256" // An IP that cannot be a real endpoint
+			t.Logf("Sending request to %s with EPP header routing to invalid IP %s", gwAddr, invalidIP)
+			eppHeader := map[string]string{"test-epp-endpoint-selection": invalidIP}
 
-			wrongAddress := "10.0.0.17"
-			trafficutils.MakeRequestAndExpectSuccessV2(
+			trafficutils.MakeRequestAndExpectTooManyRequest(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
-				gwPrimaryAddr,
-				hostnamePrimaryGw,
-				pathPrimaryGw,
-				backendServicePodName,
+				gwAddr,
+				hostname,
+				path,
+				"infra-backend-deployment",
 				appBackendNamespace,
-				map[string]string{"test-epp-endpoint-selection": wrongAddress},
+				eppHeader,
+				correctRequestBody,
+				"POST",
+			)
+		})
+
+		t.Run("Gateway should reject request that is missing the model name and return 400 response", func(t *testing.T) {
+			requestBodyWithoutModel := `{"prompt": "Write as if you were a critic: San Francisc"}`
+			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
+			t.Logf("Sending request to %s with a malformed body (missing model)", gwAddr)
+
+			trafficutils.MakeRequestAndExpectBadRequest(
+				t,
+				s.RoundTripper,
+				s.TimeoutConfig,
+				gwAddr,
+				hostname,
+				path,
+				"infra-backend-deployment",
+				appBackendNamespace,
+				eppHeader,
+				requestBodyWithoutModel,
+				"POST",
+			)
+		})
+
+		t.Run("Gateway should reject request that is with a nonexist model name and return 404 response", func(t *testing.T) {
+			requestBodyNonExistModel := `{
+            	"model": "non-exist-model",
+				"prompt": "Write as if you were a critic: San Francisc"
+        	}`
+			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
+			t.Logf("Sending request to %s with a malformed body (nonexist model)", gwAddr)
+
+			trafficutils.MakeRequestAndExpectNotFoundV2(
+				t,
+				s.RoundTripper,
+				s.TimeoutConfig,
+				gwAddr,
+				hostname,
+				path,
+				"infra-backend-deployment",
+				appBackendNamespace,
+				eppHeader,
+				requestBodyNonExistModel,
+				"POST",
 			)
 		})
 	},
