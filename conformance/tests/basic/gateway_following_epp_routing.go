@@ -33,15 +33,15 @@ import (
 )
 
 func init() {
-	// Register the InferencePoolAccepted test case with the conformance suite.
+	// Register the GatewayFollowingEPPRouting test case with the conformance suite.
 	// This ensures it will be discovered and run by the test runner.
-	tests.ConformanceTests = append(tests.ConformanceTests, GatwayFollowingEPPRouting)
+	tests.ConformanceTests = append(tests.ConformanceTests, GatewayFollowingEPPRouting)
 }
 
-// InferencePoolAccepted defines the test case for verifying basic InferencePool acceptance.
-var GatwayFollowingEPPRouting = suite.ConformanceTest{
-	ShortName:   "GatwayFollowingEPPRouting",
-	Description: "Inference gateway should redirect traffic to an endpoints belonging to what EPP respond endpoints list",
+// GatewayFollowingEPPRouting defines the test case for verifying gateway should send traffic to an endpoint in the list returned by EPP.
+var GatewayFollowingEPPRouting = suite.ConformanceTest{
+	ShortName:   "GatewayFollowingEPPRouting",
+	Description: "Inference gateway should send traffic to an endpoint in the list returned by EPP",
 	Manifests:   []string{"tests/basic/gateway_following_epp_routing.yaml"},
 	Features: []features.FeatureName{
 		features.FeatureName("SupportInferencePool"),
@@ -74,10 +74,10 @@ var GatwayFollowingEPPRouting = suite.ConformanceTest{
 
 		correctRequestBody := `{
             "model": "conformance-fake-model",
-			"prompt": "Write as if you were a critic: San Francisc"
+			"prompt": "Write as if you were a critic: San Francisco"
         }`
 
-		t.Run("Gateway should route traffic to a valid endpoint specified by EPP", func(t *testing.T) {
+		t.Run("Gateway should send traffic to a valid endpoint specified by EPP", func(t *testing.T) {
 			t.Logf("Sending request to %s with EPP header routing to valid IP %s", gwAddr, backendPodIP)
 			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
 
@@ -96,7 +96,7 @@ var GatwayFollowingEPPRouting = suite.ConformanceTest{
 			)
 		})
 
-		t.Run("Gateway should route traffic specified by EPP even an invalidIP and should get response with error code 429", func(t *testing.T) {
+		t.Run("Gateway should send traffic specified by EPP even an invalidIP and should get response with error code 429", func(t *testing.T) {
 			invalidIP := "256.256.256.256" // An IP that cannot be a real endpoint
 			t.Logf("Sending request to %s with EPP header routing to invalid IP %s", gwAddr, invalidIP)
 			eppHeader := map[string]string{"test-epp-endpoint-selection": invalidIP}
@@ -117,7 +117,7 @@ var GatwayFollowingEPPRouting = suite.ConformanceTest{
 		})
 
 		t.Run("Gateway should reject request that is missing the model name and return 400 response", func(t *testing.T) {
-			requestBodyWithoutModel := `{"prompt": "Write as if you were a critic: San Francisc"}`
+			requestBodyWithoutModel := `{"prompt": "Write as if you were a critic: San Francisco"}`
 			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
 			t.Logf("Sending request to %s with a malformed body (missing model)", gwAddr)
 
@@ -139,7 +139,7 @@ var GatwayFollowingEPPRouting = suite.ConformanceTest{
 		t.Run("Gateway should reject request that is with a nonexist model name and return 404 response", func(t *testing.T) {
 			requestBodyNonExistModel := `{
             	"model": "non-exist-model",
-				"prompt": "Write as if you were a critic: San Francisc"
+				"prompt": "Write as if you were a critic: San Francisco"
         	}`
 			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
 			t.Logf("Sending request to %s with a malformed body (nonexist model)", gwAddr)

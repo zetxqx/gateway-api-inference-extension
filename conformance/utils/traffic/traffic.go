@@ -143,7 +143,6 @@ func MakeRequestAndExpectSuccessV2(
 	method string,
 ) {
 	t.Helper()
-	t.Helper()
 	makeRequestAndExpectRequestInternal(
 		t,
 		r,
