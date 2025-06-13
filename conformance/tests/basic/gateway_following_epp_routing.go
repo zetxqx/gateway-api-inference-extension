@@ -50,11 +50,11 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 	},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		const (
-			appBackendNamespace  = "gateway-conformance-app-backend"
-			infraNamespace       = "gateway-conformance-infra"
-			hostname             = "primary.example.com"
-			path                 = "/primary-gateway-test"
-			expectedPodReplicas  = 3
+			appBackendNamespace = "gateway-conformance-app-backend"
+			infraNamespace      = "gateway-conformance-infra"
+			hostname            = "primary.example.com"
+			path                = "/primary-gateway-test"
+			expectedPodReplicas = 3
 			// eppSelectionHeaderName is the custom header used by the testing-EPP service
 			// to determine which endpoint to select.
 			eppSelectionHeaderName = "test-epp-endpoint-selection"
@@ -86,22 +86,22 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
         }`
 
 		testCases := []struct {
-			name                string
-			podOrder            []string
+			name                    string
+			podOrder                []string
 			expectedBackendPodIndex int
 		}{
 			{
-				name:                fmt.Sprintf("should route to first pod in list: %s", pods[0].Name),
-				podOrder:            []string{podIPs[0], podIPs[1], podIPs[2]},
+				name:                    fmt.Sprintf("should route to first pod in list: %s", pods[0].Name),
+				podOrder:                []string{podIPs[0], podIPs[1], podIPs[2]},
 				expectedBackendPodIndex: 0,
 			},
 			{
-				name:                fmt.Sprintf("should route to new first pod after reordering: %s", pods[2].Name),
-				podOrder:            []string{podIPs[2], podIPs[1], podIPs[0]},
+				name:                    fmt.Sprintf("should route to new first pod after reordering: %s", pods[2].Name),
+				podOrder:                []string{podIPs[2], podIPs[1], podIPs[0]},
 				expectedBackendPodIndex: 2,
 			},
 		}
-		
+
 		s.TimeoutConfig.MaxTimeToConsistency = 200 * time.Second
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -130,3 +130,4 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			})
 		}
 	},
+}
