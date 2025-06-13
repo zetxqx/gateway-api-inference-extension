@@ -76,18 +76,18 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: app-backend-primary-model-server-deployment
+  name: primary-inference-model-server-deployment
   namespace: gateway-conformance-app-backend
   labels:
-    app: app-backend-primary-model-server
+    app: primary-inference-model-server
 spec:
   selector:
     matchLabels:
-      app: app-backend-primary-model-server
+      app: primary-inference-model-server
   template:
     metadata:
       labels:
-        app: app-backend-primary-model-server
+        app: primary-inference-model-server
     spec:
       containers:
       - name: echoserver
@@ -114,6 +114,95 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+---
+# --- InferencePool Definition ---
+apiVersion: inference.networking.x-k8s.io/v1alpha2
+kind: InferencePool
+metadata:
+  name: primary-inference-pool
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: "primary-inference-model-server"
+  targetPortNumber: 3000
+  extensionRef:
+    name: app-endpoint-picker-svc
+---
+# --- Conformance EPP service Definition ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-endpoint-picker-svc
+  namespace: gateway-conformance-app-backend
+spec:
+  selector:
+    app: app-backend-epp
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+  type: ClusterIP
+---
+# --- Conformance EPP Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-endpoint-picker
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: app-backend-epp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-backend-epp
+  template:
+    metadata:
+      labels:
+        app: app-backend-epp
+    spec:
+      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
+      terminationGracePeriodSeconds: 130
+      containers:
+      - name: epp
+        image: us-central1-docker.pkg.dev/k8s-staging-images/gateway-api-inference-extension/epp:main
+        imagePullPolicy: Always
+        args:
+        - -poolName
+        - "primary-inference-pool"
+        - -poolNamespace
+        - "gateway-conformance-app-backend"
+        - -v
+        - "4"
+        - --zap-encoder
+        - "json"
+        - -grpcPort
+        - "9002"
+        - -grpcHealthPort
+        - "9003"
+        env:
+        - name: USE_STREAMING
+          value: "true"
+        - name: ENABLE_REQ_HEADER_BASED_SCHEDULER_FOR_TESTING # Used for conformance test.
+          value: "true"
+        ports:
+        - containerPort: 9002
+        - containerPort: 9003
+        - name: metrics
+          containerPort: 9090
+        livenessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9003
+            service: inference-extension
+          initialDelaySeconds: 5
+          periodSeconds: 10
 ---
 # --- Required Role and RoleBinding for Conformance Test for EPP ---
 apiVersion: rbac.authorization.k8s.io/v1

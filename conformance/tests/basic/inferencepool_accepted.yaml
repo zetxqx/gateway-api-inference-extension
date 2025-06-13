@@ -3,108 +3,6 @@
 # InferencePool and HTTPRoute resources, which the InferencePoolAccepted
 # test will use to verify that the controller recognizes and accepts the resource.
 
-# --- InferencePool Definition ---
-apiVersion: inference.networking.x-k8s.io/v1alpha2
-kind: InferencePool
-metadata:
-  # This name must match the 'poolNN' variable defined in the
-  # conformance/tests/basic/inferencepool_accepted.go test file.
-  name: inferencepool-basic-accepted
-  # This namespace should be one created by the base manifests.
-  namespace: gateway-conformance-app-backend
-spec:
-  # --- Selector (Required) ---
-  # Selects the Pods belonging to this pool.
-  selector:
-    app: "app-backend-primary-model-server"
-
-  # --- Target Port (Required) ---
-  # The port the model server container (agnhost in this case) listens on.
-  targetPortNumber: 8080 # Matches agnhost's http-port
-
-  # --- Extension Reference ---
-  # GKE-specific configuration reference.
-  extensionRef:
-    # group: "" # Optional
-    # kind: Service # Optional
-    name: app-endpoint-picker-svc
----
-# --- Conformance EPP service Definition ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: app-endpoint-picker-svc
-  namespace: gateway-conformance-app-backend
-spec:
-  selector:
-    app: app-backend-epp
-  ports:
-    - protocol: TCP
-      port: 9002
-      targetPort: 9002
-      appProtocol: http2
-  type: ClusterIP
----
-# --- Conformance EPP Deployment ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: app-endpoint-picker
-  namespace: gateway-conformance-app-backend
-  labels:
-    app: app-backend-epp
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: app-backend-epp
-  template:
-    metadata:
-      labels:
-        app: app-backend-epp
-    spec:
-      # Conservatively, this timeout should mirror the longest grace period of the pods within the pool
-      terminationGracePeriodSeconds: 130
-      containers:
-      - name: epp
-        image: us-central1-docker.pkg.dev/k8s-staging-images/gateway-api-inference-extension/epp:main
-        imagePullPolicy: Always
-        args:
-        - -poolName
-        - "inferencepool-basic-accepted"
-        - -poolNamespace
-        - "gateway-conformance-app-backend"
-        - -v
-        - "4"
-        - --zap-encoder
-        - "json"
-        - -grpcPort
-        - "9002"
-        - -grpcHealthPort
-        - "9003"
-        env:
-        - name: USE_STREAMING
-          value: "true"
-        - name: ENABLE_REQ_HEADER_BASED_SCHEDULER_FOR_TESTING # Used for conformance test.
-          value: "true"
-        ports:
-        - containerPort: 9002
-        - containerPort: 9003
-        - name: metrics
-          containerPort: 9090
-        livenessProbe:
-          grpc:
-            port: 9003
-            service: inference-extension
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          grpc:
-            port: 9003
-            service: inference-extension
-          initialDelaySeconds: 5
-          periodSeconds: 10
----
 # --- HTTPRoute Definition ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -122,7 +20,7 @@ spec:
   - backendRefs:
     - group: inference.networking.x-k8s.io # InferencePool API group
       kind: InferencePool
-      name: inferencepool-basic-accepted # Name of the InferencePool this route points to
+      name: primary-inference-pool # Name of the InferencePool this route points to
       # namespace: gateway-conformance-app-backend - is omitted since it is in the same namespace as HTTPRoute
       port: 8080 # Matching the InferencePool's targetPortNumber
     matches:
