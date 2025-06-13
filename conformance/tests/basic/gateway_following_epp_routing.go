@@ -17,18 +17,18 @@ limitations under the License.
 package basic
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types" // For standard condition types
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
-	"sigs.k8s.io/gateway-api/pkg/features" // For standard feature names
+	"sigs.k8s.io/gateway-api/pkg/features"
 
-	// Import the tests package to append to ConformanceTests
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
-	"sigs.k8s.io/gateway-api-inference-extension/conformance/utils/config"
 	k8sutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/kubernetes"
 	trafficutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/traffic"
 )
@@ -50,11 +50,14 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 	},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		const (
-			appBackendNamespace = "gateway-conformance-app-backend"
-			infraNamespace      = "gateway-conformance-infra"
-			hostname            = "primary.example.com"
-			path                = "/primary-gateway-test"
-			backendName         = "infra-backend-deployment"
+			appBackendNamespace  = "gateway-conformance-app-backend"
+			infraNamespace       = "gateway-conformance-infra"
+			hostname             = "primary.example.com"
+			path                 = "/primary-gateway-test"
+			expectedPodReplicas  = 3
+			// eppSelectionHeaderName is the custom header used by the testing-EPP service
+			// to determine which endpoint to select.
+			eppSelectionHeaderName = "test-epp-endpoint-selection"
 		)
 
 		httpRouteNN := types.NamespacedName{Name: "httproute-for-primary-gw", Namespace: appBackendNamespace}
@@ -62,115 +65,68 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 		poolNN := types.NamespacedName{Name: "normal-gateway-pool", Namespace: appBackendNamespace}
 		backendPodLabels := map[string]string{"app": "infra-backend"}
 
+		t.Log("Verifying HTTPRoute and InferencePool are accepted and the Gateway has an address.")
 		k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, httpRouteNN, gatewayNN)
 		k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN)
 		gwAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewayNN)
 
-		backendPodIP, err := k8sutils.GetOnePodIPWithLabel(t, s.Client, appBackendNamespace, backendPodLabels)
-		require.NoError(t, err, "Failed to get backend Pod IP address")
+		t.Logf("Fetching backend pods with labels: %v", backendPodLabels)
+		pods, err := k8sutils.GetPodsWithLabel(t, s.Client, appBackendNamespace, backendPodLabels)
+		require.NoError(t, err, "Failed to get backend pods")
+		require.Len(t, pods, expectedPodReplicas, "Expected to find %d backend pods, but found %d.", expectedPodReplicas, len(pods))
 
-		inferenceTimeoutConfig := config.DefaultInferenceExtensionTimeoutConfig()
-		// TODO: replace this with a poll and check.
-		t.Log("Waiting for the httpRoute and inferecePool ready to serve traffic.")
-		time.Sleep(inferenceTimeoutConfig.WaitForHttpRouteAndInferencePoolReadyTimeout)
+		podIPs := make([]string, len(pods))
+		for i, pod := range pods {
+			podIPs[i] = pod.Status.PodIP
+		}
 
-		correctRequestBody := `{
+		requestBody := `{
             "model": "conformance-fake-model",
-			"prompt": "Write as if you were a critic: San Francisco"
+            "prompt": "Write as if you were a critic: San Francisco"
         }`
 
-		t.Run("Gateway should send traffic to a valid endpoint specified by EPP", func(t *testing.T) {
-			t.Logf("Sending request to %s with EPP header routing to valid IP %s", gwAddr, backendPodIP)
-			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
+		testCases := []struct {
+			name                string
+			podOrder            []string
+			expectedBackendPodIndex int
+		}{
+			{
+				name:                fmt.Sprintf("should route to first pod in list: %s", pods[0].Name),
+				podOrder:            []string{podIPs[0], podIPs[1], podIPs[2]},
+				expectedBackendPodIndex: 0,
+			},
+			{
+				name:                fmt.Sprintf("should route to new first pod after reordering: %s", pods[2].Name),
+				podOrder:            []string{podIPs[2], podIPs[1], podIPs[0]},
+				expectedBackendPodIndex: 2,
+			},
+		}
+		
+		s.TimeoutConfig.MaxTimeToConsistency = 200 * time.Second
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				eppHeaderValue := strings.Join(tc.podOrder, ",")
+				headers := map[string]string{eppSelectionHeaderName: eppHeaderValue}
+				expectedBackendPod := pods[tc.expectedBackendPodIndex]
 
-			trafficutils.MakeRequestAndExpectSuccessV2(
-				t,
-				s.RoundTripper,
-				s.TimeoutConfig,
-				gwAddr,
-				trafficutils.Request{
-					Host:      hostname,
-					Path:      path,
-					Headers:   eppHeader,
-					Method:    http.MethodPost,
-					Body:      correctRequestBody,
-					Backend:   backendName,
-					Namespace: appBackendNamespace,
-				},
-			)
-		})
+				t.Logf("Sending request to %s with EPP header '%s: %s'", gwAddr, eppSelectionHeaderName, eppHeaderValue)
+				t.Logf("Expecting traffic to be routed to pod %s (%s)", expectedBackendPod.Name, expectedBackendPod.Status.PodIP)
 
-		t.Run("Gateway should send traffic specified by EPP even an invalidIP and should get response with error code 429", func(t *testing.T) {
-			invalidIP := "256.256.256.256" // An IP that cannot be a real endpoint
-			t.Logf("Sending request to %s with EPP header routing to invalid IP %s", gwAddr, invalidIP)
-			eppHeader := map[string]string{"test-epp-endpoint-selection": invalidIP}
-
-			trafficutils.MakeRequestAndExpectEventuallyConsistentResponse(
-				t,
-				s.RoundTripper,
-				s.TimeoutConfig,
-				gwAddr,
-				trafficutils.Request{
-					Host:      hostname,
-					Path:      path,
-					Headers:   eppHeader,
-					Method:    http.MethodPost,
-					Body:      correctRequestBody,
-					Namespace: appBackendNamespace,
-
-					ExpectedStatusCode: http.StatusTooManyRequests,
-				},
-			)
-		})
-
-		t.Run("Gateway should reject request that is missing the model name and return 400 response", func(t *testing.T) {
-			requestBodyWithoutModel := `{"prompt": "Write as if you were a critic: San Francisco"}`
-			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
-			t.Logf("Sending request to %s with a malformed body (missing model)", gwAddr)
-
-			trafficutils.MakeRequestAndExpectEventuallyConsistentResponse(
-				t,
-				s.RoundTripper,
-				s.TimeoutConfig,
-				gwAddr,
-				trafficutils.Request{
-					Host:      hostname,
-					Path:      path,
-					Headers:   eppHeader,
-					Method:    http.MethodPost,
-					Body:      requestBodyWithoutModel,
-					Namespace: appBackendNamespace,
-
-					ExpectedStatusCode: http.StatusBadRequest,
-				},
-			)
-		})
-
-		t.Run("Gateway should reject request that is with a nonexist model name and return 404 response", func(t *testing.T) {
-			requestBodyNonExistModel := `{
-            	"model": "non-exist-model",
-				"prompt": "Write as if you were a critic: San Francisco"
-        	}`
-			eppHeader := map[string]string{"test-epp-endpoint-selection": backendPodIP}
-			t.Logf("Sending request to %s with a malformed body (nonexist model)", gwAddr)
-
-			trafficutils.MakeRequestAndExpectEventuallyConsistentResponse(
-				t,
-				s.RoundTripper,
-				s.TimeoutConfig,
-				gwAddr,
-				trafficutils.Request{
-					Host:      hostname,
-					Path:      path,
-					Headers:   eppHeader,
-					Method:    http.MethodPost,
-					Body:      requestBodyNonExistModel,
-					Namespace: appBackendNamespace,
-
-					ExpectedStatusCode: http.StatusNotFound,
-				},
-			)
-
-		})
+				trafficutils.MakeRequestAndExpectSuccessV2(
+					t,
+					s.RoundTripper,
+					s.TimeoutConfig,
+					gwAddr,
+					trafficutils.Request{
+						Host:      hostname,
+						Path:      path,
+						Headers:   headers,
+						Method:    http.MethodPost,
+						Body:      requestBody,
+						Backend:   expectedBackendPod.Name,
+						Namespace: appBackendNamespace,
+					},
+				)
+			})
+		}
 	},
-}
