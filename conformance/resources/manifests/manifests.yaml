@@ -126,13 +126,13 @@ spec:
     app: "primary-inference-model-server"
   targetPortNumber: 3000
   extensionRef:
-    name: app-endpoint-picker-svc
+    name: primary-endpoint-picker-svc
 ---
 # --- Conformance EPP service Definition ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: app-endpoint-picker-svc
+  name: primary-endpoint-picker-svc
   namespace: gateway-conformance-app-backend
 spec:
   selector:
