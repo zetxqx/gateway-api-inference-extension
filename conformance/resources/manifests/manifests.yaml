@@ -21,15 +21,6 @@ metadata:
   labels:
     gateway-conformance: backend
 ---
-# Namespace for simple web server backends. This is expected by
-# the upstream conformance suite's Setup method.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: gateway-conformance-web-backend
-  labels:
-    gateway-conformance: web-backend
----
 # A basic Gateway resource that allows HTTPRoutes from the same namespace.
 # Tests can use this as a parent reference for routes that target InferencePools.
 apiVersion: gateway.networking.k8s.io/v1
@@ -70,3 +61,84 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
+
+### The following defines the essential resources for the gateway conformance test.
+### All resources are created in the 'gateway-conformance-app-backend' namespace.
+---
+# Deploys a mock backend service to act as a model server.
+#
+# For conformance testing, a simple echo server is sufficient. The goal is to
+# verify that requests are successfully routed to a backend, not to validate
+# the content of the server's response. In a real-world use case, this would
+# be replaced by the actual model-serving application.
+#
+# The Pods created by this Deployment are selected by the InferencePool resource.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-backend-primary-model-server-deployment
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: app-backend-primary-model-server
+spec:
+  selector:
+    matchLabels:
+      app: app-backend-primary-model-server
+  template:
+    metadata:
+      labels:
+        app: app-backend-primary-model-server
+    spec:
+      containers:
+      - name: echoserver
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+---
+# --- Required Role and RoleBinding for Conformance Test for EPP ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: inference-model-reader
+  namespace: gateway-conformance-app-backend
+rules:
+- apiGroups: ["inference.networking.x-k8s.io"]
+  resources: ["inferencemodels", "inferencepools"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: epp-to-inference-model-reader
+  namespace: gateway-conformance-app-backend
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: gateway-conformance-app-backend
+roleRef:
+  kind: Role
+  name: inference-model-reader
+  apiGroup: rbac.authorization.k8s.io

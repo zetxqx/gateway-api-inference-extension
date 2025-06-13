@@ -59,7 +59,7 @@ var InferencePoolParentStatus = suite.ConformanceTest{
 			pathPrimaryGw              = "/primary-gateway-test"
 			hostnameSecondaryGw        = "secondary.example.com"
 			pathSecondaryGw            = "/secondary-gateway-test"
-			backendServicePodName      = "infra-backend-deployment"
+			backendServicePodName      = "app-backend-primary-model-server"
 		)
 
 		poolNN := types.NamespacedName{Name: poolName, Namespace: appBackendNamespace}
