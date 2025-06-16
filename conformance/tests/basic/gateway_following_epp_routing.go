@@ -19,6 +19,7 @@ package basic
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -187,17 +188,15 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 			seenMutex.Lock()
 			defer seenMutex.Unlock()
 
-			for _, expectedBackend := range expectedPodNames {
-				if cReq.Pod == expectedBackend {
-					seen[expectedBackend]++
-					return nil
-				}
+			seen[cReq.Pod]++
+			if slices.Contains(expectedPodNames, cReq.Pod) {
+				return nil
 			}
 			return fmt.Errorf("request was handled by an unexpected pod %q", cReq.Pod)
 		})
 	}
 	if err := g.Wait(); err != nil {
-		t.Errorf("Not all the requests are sent successfully, err: %v", err)
+		t.Fatalf("Not all the requests are sent to the expectedPods successfully, err: %v, Reached pods with request counts: %v", err, seen)
 	}
 
 	if len(seen) != len(expectedPodNames) {
