@@ -25,7 +25,6 @@ import (
 	"io/fs"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -46,7 +45,6 @@ import (
 	// Import necessary types and utilities from the core Gateway API conformance suite.
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"            // Import core Gateway API types
 	confapis "sigs.k8s.io/gateway-api/conformance/apis/v1" // Report struct definition
-	confconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 	confflags "sigs.k8s.io/gateway-api/conformance/utils/flags"
 	apikubernetes "sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	confsuite "sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -154,8 +152,6 @@ func DefaultOptions(t *testing.T) confsuite.ConformanceOptions {
 
 	baseManifestsValue := "resources/manifests/manifests.yaml"
 
-	config := confconfig.DefaultTimeoutConfig()
-	config.HTTPRouteMustHaveCondition = 300 * time.Second
 	opts := confsuite.ConformanceOptions{
 		Client:               c,
 		ClientOptions:        clientOptions,
@@ -166,7 +162,7 @@ func DefaultOptions(t *testing.T) confsuite.ConformanceOptions {
 		Debug:                *confflags.ShowDebug,
 		CleanupBaseResources: *confflags.CleanupBaseResources,
 		SupportedFeatures:    sets.New[features.FeatureName](),
-		TimeoutConfig:        config,
+		TimeoutConfig:        inferenceconfig.DefaultInferenceExtensionTimeoutConfig().TimeoutConfig,
 		SkipTests:            skipTests,
 		ExemptFeatures:       exemptFeatures,
 		RunTest:              *confflags.RunTest,

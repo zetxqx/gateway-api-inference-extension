@@ -83,7 +83,8 @@ func BuildExpectedHTTPResponse(
 	return resp
 }
 
-// Deprecated: please use MakeRequestAndExpectSuccessV2 instead.
+// Deprecated: please use MakeRequestWithRequestParamAndExpectSuccess instead.
+// https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/983
 // MakeRequestAndExpectSuccess is a helper function that builds an expected success (200 OK) response
 // and then calls MakeRequestAndExpectEventuallyConsistentResponse.
 func MakeRequestAndExpectSuccess(
@@ -108,6 +109,7 @@ func MakeRequestAndExpectSuccess(
 }
 
 // Deprecated: please use MakeRequestAndExpectEventuallyConsistentResponse instead and specify the ExpectedStatusCode in Request.
+// https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/983
 // MakeRequestAndExpectNotFound is a helper function that builds an expected not found (404) response
 // and then calls MakeRequestAndExpectEventuallyConsistentResponse.
 func MakeRequestAndExpectNotFound(
@@ -176,9 +178,9 @@ func MakeRequestAndExpectEventuallyConsistentResponse(
 	gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, r, timeoutConfig, gatewayAddress, expectedResponse)
 }
 
-// MakeRequestAndExpectSuccessV2 is a convenience wrapper for requests that are
+// MakeRequestWithRequestParamAndExpectSuccess is a convenience wrapper for requests that are
 // expected to succeed with a 200 OK status.
-func MakeRequestAndExpectSuccessV2(
+func MakeRequestWithRequestParamAndExpectSuccess(
 	t *testing.T,
 	r roundtripper.RoundTripper,
 	timeoutConfig gwconfig.TimeoutConfig,

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	// Import the upstream Gateway API timeout config
+
 	gatewayconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 )
 
@@ -41,19 +42,18 @@ type InferenceExtensionTimeoutConfig struct {
 	// HTTPRouteDeletionReconciliationTimeout is the time to wait for controllers to reconcile
 	// state after an HTTPRoute is deleted, before checking dependent resources or traffic.
 	HTTPRouteDeletionReconciliationTimeout time.Duration
-
-	// WaitForHttpRouteAndInferencePoolReadyTimeout is the time to wait for httpRoute and inferencePool ready to server the traffic.
-	WaitForHttpRouteAndInferencePoolReadyTimeout time.Duration
 }
 
 // DefaultInferenceExtensionTimeoutConfig returns a new InferenceExtensionTimeoutConfig with default values.
 func DefaultInferenceExtensionTimeoutConfig() InferenceExtensionTimeoutConfig {
+	config := gatewayconfig.DefaultTimeoutConfig()
+	config.HTTPRouteMustHaveCondition = 300 * time.Second
+	config.MaxTimeToConsistency = 200 * time.Second
 	return InferenceExtensionTimeoutConfig{
-		TimeoutConfig:                                gatewayconfig.DefaultTimeoutConfig(), // Initialize embedded struct
-		InferencePoolMustHaveConditionTimeout:        300 * time.Second,
-		InferencePoolMustHaveConditionInterval:       10 * time.Second,
-		GatewayObjectPollInterval:                    5 * time.Second,
-		HTTPRouteDeletionReconciliationTimeout:       5 * time.Second,
-		WaitForHttpRouteAndInferencePoolReadyTimeout: 100 * time.Second,
+		TimeoutConfig:                          config, // Initialize embedded struct
+		InferencePoolMustHaveConditionTimeout:  300 * time.Second,
+		InferencePoolMustHaveConditionInterval: 10 * time.Second,
+		GatewayObjectPollInterval:              5 * time.Second,
+		HTTPRouteDeletionReconciliationTimeout: 5 * time.Second,
 	}
 }

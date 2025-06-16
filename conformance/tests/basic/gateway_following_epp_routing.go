@@ -20,10 +20,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
 	k8sutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/kubernetes"
 	trafficutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/traffic"
+	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
 )
 
 func init() {
@@ -58,6 +60,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			// eppSelectionHeaderName is the custom header used by the testing-EPP service
 			// to determine which endpoint to select.
 			eppSelectionHeaderName = "test-epp-endpoint-selection"
+			appPodBackendPrefix    = "infra-backend-deployment"
 		)
 
 		httpRouteNN := types.NamespacedName{Name: "httproute-for-primary-gw", Namespace: appBackendNamespace}
@@ -76,8 +79,10 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 		require.Len(t, pods, expectedPodReplicas, "Expected to find %d backend pods, but found %d.", expectedPodReplicas, len(pods))
 
 		podIPs := make([]string, len(pods))
+		podNames := make([]string, len(pods))
 		for i, pod := range pods {
 			podIPs[i] = pod.Status.PodIP
+			podNames[i] = pod.Name
 		}
 
 		requestBody := `{
@@ -85,49 +90,126 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
             "prompt": "Write as if you were a critic: San Francisco"
         }`
 
+		for i := 0; i < len(pods); i++ {
+			// Send an initial request targeting a single pod and wait for it to be successful to ensure the Gateway and EPP
+			// are functioning correctly before running the main test cases.
+			trafficutils.MakeRequestWithRequestParamAndExpectSuccess(
+				t,
+				s.RoundTripper,
+				s.TimeoutConfig,
+				gwAddr,
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Headers:   map[string]string{eppSelectionHeaderName: podIPs[i]},
+					Method:    http.MethodPost,
+					Body:      requestBody,
+					Backend:   podNames[i],
+					Namespace: appBackendNamespace,
+				},
+			)
+		}
+
 		testCases := []struct {
-			name                    string
-			podOrder                []string
-			expectedBackendPodIndex int
+			name             string
+			podIPsForHeader  []string
+			expectedPodNames []string
 		}{
 			{
-				name:                    fmt.Sprintf("should route to first pod in list: %s", pods[0].Name),
-				podOrder:                []string{podIPs[0], podIPs[1], podIPs[2]},
-				expectedBackendPodIndex: 0,
+				name:             "should route traffic to a single designated pod",
+				podIPsForHeader:  []string{podIPs[2]},
+				expectedPodNames: []string{podNames[2]},
 			},
 			{
-				name:                    fmt.Sprintf("should route to new first pod after reordering: %s", pods[2].Name),
-				podOrder:                []string{podIPs[2], podIPs[1], podIPs[0]},
-				expectedBackendPodIndex: 2,
+				name:             "should route traffic to two designated pods",
+				podIPsForHeader:  []string{podIPs[0], podIPs[1]},
+				expectedPodNames: []string{podNames[0], podNames[1]},
+			},
+			{
+				name:             "should route traffic to all available pods",
+				podIPsForHeader:  []string{podIPs[0], podIPs[1], podIPs[2]},
+				expectedPodNames: []string{podNames[0], podNames[1], podNames[2]},
 			},
 		}
 
-		s.TimeoutConfig.MaxTimeToConsistency = 200 * time.Second
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				eppHeaderValue := strings.Join(tc.podOrder, ",")
+				eppHeaderValue := strings.Join(tc.podIPsForHeader, ",")
 				headers := map[string]string{eppSelectionHeaderName: eppHeaderValue}
-				expectedBackendPod := pods[tc.expectedBackendPodIndex]
 
 				t.Logf("Sending request to %s with EPP header '%s: %s'", gwAddr, eppSelectionHeaderName, eppHeaderValue)
-				t.Logf("Expecting traffic to be routed to pod %s (%s)", expectedBackendPod.Name, expectedBackendPod.Status.PodIP)
+				t.Logf("Expecting traffic to be routed to pod: %v", tc.expectedPodNames)
 
-				trafficutils.MakeRequestAndExpectSuccessV2(
-					t,
-					s.RoundTripper,
-					s.TimeoutConfig,
-					gwAddr,
-					trafficutils.Request{
-						Host:      hostname,
-						Path:      path,
-						Headers:   headers,
-						Method:    http.MethodPost,
-						Body:      requestBody,
-						Backend:   expectedBackendPod.Name,
-						Namespace: appBackendNamespace,
+				assertTrafficReachesPods(t, s, gwAddr, gwhttp.ExpectedResponse{
+					Request: gwhttp.Request{
+						Host:    hostname,
+						Path:    path,
+						Method:  http.MethodPost,
+						Headers: headers,
+						Body:    requestBody,
 					},
-				)
+					Response: gwhttp.Response{
+						StatusCode: http.StatusOK,
+					},
+					Backend:   appPodBackendPrefix,
+					Namespace: appBackendNamespace,
+				}, tc.expectedPodNames)
 			})
 		}
 	},
+}
+
+func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr string, expected gwhttp.ExpectedResponse, expectedPodNames []string) {
+	t.Helper()
+	const (
+		concurrentRequests = 10
+		totalRequests      = 100
+	)
+	var (
+		roundTripper = suite.RoundTripper
+
+		g         errgroup.Group
+		seenMutex sync.Mutex
+		seen      = make(map[string]int)
+		req       = gwhttp.MakeRequest(t, &expected, gwAddr, "HTTP", "http")
+	)
+	g.SetLimit(concurrentRequests)
+	for i := 0; i < totalRequests; i++ {
+		g.Go(func() error {
+			cReq, cRes, err := roundTripper.CaptureRoundTrip(req)
+			if err != nil {
+				return fmt.Errorf("failed to roundtrip request: %w", err)
+			}
+			if err := gwhttp.CompareRequest(t, &req, cReq, cRes, expected); err != nil {
+				return fmt.Errorf("response expectation failed for request: %w", err)
+			}
+
+			seenMutex.Lock()
+			defer seenMutex.Unlock()
+
+			for _, expectedBackend := range expectedPodNames {
+				if cReq.Pod == expectedBackend {
+					seen[expectedBackend]++
+					return nil
+				}
+			}
+			return fmt.Errorf("request was handled by an unexpected pod %q", cReq.Pod)
+		})
+	}
+	if err := g.Wait(); err != nil {
+		t.Errorf("Not all the requests are sent successfully, err: %v", err)
+	}
+
+	if len(seen) != len(expectedPodNames) {
+		missedPods := []string{}
+		for _, pod := range expectedPodNames {
+			if _, ok := seen[pod]; !ok {
+				missedPods = append(missedPods, pod)
+			}
+		}
+		t.Fatalf("Traffic did not reach all expected pods. Expected %d, but only %d were seen.\nMissing: %v\nReached pods with request counts: %v",
+			len(expectedPodNames), len(seen), missedPods, seen)
+	}
+
+	t.Logf("Traffic successfully reached all %d expected pods with the following request counts: %v", len(expectedPodNames), seen)
 }
