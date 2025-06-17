@@ -4,7 +4,6 @@
 # individual test files or other resource directories (e.g., sample_backends).
 
 ---
-# Namespace for core infrastructure like Gateways.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -12,8 +11,6 @@ metadata:
   labels:
     gateway-conformance: infra
 ---
-# Namespace for application backends (potentially simulating model servers
-# or where InferencePools might reside in some tests).
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -21,31 +18,36 @@ metadata:
   labels:
     gateway-conformance: backend
 ---
+<<<<<<< HEAD
 # A basic Gateway resource that allows HTTPRoutes from the same namespace.
 # Tests can use this as a parent reference for routes that target InferencePools.
+=======
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gateway-conformance-web-backend
+  labels:
+    gateway-conformance: web-backend
+---
+>>>>>>> main
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: conformance-gateway
   namespace: gateway-conformance-infra
 spec:
-  # The conformance suite runner will replace this placeholder
-  # with the actual GatewayClass name provided via flags.
   gatewayClassName: "{GATEWAY_CLASS_NAME}"
   listeners:
-  - name: http # Standard listener name
+  - name: http
     port: 80
     protocol: HTTP
     allowedRoutes:
       namespaces:
         from: All
       kinds:
-      # Allows HTTPRoutes to attach, which can then reference InferencePools.
       - group: gateway.networking.k8s.io
         kind: HTTPRoute
 ---
-# --- Conformance Secondary Gateway Definition ---
-# A second generic Gateway resource for tests requiring multiple Gateways.
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -57,10 +59,11 @@ spec:
   - name: http
     port: 80
     protocol: HTTP
-    hostname: "secondary.example.com" # Distinct hostname to differentiate from conformance-gateway
+    hostname: "secondary.example.com"
     allowedRoutes:
       namespaces:
         from: All
+<<<<<<< HEAD
 
 ### The following defines the essential resources for the gateway conformance test.
 ### All resources are created in the 'gateway-conformance-app-backend' namespace.
@@ -94,6 +97,32 @@ spec:
         image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
         ports:
         - containerPort: 3000
+=======
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-model-1
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: inference-model-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inference-model-1
+  template:
+    metadata:
+      labels:
+        app: inference-model-1
+    spec:
+      containers:
+      - name: echo-basic-1
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        ports:
+        - name: http
+          containerPort: 3000
+>>>>>>> main
         readinessProbe:
           httpGet:
             path: /
@@ -115,6 +144,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
 ---
+<<<<<<< HEAD
 # --- InferencePool Definition ---
 apiVersion: inference.networking.x-k8s.io/v1alpha2
 kind: InferencePool
@@ -152,10 +182,20 @@ metadata:
   namespace: gateway-conformance-app-backend
   labels:
     app: app-backend-epp
+=======
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-model-2
+  namespace: gateway-conformance-app-backend
+  labels:
+    app: inference-model-2
+>>>>>>> main
 spec:
   replicas: 1
   selector:
     matchLabels:
+<<<<<<< HEAD
       app: app-backend-epp
   template:
     metadata:
@@ -231,3 +271,37 @@ roleRef:
   kind: Role
   name: inference-model-reader
   apiGroup: rbac.authorization.k8s.io
+=======
+      app: inference-model-2
+  template:
+    metadata:
+      labels:
+        app: inference-model-2
+    spec:
+      containers:
+      - name: echo-basic-2
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        ports:
+        - name: http
+          containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 3
+          periodSeconds: 5
+          failureThreshold: 2
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+>>>>>>> main
