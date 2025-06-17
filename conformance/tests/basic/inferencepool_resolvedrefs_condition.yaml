@@ -3,7 +3,7 @@
 # This manifest defines the initial resources for the
 # inferencepool_resolvedrefs_condition.go conformance test.
 
-# --- HTTPRoute for Primary Gateway (conformance-gateway) ---
+# --- HTTPRoute for Primary Gateway (conformance-primary-gateway) ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -13,7 +13,7 @@ spec:
   parentRefs:
   - group: gateway.networking.k8s.io
     kind: Gateway
-    name: conformance-gateway
+    name: conformance-primary-gateway
     namespace: gateway-conformance-infra
     sectionName: http
   hostnames:
@@ -23,7 +23,6 @@ spec:
     - group: inference.networking.x-k8s.io
       kind: InferencePool
       name: primary-inference-pool
-      port: 3000
     matches:
     - path:
         type: PathPrefix
@@ -49,7 +48,6 @@ spec:
     - group: inference.networking.x-k8s.io
       kind: InferencePool
       name: primary-inference-pool
-      port: 3000
     matches:
     - path:
         type: PathPrefix

@@ -6,7 +6,7 @@ metadata:
   namespace: gateway-conformance-app-backend
 spec:
   parentRefs:
-    - name: conformance-gateway
+    - name: conformance-primary-gateway
       namespace: gateway-conformance-infra
   rules:
     - matches:
@@ -17,7 +17,6 @@ spec:
         - name: primary-inference-pool
           kind: InferencePool
           group: inference.networking.x-k8s.io
-          port: 80
     - matches:
         - path:
             type: PathPrefix
@@ -26,4 +25,3 @@ spec:
         - name: secondary-inference-pool
           kind: InferencePool
           group: inference.networking.x-k8s.io
-          port: 80

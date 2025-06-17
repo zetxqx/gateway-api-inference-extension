@@ -50,7 +50,7 @@ var HTTPRouteMultipleRulesDifferentPools = suite.ConformanceTest{
 			poolPrimaryName   = "primary-inference-pool"
 			poolSecondaryName = "secondary-inference-pool"
 			routeName         = "httproute-multiple-rules-different-pools"
-			gatewayName       = "conformance-gateway"
+			gatewayName       = "conformance-primary-gateway"
 
 			backendPrimaryLabelValue   = "primary-inference-model-server"
 			backendSecondaryLabelValue = "secondary-inference-model-server"
