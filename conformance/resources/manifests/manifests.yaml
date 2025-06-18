@@ -58,13 +58,6 @@ spec:
 ### All resources are created in the 'gateway-conformance-app-backend' namespace.
 ---
 # Deploys a mock backend service to act as a model server.
-#
-# For conformance testing, a simple echo server is sufficient. The goal is to
-# verify that requests are successfully routed to a backend, not to validate
-# the content of the server's response. In a real-world use case, this would
-# be replaced by the actual model-serving application.
-#
-# The Pods created by this Deployment are selected by the InferencePool resource.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
