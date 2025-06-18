@@ -68,8 +68,8 @@ import (
 
 // Constants for the shared Gateway
 const (
-	SharedGatewayName      = "conformance-gateway"       // Name of the Gateway in manifests.yaml
-	SharedGatewayNamespace = "gateway-conformance-infra" // Namespace of the Gateway
+	SharedGatewayName      = "conformance-primary-gateway" // Name of the Gateway in manifests.yaml
+	SharedGatewayNamespace = "gateway-conformance-infra"   // Namespace of the Gateway
 )
 
 // GatewayLayerProfileName defines the name for the conformance profile that tests
@@ -88,6 +88,7 @@ const SupportInferencePool features.FeatureName = "SupportInferencePool"
 // of the "Gateway" profile for the Inference Extension MUST support.
 var InferenceCoreFeatures = sets.New(
 	features.SupportGateway, // This is needed to ensure manifest gets applied during setup.
+	features.SupportHTTPRoute,
 	SupportInferencePool,
 )
 
