@@ -48,6 +48,7 @@ func DefaultInferenceExtensionTimeoutConfig() InferenceExtensionTimeoutConfig {
 	config := gatewayconfig.DefaultTimeoutConfig()
 	config.HTTPRouteMustHaveCondition = 300 * time.Second
 	config.MaxTimeToConsistency = 200 * time.Second
+	config.DefaultTestTimeout = 600 * time.Second
 	return InferenceExtensionTimeoutConfig{
 		TimeoutConfig:                          config, // Initialize embedded struct
 		GeneralMustHaveConditionTimeout:        300 * time.Second,

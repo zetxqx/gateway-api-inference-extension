@@ -87,6 +87,7 @@ const SupportInferencePool features.FeatureName = "SupportInferencePool"
 // of the "Gateway" profile for the Inference Extension MUST support.
 var InferenceCoreFeatures = sets.New(
 	features.SupportGateway, // This is needed to ensure manifest gets applied during setup.
+	features.SupportHTTPRoute,
 	SupportInferencePool,
 )
 
