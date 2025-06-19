@@ -61,13 +61,13 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			// eppSelectionHeaderName is the custom header used by the testing-EPP service
 			// to determine which endpoint to select.
 			eppSelectionHeaderName = "test-epp-endpoint-selection"
-			appPodBackendPrefix    = "infra-backend-deployment"
+			appPodBackendPrefix    = "primary-inference-model-server"
 		)
 
 		httpRouteNN := types.NamespacedName{Name: "httproute-for-primary-gw", Namespace: appBackendNamespace}
-		gatewayNN := types.NamespacedName{Name: "conformance-gateway", Namespace: infraNamespace}
-		poolNN := types.NamespacedName{Name: "normal-gateway-pool", Namespace: appBackendNamespace}
-		backendPodLabels := map[string]string{"app": "infra-backend"}
+		gatewayNN := types.NamespacedName{Name: "conformance-primary-gateway", Namespace: infraNamespace}
+		poolNN := types.NamespacedName{Name: "primary-inference-pool", Namespace: appBackendNamespace}
+		backendPodLabels := map[string]string{"app": "primary-inference-model-server"}
 
 		t.Log("Verifying HTTPRoute and InferencePool are accepted and the Gateway has an address.")
 		k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, httpRouteNN, gatewayNN)
