@@ -34,17 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-<<<<<<< HEAD
-	// Import the Inference Extension API types
-	inferenceapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2" // Adjust if your API version is different
-
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 
 	// Import local config for Inference Extension
-=======
 	inferenceapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
->>>>>>> epptest
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/utils/config"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapiconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
@@ -409,7 +402,7 @@ func DeleteDeployment(t *testing.T, c client.Client, timeoutConfig gatewayapicon
 		}
 		if err != nil {
 			return false, fmt.Errorf("error waiting for Deployment %s/%s to be deleted: %w", deploymentRef.Namespace, deploymentRef.Name, err)
-			}
+		}
 		return false, nil
 	})
 	if waitErr != nil {
