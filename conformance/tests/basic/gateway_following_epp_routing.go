@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -142,7 +141,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 				t.Logf("Sending request to %s with EPP header '%s: %s'", gwAddr, eppSelectionHeaderName, eppHeaderValue)
 				t.Logf("Expecting traffic to be routed to pod: %v", tc.expectAllRequestsRoutedWithinPodNames)
 
-				assertTrafficReachesPods(t, s, gwAddr, gwhttp.ExpectedResponse{
+				assertTrafficOnlyReachesToExpectedPods(t, s, gwAddr, gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
 						Host:    hostname,
 						Path:    path,
@@ -160,7 +159,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 	},
 }
 
-func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr string, expected gwhttp.ExpectedResponse, requestBody string, expectedPodNames []string) {
+func assertTrafficOnlyReachesToExpectedPods(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr string, expected gwhttp.ExpectedResponse, requestBody string, expectedPodNames []string) {
 	t.Helper()
 	const (
 		concurrentRequests = 10
@@ -168,11 +167,8 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 	)
 	var (
 		roundTripper = suite.RoundTripper
-
-		g         errgroup.Group
-		seenMutex sync.Mutex
-		seen      = make(map[string]int)
-		req       = gwhttp.MakeRequest(t, &expected, gwAddr, "HTTP", "http")
+		g            errgroup.Group
+		req          = gwhttp.MakeRequest(t, &expected, gwAddr, "HTTP", "http")
 	)
 	g.SetLimit(concurrentRequests)
 	for i := 0; i < totalRequests; i++ {
@@ -185,10 +181,6 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 				return fmt.Errorf("response expectation failed for request: %w", err)
 			}
 
-			seenMutex.Lock()
-			defer seenMutex.Unlock()
-
-			seen[cReq.Pod]++
 			if slices.Contains(expectedPodNames, cReq.Pod) {
 				return nil
 			}
@@ -196,7 +188,7 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 		})
 	}
 	if err := g.Wait(); err != nil {
-		t.Fatalf("Not all the requests are sent to the expectedPods successfully, err: %v, Reached pods with request counts: %v", err, seen)
+		t.Fatalf("Not all the requests are sent to the expectedPods successfully, err: %v", err)
 	}
-	t.Logf("Traffic successfully reached all %d expected pods with the following request counts: %v", len(expectedPodNames), seen)
+	t.Logf("Traffic successfully reached only to expected pods: %v", expectedPodNames)
 }
