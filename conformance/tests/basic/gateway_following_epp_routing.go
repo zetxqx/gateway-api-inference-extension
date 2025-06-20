@@ -32,6 +32,7 @@ import (
 
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
 	k8sutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/kubernetes"
+	"sigs.k8s.io/gateway-api-inference-extension/conformance/utils/traffic"
 	trafficutils "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/traffic"
 	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
 )
@@ -147,20 +148,19 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 						Path:    path,
 						Method:  http.MethodPost,
 						Headers: headers,
-						Body:    requestBody,
 					},
 					Response: gwhttp.Response{
 						StatusCode: http.StatusOK,
 					},
 					Backend:   appPodBackendPrefix,
 					Namespace: appBackendNamespace,
-				}, tc.expectedPodNames)
+				}, requestBody, tc.expectedPodNames)
 			})
 		}
 	},
 }
 
-func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr string, expected gwhttp.ExpectedResponse, expectedPodNames []string) {
+func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr string, expected gwhttp.ExpectedResponse, requestBody string, expectedPodNames []string) {
 	t.Helper()
 	const (
 		concurrentRequests = 10
@@ -177,6 +177,7 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 	g.SetLimit(concurrentRequests)
 	for i := 0; i < totalRequests; i++ {
 		g.Go(func() error {
+			traffic.MakeCallRoundTripper(t, roundTripper, &traffic.RequestWithBody{req, strings.NewReader(requestBody)})
 			cReq, cRes, err := roundTripper.CaptureRoundTrip(req)
 			if err != nil {
 				return fmt.Errorf("failed to roundtrip request: %w", err)
