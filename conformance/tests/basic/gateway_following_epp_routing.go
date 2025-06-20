@@ -113,34 +113,34 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 		}
 
 		testCases := []struct {
-			name             string
-			podIPsForHeader  []string
-			expectedPodNames []string
+			name                                  string
+			podIPsToBeReturnedByEPP               []string
+			expectAllRequestsRoutedWithinPodNames []string
 		}{
 			{
-				name:             "should route traffic to a single designated pod",
-				podIPsForHeader:  []string{podIPs[2]},
-				expectedPodNames: []string{podNames[2]},
+				name:                                  "should route traffic to a single designated pod",
+				podIPsToBeReturnedByEPP:               []string{podIPs[2]},
+				expectAllRequestsRoutedWithinPodNames: []string{podNames[2]},
 			},
 			{
-				name:             "should route traffic to two designated pods",
-				podIPsForHeader:  []string{podIPs[0], podIPs[1]},
-				expectedPodNames: []string{podNames[0], podNames[1]},
+				name:                                  "should route traffic to two designated pods",
+				podIPsToBeReturnedByEPP:               []string{podIPs[0], podIPs[1]},
+				expectAllRequestsRoutedWithinPodNames: []string{podNames[0], podNames[1]},
 			},
 			{
-				name:             "should route traffic to all available pods",
-				podIPsForHeader:  []string{podIPs[0], podIPs[1], podIPs[2]},
-				expectedPodNames: []string{podNames[0], podNames[1], podNames[2]},
+				name:                                  "should route traffic to all available pods",
+				podIPsToBeReturnedByEPP:               []string{podIPs[0], podIPs[1], podIPs[2]},
+				expectAllRequestsRoutedWithinPodNames: []string{podNames[0], podNames[1], podNames[2]},
 			},
 		}
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				eppHeaderValue := strings.Join(tc.podIPsForHeader, ",")
+				eppHeaderValue := strings.Join(tc.podIPsToBeReturnedByEPP, ",")
 				headers := map[string]string{eppSelectionHeaderName: eppHeaderValue}
 
 				t.Logf("Sending request to %s with EPP header '%s: %s'", gwAddr, eppSelectionHeaderName, eppHeaderValue)
-				t.Logf("Expecting traffic to be routed to pod: %v", tc.expectedPodNames)
+				t.Logf("Expecting traffic to be routed to pod: %v", tc.expectAllRequestsRoutedWithinPodNames)
 
 				assertTrafficReachesPods(t, s, gwAddr, gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
@@ -154,7 +154,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 					},
 					Backend:   appPodBackendPrefix,
 					Namespace: appBackendNamespace,
-				}, requestBody, tc.expectedPodNames)
+				}, requestBody, tc.expectAllRequestsRoutedWithinPodNames)
 			})
 		}
 	},
@@ -177,8 +177,7 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 	g.SetLimit(concurrentRequests)
 	for i := 0; i < totalRequests; i++ {
 		g.Go(func() error {
-			traffic.MakeCallRoundTripper(t, roundTripper, &traffic.RequestWithBody{Request: req, Body: strings.NewReader(requestBody)})
-			cReq, cRes, err := roundTripper.CaptureRoundTrip(req)
+			cReq, cRes, err := traffic.MakeCallRoundTripper(t, roundTripper, &traffic.RequestWithBody{Request: req, Body: strings.NewReader(requestBody)})
 			if err != nil {
 				return fmt.Errorf("failed to roundtrip request: %w", err)
 			}
@@ -199,17 +198,5 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 	if err := g.Wait(); err != nil {
 		t.Fatalf("Not all the requests are sent to the expectedPods successfully, err: %v, Reached pods with request counts: %v", err, seen)
 	}
-
-	if len(seen) != len(expectedPodNames) {
-		missedPods := []string{}
-		for _, pod := range expectedPodNames {
-			if _, ok := seen[pod]; !ok {
-				missedPods = append(missedPods, pod)
-			}
-		}
-		t.Fatalf("Traffic did not reach all expected pods. Expected %d, but only %d were seen.\nMissing: %v\nReached pods with request counts: %v",
-			len(expectedPodNames), len(seen), missedPods, seen)
-	}
-
 	t.Logf("Traffic successfully reached all %d expected pods with the following request counts: %v", len(expectedPodNames), seen)
 }

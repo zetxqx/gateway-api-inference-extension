@@ -233,8 +233,8 @@ func makeExpectedResponse(t *testing.T, req Request) gwhttp.ExpectedResponse {
 	return expectedResponse
 }
 
-// TODO: replace the following method when sigs.k8s.io/gateway-api/conformance/utils/roundtripper is able to send request with body.
-// https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1031
+// TODO: https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1031
+// replace the following method when sigs.k8s.io/gateway-api/conformance/utils/roundtripper is able to send request with body.
 func waitForConvergeToExpected(
 	t *testing.T,
 	r roundtripper.RoundTripper,
@@ -265,12 +265,16 @@ func waitForConvergeToExpected(
 	tlog.Logf(t, "Request passed")
 }
 
+// TODO: https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1031
+// remove this when sigs.k8s.io/gateway-api/conformance/utils/roundtripper is able to send request with body.
 // RequestWithBody extends roundtripper.Request to include a request body.
 type RequestWithBody struct {
 	roundtripper.Request
 	Body io.Reader
 }
 
+// TODO: https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1031
+// remove this when sigs.k8s.io/gateway-api/conformance/utils/roundtripper is able to send request with body.
 // MakeCallRoundTripper executes an HTTP request using the provided RoundTripper and captures the request and response.
 func MakeCallRoundTripper(t *testing.T, r roundtripper.RoundTripper, request *RequestWithBody) (*roundtripper.CapturedRequest, *roundtripper.CapturedResponse, error) {
 	client := &http.Client{}
