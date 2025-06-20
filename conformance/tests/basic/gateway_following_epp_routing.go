@@ -177,7 +177,7 @@ func assertTrafficReachesPods(t *testing.T, suite *suite.ConformanceTestSuite, g
 	g.SetLimit(concurrentRequests)
 	for i := 0; i < totalRequests; i++ {
 		g.Go(func() error {
-			traffic.MakeCallRoundTripper(t, roundTripper, &traffic.RequestWithBody{req, strings.NewReader(requestBody)})
+			traffic.MakeCallRoundTripper(t, roundTripper, &traffic.RequestWithBody{Request: req, Body: strings.NewReader(requestBody)})
 			cReq, cRes, err := roundTripper.CaptureRoundTrip(req)
 			if err != nil {
 				return fmt.Errorf("failed to roundtrip request: %w", err)
