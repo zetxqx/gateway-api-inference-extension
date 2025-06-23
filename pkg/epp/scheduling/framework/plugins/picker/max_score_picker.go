@@ -28,14 +28,16 @@ import (
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/logging"
 )
 
-const MaxScorePickerName = "max-score"
+const (
+	MaxScorePickerType = "max-score"
+)
 
 // compile-time type validation
 var _ framework.Picker = &MaxScorePicker{}
 
-// MaxScorePickerFactory is the factory for the MaxScore picker
+// MaxScorePickerFactory defines the factory function for MaxScorePicker.
 func MaxScorePickerFactory(name string, _ json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
-	return &MaxScorePicker{random: NewRandomPicker()}, nil
+	return NewMaxScorePicker(), nil
 }
 
 // NewMaxScorePicker initializes a new MaxScorePicker and returns its pointer.
@@ -50,9 +52,9 @@ type MaxScorePicker struct {
 	random *RandomPicker
 }
 
-// Name returns the name of the picker.
-func (p *MaxScorePicker) Name() string {
-	return MaxScorePickerName
+// Type returns the type of the picker.
+func (p *MaxScorePicker) Type() string {
+	return MaxScorePickerType
 }
 
 // Pick selects the pod with the maximum score from the list of candidates.

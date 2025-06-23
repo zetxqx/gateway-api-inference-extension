@@ -26,12 +26,14 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
-const LeastKVCacheFilterName = "least-KV-cache"
+const (
+	LeastKVCacheFilterType = "least-KV-cache"
+)
 
 // compile-time type validation
 var _ framework.Filter = &LeastKVCacheFilter{}
 
-// LeastKVCacheFilterFactory is the plugin factory function for the Least KV Cache filter
+// LeastKVCacheFilterFactory defines the factory function for LeastKVCacheFilter.
 func LeastKVCacheFilterFactory(name string, _ json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
 	return NewLeastKVCacheFilter(), nil
 }
@@ -48,13 +50,13 @@ func NewLeastKVCacheFilter() *LeastKVCacheFilter {
 // least one as it gives more choices for the next filter, which on aggregate gave better results.
 type LeastKVCacheFilter struct{}
 
-// Name returns the name of the filter.
-func (f *LeastKVCacheFilter) Name() string {
-	return LeastKVCacheFilterName
+// Type returns the type of the filter.
+func (f *LeastKVCacheFilter) Type() string {
+	return LeastKVCacheFilterType
 }
 
 // Filter filters out pods that doesn't meet the filter criteria.
-func (f *LeastKVCacheFilter) Filter(_ context.Context, _ *types.LLMRequest, _ *types.CycleState, pods []types.Pod) []types.Pod {
+func (f *LeastKVCacheFilter) Filter(_ context.Context, _ *types.CycleState, _ *types.LLMRequest, pods []types.Pod) []types.Pod {
 	filteredPods := []types.Pod{}
 
 	min := math.MaxFloat64

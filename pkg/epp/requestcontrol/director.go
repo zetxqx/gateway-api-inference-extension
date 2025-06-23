@@ -91,12 +91,16 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 		return reqCtx, err
 	}
 
-	// NOTE: The nil checking for the modelObject means that we DO allow passthrough currently.
-	// This might be a security risk in the future where adapters not registered in the InferenceModel
-	// are able to be requested by using their distinct name.
 	modelObj := d.datastore.ModelGet(reqCtx.Model)
 	if modelObj == nil {
-		return reqCtx, errutil.Error{Code: errutil.BadConfiguration, Msg: fmt.Sprintf("error finding a model object in InferenceModel for input %v", reqCtx.Model)}
+		logger.Info("No associated inferenceModel found, using default", "model", reqCtx.Model)
+		sheddable := v1alpha2.Sheddable
+		modelObj = &v1alpha2.InferenceModel{
+			Spec: v1alpha2.InferenceModelSpec{
+				ModelName:   reqCtx.Model,
+				Criticality: &sheddable,
+			},
+		}
 	}
 
 	reqCtx.ResolvedTargetModel = reqCtx.Model
@@ -250,18 +254,18 @@ func RandomWeightedDraw(logger logr.Logger, model *v1alpha2.InferenceModel, seed
 func (d *Director) runPreRequestPlugins(ctx context.Context, request *schedulingtypes.LLMRequest, schedulingResult *schedulingtypes.SchedulingResult,
 	targetPort int) {
 	for _, plugin := range d.preRequestPlugins {
-		log.FromContext(ctx).V(logutil.DEBUG).Info("Running pre-request plugin", "plugin", plugin.Name())
+		log.FromContext(ctx).V(logutil.DEBUG).Info("Running pre-request plugin", "plugin", plugin.Type())
 		before := time.Now()
 		plugin.PreRequest(ctx, request, schedulingResult, targetPort)
-		metrics.RecordRequestControlPluginProcessingLatency(PreRequestPluginType, plugin.Name(), time.Since(before))
+		metrics.RecordRequestControlPluginProcessingLatency(PreRequestPluginType, plugin.Type(), time.Since(before))
 	}
 }
 
 func (d *Director) runPostResponsePlugins(ctx context.Context, request *schedulingtypes.LLMRequest, response *Response, targetPod *backend.Pod) {
 	for _, plugin := range d.postResponsePlugins {
-		log.FromContext(ctx).V(logutil.DEBUG).Info("Running post-response plugin", "plugin", plugin.Name())
+		log.FromContext(ctx).V(logutil.DEBUG).Info("Running post-response plugin", "plugin", plugin.Type())
 		before := time.Now()
 		plugin.PostResponse(ctx, request, response, targetPod)
-		metrics.RecordRequestControlPluginProcessingLatency(PostResponsePluginType, plugin.Name(), time.Since(before))
+		metrics.RecordRequestControlPluginProcessingLatency(PostResponsePluginType, plugin.Type(), time.Since(before))
 	}
 }

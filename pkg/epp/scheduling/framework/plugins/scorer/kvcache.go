@@ -27,15 +27,15 @@ import (
 
 const (
 	DefaultKVCacheScorerWeight = 1
-	KvCacheScorerName          = "kv-cache"
+	KvCacheScorerType          = "kv-cache"
 )
 
 // compile-time type assertion
 var _ framework.Scorer = &KVCacheScorer{}
 
-// KvCacheScorerFactory is the factory for the KV-Cache scorer
+// KvCacheScorerFactory defines the factory function for KVCacheScorer.
 func KvCacheScorerFactory(name string, _ json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
-	return &KVCacheScorer{}, nil
+	return NewKVCacheScorer(), nil
 }
 
 // NewKVCacheScorer initializes a new KVCacheScorer and returns its pointer.
@@ -46,13 +46,13 @@ func NewKVCacheScorer() *KVCacheScorer {
 // KVCacheScorer scores list of candidate pods based on KV cache utilization.
 type KVCacheScorer struct{}
 
-// Name returns the name of the scorer.
-func (s *KVCacheScorer) Name() string {
-	return KvCacheScorerName
+// Type returns the type of the scorer.
+func (s *KVCacheScorer) Type() string {
+	return KvCacheScorerType
 }
 
 // Score returns the scoring result for the given list of pods based on context.
-func (s *KVCacheScorer) Score(_ context.Context, _ *types.LLMRequest, _ *types.CycleState, pods []types.Pod) map[types.Pod]float64 {
+func (s *KVCacheScorer) Score(_ context.Context, _ *types.CycleState, _ *types.LLMRequest, pods []types.Pod) map[types.Pod]float64 {
 	scores := make(map[types.Pod]float64, len(pods))
 	for _, pod := range pods {
 		scores[pod] = 1 - pod.GetMetrics().KVCacheUsagePercent

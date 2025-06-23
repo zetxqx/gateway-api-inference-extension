@@ -19,17 +19,22 @@ package profile
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
-const SingleProfileHandlerName = "single-profile"
+const (
+	SingleProfileHandlerType = "single-profile"
+)
 
 // compile-time type assertion
 var _ framework.ProfileHandler = &SingleProfileHandler{}
 
+// SingleProfileHandlerFactory defines the factory function for SingleProfileHandler.
 func SingleProfileHandlerFactory(name string, _ json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
 	return NewSingleProfileHandler(), nil
 }
@@ -42,14 +47,14 @@ func NewSingleProfileHandler() *SingleProfileHandler {
 // SingleProfileHandler handles a single profile which is always the primary profile.
 type SingleProfileHandler struct{}
 
-// Name returns the name of the Profiles Picker.
-func (h *SingleProfileHandler) Name() string {
-	return SingleProfileHandlerName
+// Type returns the type of the Profile Handler.
+func (h *SingleProfileHandler) Type() string {
+	return SingleProfileHandlerType
 }
 
 // Pick selects the SchedulingProfiles to run from the list of candidate profiles, while taking into consideration the request properties and the
 // previously executed cycles along with their results.
-func (h *SingleProfileHandler) Pick(_ context.Context, request *types.LLMRequest, profiles map[string]*framework.SchedulerProfile,
+func (h *SingleProfileHandler) Pick(_ context.Context, _ *types.CycleState, request *types.LLMRequest, profiles map[string]*framework.SchedulerProfile,
 	profileResults map[string]*types.ProfileRunResult) map[string]*framework.SchedulerProfile {
 	if len(profiles) == len(profileResults) { // all profiles have been executed already in previous call
 		return map[string]*framework.SchedulerProfile{}
@@ -58,15 +63,28 @@ func (h *SingleProfileHandler) Pick(_ context.Context, request *types.LLMRequest
 	return profiles
 }
 
-func (h *SingleProfileHandler) ProcessResults(_ context.Context, _ *types.LLMRequest, profileResults map[string]*types.ProfileRunResult) *types.SchedulingResult {
-	var firstKey string
-	for key := range profileResults {
-		firstKey = key
+// ProcessResults handles the outcome of the profile runs after all profiles ran.
+// It may aggregate results, log test profile outputs, or apply custom logic. It specifies in the SchedulingResult the
+// key of the primary profile that should be used to get the request selected destination.
+// When a profile run fails, its result in the profileResults map is nil.
+func (h *SingleProfileHandler) ProcessResults(_ context.Context, _ *types.CycleState, _ *types.LLMRequest,
+	profileResults map[string]*types.ProfileRunResult) (*types.SchedulingResult, error) {
+	if len(profileResults) != 1 {
+		return nil, errors.New("single profile handler is intended to be used with a single profile, failed to process multiple profiles")
+	}
+
+	var singleProfileName string
+	for profileName := range profileResults {
+		singleProfileName = profileName
 		break
+	}
+
+	if profileResults[singleProfileName] == nil { // there was an error while running the profile
+		return nil, fmt.Errorf("failed to run scheduler profile '%s'", singleProfileName)
 	}
 
 	return &types.SchedulingResult{
 		ProfileResults:     profileResults,
-		PrimaryProfileName: firstKey,
-	}
+		PrimaryProfileName: singleProfileName,
+	}, nil
 }

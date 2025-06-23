@@ -28,7 +28,9 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
-const LowQueueFilterName = "low-queue"
+const (
+	LowQueueFilterType = "low-queue"
+)
 
 type lowQueueFilterParameters struct {
 	Threshold int `json:"threshold"`
@@ -37,20 +39,20 @@ type lowQueueFilterParameters struct {
 // compile-time type validation
 var _ framework.Filter = &LowQueueFilter{}
 
-// LowQueueFilterFactory is the factory function for the LowQueue filter
+// LowQueueFilterFactory defines the factory function for LowQueueFilter.
 func LowQueueFilterFactory(name string, rawParameters json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
 	parameters := lowQueueFilterParameters{Threshold: config.DefaultQueueingThresholdLoRA}
 	if err := json.Unmarshal(rawParameters, &parameters); err != nil {
-		return nil, fmt.Errorf("failed to parse the parameters of the %s filter. Error: %s", LowQueueFilterName, err)
+		return nil, fmt.Errorf("failed to parse the parameters of the '%s' filter - %w", LowQueueFilterType, err)
 	}
 
-	return &LowQueueFilter{queueingThresholdLoRA: parameters.Threshold}, nil
+	return NewLowQueueFilter(parameters.Threshold), nil
 }
 
 // NewLowQueueFilter initializes a new LowQueueFilter and returns its pointer.
-func NewLowQueueFilter() *LowQueueFilter {
+func NewLowQueueFilter(threshold int) *LowQueueFilter {
 	return &LowQueueFilter{
-		queueingThresholdLoRA: config.Conf.QueueingThresholdLoRA,
+		queueingThresholdLoRA: threshold,
 	}
 }
 
@@ -59,13 +61,13 @@ type LowQueueFilter struct {
 	queueingThresholdLoRA int
 }
 
-// Name returns the name of the filter.
-func (f *LowQueueFilter) Name() string {
-	return LowQueueFilterName
+// Type returns the type of the filter.
+func (f *LowQueueFilter) Type() string {
+	return LowQueueFilterType
 }
 
 // Filter filters out pods that doesn't meet the filter criteria.
-func (f *LowQueueFilter) Filter(_ context.Context, _ *types.LLMRequest, _ *types.CycleState, pods []types.Pod) []types.Pod {
+func (f *LowQueueFilter) Filter(_ context.Context, _ *types.CycleState, _ *types.LLMRequest, pods []types.Pod) []types.Pod {
 	filteredPods := []types.Pod{}
 
 	for _, pod := range pods {
