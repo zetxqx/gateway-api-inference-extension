@@ -18,19 +18,41 @@ package filter
 
 import (
 	"context"
+	"fmt"
 
+	"encoding/json"
+
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/config"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
-// compile-time type assertion
+const (
+	LowQueueFilterType = "low-queue"
+)
+
+type lowQueueFilterParameters struct {
+	Threshold int `json:"threshold"`
+}
+
+// compile-time type validation
 var _ framework.Filter = &LowQueueFilter{}
 
+// LowQueueFilterFactory defines the factory function for LowQueueFilter.
+func LowQueueFilterFactory(name string, rawParameters json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
+	parameters := lowQueueFilterParameters{Threshold: config.DefaultQueueingThresholdLoRA}
+	if err := json.Unmarshal(rawParameters, &parameters); err != nil {
+		return nil, fmt.Errorf("failed to parse the parameters of the '%s' filter - %w", LowQueueFilterType, err)
+	}
+
+	return NewLowQueueFilter(parameters.Threshold), nil
+}
+
 // NewLowQueueFilter initializes a new LowQueueFilter and returns its pointer.
-func NewLowQueueFilter() *LowQueueFilter {
+func NewLowQueueFilter(threshold int) *LowQueueFilter {
 	return &LowQueueFilter{
-		queueingThresholdLoRA: config.Conf.QueueingThresholdLoRA,
+		queueingThresholdLoRA: threshold,
 	}
 }
 
@@ -39,13 +61,13 @@ type LowQueueFilter struct {
 	queueingThresholdLoRA int
 }
 
-// Name returns the name of the filter.
-func (f *LowQueueFilter) Name() string {
-	return "low-queue"
+// Type returns the type of the filter.
+func (f *LowQueueFilter) Type() string {
+	return LowQueueFilterType
 }
 
 // Filter filters out pods that doesn't meet the filter criteria.
-func (f *LowQueueFilter) Filter(_ context.Context, _ *types.LLMRequest, _ *types.CycleState, pods []types.Pod) []types.Pod {
+func (f *LowQueueFilter) Filter(_ context.Context, _ *types.CycleState, _ *types.LLMRequest, pods []types.Pod) []types.Pod {
 	filteredPods := []types.Pod{}
 
 	for _, pod := range pods {

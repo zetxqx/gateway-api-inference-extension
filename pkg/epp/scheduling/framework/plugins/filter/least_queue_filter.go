@@ -18,14 +18,25 @@ package filter
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
-// compile-time type assertion
+const (
+	LeastQueueFilterType = "least-queue"
+)
+
+// compile-time type validation
 var _ framework.Filter = &LeastQueueFilter{}
+
+// LeastQueueFilterFactory defines the factory function for LeastQueueFilter.
+func LeastQueueFilterFactory(name string, _ json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
+	return NewLeastQueueFilter(), nil
+}
 
 // NewLeastQueueFilter initializes a new LeastQueueFilter and returns its pointer.
 func NewLeastQueueFilter() *LeastQueueFilter {
@@ -39,13 +50,13 @@ func NewLeastQueueFilter() *LeastQueueFilter {
 // the least one as it gives more choices for the next filter, which on aggregate gave better results.
 type LeastQueueFilter struct{}
 
-// Name returns the name of the filter.
-func (f *LeastQueueFilter) Name() string {
-	return "least-queue"
+// Type returns the type of the filter.
+func (f *LeastQueueFilter) Type() string {
+	return LeastQueueFilterType
 }
 
 // Filter filters out pods that doesn't meet the filter criteria.
-func (f *LeastQueueFilter) Filter(_ context.Context, _ *types.LLMRequest, _ *types.CycleState, pods []types.Pod) []types.Pod {
+func (f *LeastQueueFilter) Filter(_ context.Context, _ *types.CycleState, _ *types.LLMRequest, pods []types.Pod) []types.Pod {
 	filteredPods := []types.Pod{}
 
 	min := math.MaxInt

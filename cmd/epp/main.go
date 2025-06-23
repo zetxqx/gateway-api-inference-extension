@@ -19,11 +19,18 @@ package main
 import (
 	"os"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"sigs.k8s.io/gateway-api-inference-extension/cmd/epp/runner"
 )
 
 func main() {
-	if err := runner.NewRunner().Run(); err != nil {
+	// Register all known plugin factories
+	runner.RegisterAllPlugins()
+	// For adding out-of-tree plugins to the plugins registry, use the following:
+	// plugins.Register(my-out-of-tree-plugin-name, my-out-of-tree-plugin-factory-function)
+
+	if err := runner.NewRunner().Run(ctrl.SetupSignalHandler()); err != nil {
 		os.Exit(1)
 	}
 }

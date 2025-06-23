@@ -17,6 +17,7 @@ limitations under the License.
 package runner
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -37,6 +38,7 @@ import (
 	conformance_epp "sigs.k8s.io/gateway-api-inference-extension/conformance/testing-epp"
 	"sigs.k8s.io/gateway-api-inference-extension/internal/runnable"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/common/config"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics/collectors"
@@ -92,7 +94,8 @@ var (
 	logVerbosity  = flag.Int("v", logging.DEFAULT, "number for the log level verbosity")
 	secureServing = flag.Bool(
 		"secureServing", runserver.DefaultSecureServing, "Enables secure serving. Defaults to true.")
-	certPath = flag.String(
+	healthChecking = flag.Bool("healthChecking", runserver.DefaultHealthChecking, "Enables health checking")
+	certPath       = flag.String(
 		"certPath", "", "The path to the certificate for secure serving. The certificate and private key files "+
 			"are assumed to be named tls.crt and tls.key, respectively. If not set, and secureServing is enabled, "+
 			"then a self-signed certificate is used.")
@@ -107,6 +110,9 @@ var (
 	loraInfoMetric = flag.String("loraInfoMetric",
 		"vllm:lora_requests_info",
 		"Prometheus metric for the LoRA info metrics (must be in vLLM label format).")
+	// configuration flags
+	configFile = flag.String("configFile", "", "The path to the configuration file")
+	configText = flag.String("configText", "", "The configuration specified as text, in lieu of a file")
 
 	setupLog = ctrl.Log.WithName("setup")
 
@@ -139,7 +145,7 @@ func (r *Runner) WithSchedulerConfig(schedulerConfig *scheduling.SchedulerConfig
 	return r
 }
 
-func (r *Runner) Run() error {
+func (r *Runner) Run(ctx context.Context) error {
 	opts := zap.Options{
 		Development: true,
 	}
@@ -182,7 +188,7 @@ func (r *Runner) Run() error {
 	}
 	verifyMetricMapping(*mapping, setupLog)
 	pmf := backendmetrics.NewPodMetricsFactory(&backendmetrics.PodMetricsClientImpl{MetricMapping: mapping}, *refreshMetricsInterval)
-	ctx := ctrl.SetupSignalHandler()
+
 	datastore := datastore.NewDatastore(ctx, pmf)
 
 	// --- Setup Metrics Server ---
@@ -209,6 +215,32 @@ func (r *Runner) Run() error {
 		return err
 	}
 
+	if len(*configText) != 0 || len(*configFile) != 0 {
+		theConfig, err := config.LoadConfig([]byte(*configText), *configFile)
+		if err != nil {
+			setupLog.Error(err, "Failed to load the configuration")
+			return err
+		}
+
+		epp := eppHandle{}
+		instantiatedPlugins, err := config.LoadPluginReferences(theConfig.Plugins, epp)
+		if err != nil {
+			setupLog.Error(err, "Failed to instantiate the plugins")
+			return err
+		}
+
+		r.schedulerConfig, err = scheduling.LoadSchedulerConfig(theConfig.SchedulingProfiles, instantiatedPlugins)
+		if err != nil {
+			setupLog.Error(err, "Failed to create Scheduler configuration")
+			return err
+		}
+
+		// Add requestcontrol plugins
+		if instantiatedPlugins != nil {
+			r.requestControlConfig = requestcontrol.LoadRequestControlConfig(instantiatedPlugins)
+		}
+	}
+
 	// --- Initialize Core EPP Components ---
 	scheduler, err := r.initializeScheduler(datastore)
 	if err != nil {
@@ -228,6 +260,7 @@ func (r *Runner) Run() error {
 		PoolNamespacedName:                       poolNamespacedName,
 		Datastore:                                datastore,
 		SecureServing:                            *secureServing,
+		HealthChecking:                           *healthChecking,
 		CertPath:                                 *certPath,
 		RefreshPrometheusMetricsInterval:         *refreshPrometheusMetricsInterval,
 		Director:                                 director,
@@ -318,7 +351,7 @@ func loadPrefixCacheConfig() prefix.Config {
 	return prefix.Config{
 		HashBlockSize:          envutil.GetEnvInt("PREFIX_CACHE_HASH_BLOCK_SIZE", prefix.DefaultHashBlockSize, baseLogger),
 		MaxPrefixBlocksToMatch: envutil.GetEnvInt("PREFIX_CACHE_MAX_PREFIX_BLOCKS", prefix.DefaultMaxPrefixBlocks, baseLogger),
-		LRUIndexerCapacity:     envutil.GetEnvInt("PREFIX_CACHE_LRU_CAPACITY", prefix.DefaultLRUIndexerCapacity, baseLogger),
+		LRUCapacityPerServer:   envutil.GetEnvInt("PREFIX_CACHE_LRU_CAPACITY_PER_SERVER", prefix.DefaultLRUCapacityPerServer, baseLogger),
 	}
 }
 
@@ -350,6 +383,9 @@ func registerHealthServer(mgr manager.Manager, logger logr.Logger, ds datastore.
 func validateFlags() error {
 	if *poolName == "" {
 		return fmt.Errorf("required %q flag not set", "poolName")
+	}
+	if len(*configText) != 0 && len(*configFile) != 0 {
+		return fmt.Errorf("both the %s and %s flags can not be set at the same time", "configText", "configFile")
 	}
 
 	return nil

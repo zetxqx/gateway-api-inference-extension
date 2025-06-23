@@ -20,6 +20,7 @@ import (
 	"time"
 
 	// Import the upstream Gateway API timeout config
+
 	gatewayconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 )
 
@@ -29,8 +30,8 @@ type InferenceExtensionTimeoutConfig struct {
 	// All fields from gatewayconfig.TimeoutConfig will be available directly.
 	gatewayconfig.TimeoutConfig
 
-	// InferencePoolMustHaveConditionTimeout represents the maximum time to wait for an InferencePool to have a specific condition.
-	InferencePoolMustHaveConditionTimeout time.Duration
+	// GeneralMustHaveConditionTimeout represents the maximum time to wait for an InferencePool, HttpRoute or other assets to have a specific condition.
+	GeneralMustHaveConditionTimeout time.Duration
 
 	// InferencePoolMustHaveConditionInterval represents the polling interval for checking an InferencePool's condition.
 	InferencePoolMustHaveConditionInterval time.Duration
@@ -38,16 +39,19 @@ type InferenceExtensionTimeoutConfig struct {
 	// GatewayObjectPollInterval is the polling interval used when waiting for a Gateway object to appear.
 	GatewayObjectPollInterval time.Duration
 
-	// HTTPRouteDeletionReconciliationTimeout is the time to wait for controllers to reconcile
-	// state after an HTTPRoute is deleted, before checking dependent resources or traffic.
+	// HTTPRouteConditionTimeout represents the maximum time to wait for an HTTPRoute to have a specific condition.
 	HTTPRouteDeletionReconciliationTimeout time.Duration
 }
 
 // DefaultInferenceExtensionTimeoutConfig returns a new InferenceExtensionTimeoutConfig with default values.
 func DefaultInferenceExtensionTimeoutConfig() InferenceExtensionTimeoutConfig {
+	config := gatewayconfig.DefaultTimeoutConfig()
+	config.HTTPRouteMustHaveCondition = 300 * time.Second
+	config.MaxTimeToConsistency = 200 * time.Second
+	config.DefaultTestTimeout = 600 * time.Second
 	return InferenceExtensionTimeoutConfig{
-		TimeoutConfig:                          gatewayconfig.DefaultTimeoutConfig(), // Initialize embedded struct
-		InferencePoolMustHaveConditionTimeout:  300 * time.Second,
+		TimeoutConfig:                          config, // Initialize embedded struct
+		GeneralMustHaveConditionTimeout:        300 * time.Second,
 		InferencePoolMustHaveConditionInterval: 10 * time.Second,
 		GatewayObjectPollInterval:              5 * time.Second,
 		HTTPRouteDeletionReconciliationTimeout: 5 * time.Second,

@@ -109,7 +109,7 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
---- 
+---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -119,5 +119,6 @@ subjects:
   name: default
   namespace: $E2E_NS
 roleRef:
+  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: pod-read

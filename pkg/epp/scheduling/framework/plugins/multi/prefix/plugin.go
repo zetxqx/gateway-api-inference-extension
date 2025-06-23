@@ -19,12 +19,14 @@ package prefix
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/logging"
@@ -32,11 +34,6 @@ import (
 
 const (
 	DefaultScorerWeight = 1
-	// Attempt to return DefaultNumServersToMatch servers with their longest prefix match length.
-	// Why not just return the server with longest prefix match?
-	// It may not be the optimal choice, e.g., it may have a high queue depth.
-	// We optimistically search more than one to give more candidates for the scheduler to choose.
-	DefaultNumServersToMatch = 2
 	// vLLM default token block size is 16, and a good guess of average characters per token is 4.
 	DefaultHashBlockSize = 64
 	// The maximum number of blocks to match. Two long requests with the same prefix up to this
@@ -44,31 +41,29 @@ const (
 	// This parameter provides a trade-off between cache size, prefix matching speed and matching
 	// accuracy. Use a small value if most requests are short to reduce cache size and speed up the
 	// matching process. Use a large value if most requests are long to increase the matching accuracy.
-	DefaultMaxPrefixBlocks = 128
-	// The indexer is an approximation to the actual prefix cache state on the model servers.
+	DefaultMaxPrefixBlocks = 256
+	// The indexer is an approximation to the actual prefix LRU cache state on the model servers per server (pod).
 	// A small capacity ensures a high accuracy of cache hit on the model server, but it will
 	// increase the chance of false negatives. A high capacity does the opposite.
 	// To properly size this, consider the sum of the total number of cache entries on all model
-	// servers. Consider the llama3 8B model on 3 H100 80GB GPUs. The size of the model weight is
-	// about 16GB. Assume 50% of the remaining HBM is used for caching prefixes, we have 32GB. Each
-	// token is about 128KB in size, so we can cache 250K tokens. Using the default block size of 16
-	// in vLLM, we will have 250K / 16 = 15.6K blocks. In total we have 15.6K * 3 = 46.8K blocks, or
-	// roughly 50K.
-	// How much memory space does it require to hold the 50K block hashes?
-	// According to the estimates in indexer.estimateEntrySize(), the size of each entry is
-	// approximately 348 bytes. So in total we have 50K * 348 = 17.4MB.
-	DefaultLRUIndexerCapacity = 50000
+	// servers. Consider the llama3 8B model on a H100 80GB GPUs. The size of the model weight is
+	// about 16GB. The remaining HBM used for caching prefixes is 64GB. Each
+	// token is about 128KB in size, so we can cache 500K tokens. Using the default block size of 16
+	// in vLLM, we will have 250K / 16 = 31.25K blocks.
+	DefaultLRUCapacityPerServer = 31250
+
+	PrefixCachePluginType = "prefix-cache"
 )
 
 type Config struct {
 	// The input prompt is broken into sizes of HashBlockSize to calculate block hashes . Requests
 	// with length shorter than the block size will be ignored.
-	HashBlockSize int
+	HashBlockSize int `json:"hashBlockSize"`
 	// MaxPrefixBlocksToMatch is the maximum number of prefix blocks to match. Input beyond this limit will
 	// be ignored.
-	MaxPrefixBlocksToMatch int
-	// Max (approximate) size of the LRU indexer in number of entries.
-	LRUIndexerCapacity int
+	MaxPrefixBlocksToMatch int `json:"maxPrefixBlocksToMatch"`
+	// Max capacity size of the LRU indexer in number of entries per server (pod).
+	LRUCapacityPerServer int `json:"lruCapacityPerServer"`
 }
 
 type Plugin struct {
@@ -76,8 +71,11 @@ type Plugin struct {
 	indexer Indexer
 }
 
+// podSet holds an pods servers that may have a specific prefix hash.
+type podSet map[ServerID]struct{}
+
 type Indexer interface {
-	Get(hash BlockHash) map[ServerID]bool
+	Get(hash BlockHash) podSet
 	Add(hashes []BlockHash, server ServerID)
 }
 
@@ -90,7 +88,7 @@ func (s ServerID) String() string {
 	return k8stypes.NamespacedName(s).String()
 }
 
-// compile-time type assertion
+// compile-time type validation
 var _ types.StateData = &schedulingContextState{}
 
 // This is the state of this plugin to be used during a scheduling cycle.
@@ -119,34 +117,57 @@ func (s *schedulingContextState) Clone() types.StateData {
 var _ framework.Scorer = &Plugin{}
 var _ framework.PostCycle = &Plugin{}
 
+// PrefixCachePluginFactory defines the factory function for Prefix plugin.
+func PrefixCachePluginFactory(name string, rawParameters json.RawMessage, _ plugins.Handle) (plugins.Plugin, error) {
+	parameters := Config{
+		HashBlockSize:          DefaultHashBlockSize,
+		MaxPrefixBlocksToMatch: DefaultMaxPrefixBlocks,
+		LRUCapacityPerServer:   DefaultLRUCapacityPerServer,
+	}
+	if err := json.Unmarshal(rawParameters, &parameters); err != nil {
+		return nil, fmt.Errorf("failed to parse the parameters of the %s plugin. Error: %s", PrefixCachePluginType, err)
+	}
+
+	return &Plugin{
+		Config:  parameters,
+		indexer: newIndexer(parameters.LRUCapacityPerServer),
+	}, nil
+}
+
 // New initializes a new prefix Plugin and returns its pointer.
 func New(config Config) *Plugin {
+	capacity := config.LRUCapacityPerServer
+	if capacity <= 0 {
+		capacity = DefaultLRUCapacityPerServer
+		log.FromContext(context.TODO()).V(logutil.DEFAULT).Info(
+			"LRUCapacityPerServer is not positive, using default value",
+			"defaultCapacity", DefaultLRUCapacityPerServer,
+		)
+	}
+
 	m := &Plugin{
 		Config:  config,
-		indexer: newIndexer(config.LRUIndexerCapacity),
+		indexer: newIndexer(capacity),
 	}
 	return m
 }
 
-// Name returns the name of the plugin.
-func (m *Plugin) Name() string {
-	return "prefix-cache"
+// Type returns the type of the plugin.
+func (m *Plugin) Type() string {
+	return PrefixCachePluginType
 }
 
 // Score returns the scoring result for the given list of pods based on context.
-func (m *Plugin) Score(ctx context.Context, request *types.LLMRequest, cycleState *types.CycleState, pods []types.Pod) map[types.Pod]float64 {
+func (m *Plugin) Score(ctx context.Context, cycleState *types.CycleState, request *types.LLMRequest, pods []types.Pod) map[types.Pod]float64 {
 	loggerTrace := log.FromContext(ctx).V(logutil.TRACE)
 	// pre score step, hashing prompt and find longest prefix match.
 	hashes := hashPrompt(ctx, request, m.HashBlockSize, m.MaxPrefixBlocksToMatch)
-	numServers := DefaultNumServersToMatch
-	if numServers > len(pods) {
-		numServers = len(pods)
-	}
 	state := &schedulingContextState{
 		PrefixHashes:       hashes,
-		PrefixCacheServers: m.matchLongestPrefix(ctx, hashes, numServers),
+		PrefixCacheServers: m.matchLongestPrefix(ctx, hashes),
 	}
-	cycleState.Write(types.StateKey(m.Name()), state)
+
+	cycleState.Write(types.StateKey(m.Type()), state)
 	loggerTrace.Info(fmt.Sprintf("cached servers: %+v", state.PrefixCacheServers), "hashes", state.PrefixHashes)
 	// calculate the scores of pods
 	scores := make(map[types.Pod]float64, len(pods))
@@ -174,29 +195,31 @@ func (m *Plugin) PostCycle(ctx context.Context, cycleState *types.CycleState, re
 		log.FromContext(ctx).Error(err, "failed to read prefix plugin cycle state")
 		return
 	}
+
 	m.indexer.Add(state.PrefixHashes, ServerID(targetPod.NamespacedName))
+
 	total := len(state.PrefixHashes)
 	matchLen := state.PrefixCacheServers[ServerID(targetPod.NamespacedName)]
 	metrics.RecordPrefixCacheMatch(matchLen*m.HashBlockSize, total*m.HashBlockSize)
 }
 
 // matchLongestPrefix returns a map of servers and length of prefix that each server caches.
-func (m *Plugin) matchLongestPrefix(ctx context.Context, hashes []BlockHash, numServers int) map[ServerID]int {
+func (m *Plugin) matchLongestPrefix(ctx context.Context, hashes []BlockHash) map[ServerID]int {
 	loggerTrace := log.FromContext(ctx).V(logutil.TRACE)
 	res := make(map[ServerID]int)
 	// Use a greedy strategy to search from the longest prefix.
 	// NOTE: It's possible to further optimize this with a binary search.
-	for i := len(hashes) - 1; i >= 0 && len(res) < numServers; i-- {
+	for i := 0; i < len(hashes); i++ {
 		hash := hashes[i]
 		cachedServers := m.indexer.Get(hash)
-		if len(cachedServers) > 0 {
+		if len(cachedServers) == 0 {
+			break
+		} else {
 			loggerTrace.Info("Found cached servers", "cachedServers", cachedServers, "total # blocks", len(hashes), "longest prefix", i)
 			for server := range cachedServers {
 				// Update servers with their longest prefix match.
-				// If we already found this server with longer prefix match, don't update it.
-				if _, ok := res[server]; !ok {
-					res[server] = i + 1
-				}
+				res[server]++
+
 			}
 		}
 	}
@@ -205,7 +228,7 @@ func (m *Plugin) matchLongestPrefix(ctx context.Context, hashes []BlockHash, num
 
 // getPrefixState returns the cycle state as a schedulingContextState.
 func (m *Plugin) getPrefixState(cycleState *types.CycleState) (*schedulingContextState, error) {
-	prefixStateKey := types.StateKey(m.Name())
+	prefixStateKey := types.StateKey(m.Type())
 	state, err := cycleState.Read(prefixStateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading %q from CycleState: %w", prefixStateKey, err)
