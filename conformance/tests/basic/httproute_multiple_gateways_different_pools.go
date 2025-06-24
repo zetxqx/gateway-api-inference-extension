@@ -64,7 +64,7 @@ var HTTPRouteMultipleGatewaysDifferentPools = suite.ConformanceTest{
 		secondaryGatewayNN := types.NamespacedName{Name: secondaryGatewayName, Namespace: infraNamespace}
 
 		t.Run("Primary HTTPRoute, InferencePool, and Gateway path: verify status and traffic", func(t *testing.T) {
-			k8sutils.HTTPRouteAndInferencePoolMustBeAcceptedAndRouteAccepted(
+			k8sutils.HTTPRouteAndInferencePoolMustBeAcceptedAndAcceptedByParent(
 				t,
 				s.Client,
 				routeForPrimaryGWNN,
@@ -90,7 +90,7 @@ var HTTPRouteMultipleGatewaysDifferentPools = suite.ConformanceTest{
 		})
 
 		t.Run("Secondary HTTPRoute, InferencePool, and Gateway path: verify status and traffic", func(t *testing.T) {
-			k8sutils.HTTPRouteAndInferencePoolMustBeAcceptedAndRouteAccepted(
+			k8sutils.HTTPRouteAndInferencePoolMustBeAcceptedAndAcceptedByParent(
 				t,
 				s.Client,
 				routeForSecondaryGWNN,

@@ -61,17 +61,19 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 			path := "/test-port-unspecified"
 
 			k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, routeNN, gatewayNN)
-			k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN)
+			k8sutils.InferencePoolMustBeAcceptedByParentGateway(t, s.Client, poolNN, gatewayNN)
 
 			trafficutils.MakeRequestAndExpectSuccess(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gatewayAddr,
-				hostname,
-				path,
-				backendDeploymentName,
-				appBackendNamespace,
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Backend:   backendDeploymentName,
+					Namespace: appBackendNamespace,
+				},
 			)
 		})
 
@@ -81,17 +83,19 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 			path := "/test-port-matching"
 
 			k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, routeNN, gatewayNN)
-			k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN)
+			k8sutils.InferencePoolMustBeAcceptedByParentGateway(t, s.Client, poolNN, gatewayNN)
 
 			trafficutils.MakeRequestAndExpectSuccess(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gatewayAddr,
-				hostname,
-				path,
-				backendDeploymentName,
-				appBackendNamespace,
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Backend:   backendDeploymentName,
+					Namespace: appBackendNamespace,
+				},
 			)
 		})
 
@@ -102,17 +106,19 @@ var InferencePoolHTTPRoutePortValidation = suite.ConformanceTest{
 			path := "/test-port-non-matching"
 
 			k8sutils.HTTPRouteMustBeAcceptedAndResolved(t, s.Client, s.TimeoutConfig, routeNN, gatewayNN)
-			k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN)
+			k8sutils.InferencePoolMustBeAcceptedByParentGateway(t, s.Client, poolNN, gatewayNN)
 
 			trafficutils.MakeRequestAndExpectSuccess(
 				t,
 				s.RoundTripper,
 				s.TimeoutConfig,
 				gatewayAddr,
-				hostname,
-				path,
-				backendDeploymentName,
-				appBackendNamespace,
+				trafficutils.Request{
+					Host:      hostname,
+					Path:      path,
+					Backend:   backendDeploymentName,
+					Namespace: appBackendNamespace,
+				},
 			)
 		})
 	},

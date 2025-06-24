@@ -30,7 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,10 +66,10 @@ func checkCondition(t *testing.T, conditions []metav1.Condition, expectedConditi
 	return false
 }
 
-// InferencePoolMustHaveCondition waits for the specified InferencePool resource
+// InferencePoolMustHaveGatewayCondition waits for the specified InferencePool resource
 // to exist and report the expected status condition within one of its parent statuses.
 // It polls the InferencePool's status until the condition is met or the timeout occurs.
-func InferencePoolMustHaveCondition(t *testing.T, c client.Client, poolNN types.NamespacedName, expectedCondition metav1.Condition) {
+func InferencePoolMustHaveGatewayCondition(t *testing.T, c client.Client, poolNN types.NamespacedName, gwNN types.NamespacedName, expectedCondition metav1.Condition) {
 	t.Helper() // Marks this function as a test helper
 
 	var timeoutConfig config.InferenceExtensionTimeoutConfig = config.DefaultInferenceExtensionTimeoutConfig()
@@ -105,7 +104,8 @@ func InferencePoolMustHaveCondition(t *testing.T, c client.Client, poolNN types.
 			}
 
 			for _, parentStatus := range pool.Status.Parents {
-				if checkCondition(t, parentStatus.Conditions, expectedCondition) {
+				if parentStatus.GatewayRef.Namespace == gwNN.Name && parentStatus.GatewayRef.Name == gwNN.Name &&
+					checkCondition(t, parentStatus.Conditions, expectedCondition) {
 					conditionFound = true
 					return true, nil
 				}
@@ -240,10 +240,10 @@ func HTTPRouteMustBeAcceptedAndResolved(t *testing.T, c client.Client, timeoutCo
 	t.Logf("HTTPRoute %s is now Accepted and has ResolvedRefs by Gateway %s", routeNN.String(), gatewayNN.String())
 }
 
-// InferencePoolMustBeAcceptedByParent waits for the specified InferencePool
+// InferencePoolMustBeAcceptedByParentGateway waits for the specified InferencePool
 // to report an Accepted condition with status True and reason "Accepted"
 // from at least one of its parent Gateways.
-func InferencePoolMustBeAcceptedByParent(t *testing.T, c client.Client, poolNN types.NamespacedName) {
+func InferencePoolMustBeAcceptedByParentGateway(t *testing.T, c client.Client, poolNN types.NamespacedName, gwNN types.NamespacedName) {
 	t.Helper()
 
 	acceptedByParentCondition := metav1.Condition{
@@ -253,33 +253,15 @@ func InferencePoolMustBeAcceptedByParent(t *testing.T, c client.Client, poolNN t
 	}
 
 	t.Logf("Waiting for InferencePool %s to be Accepted by a parent Gateway (Reason: %s)", poolNN.String(), gatewayv1.GatewayReasonAccepted)
-	InferencePoolMustHaveCondition(t, c, poolNN, acceptedByParentCondition)
+	InferencePoolMustHaveGatewayCondition(t, c, poolNN, gwNN, acceptedByParentCondition)
 	t.Logf("InferencePool %s is Accepted by a parent Gateway (Reason: %s)", poolNN.String(), gatewayv1.GatewayReasonAccepted)
 }
 
-// InferencePoolMustBeRouteAccepted waits for the specified InferencePool resource
-// to exist and report an Accepted condition with Type=RouteConditionAccepted,
-// Status=True, and Reason=RouteReasonAccepted within one of its parent statuses.
-func InferencePoolMustBeRouteAccepted(t *testing.T, c client.Client, poolNN types.NamespacedName) {
-	t.Helper()
-
-	expectedPoolCondition := metav1.Condition{
-		Type:   string(gatewayv1.RouteConditionAccepted),
-		Status: metav1.ConditionTrue,
-		Reason: string(gatewayv1.RouteReasonAccepted),
-	}
-
-	// Call the existing generic helper with the predefined condition
-	InferencePoolMustHaveCondition(t, c, poolNN, expectedPoolCondition)
-	t.Logf("InferencePool %s successfully verified with RouteAccepted condition (Type: %s, Status: %s, Reason: %s).",
-		poolNN.String(), expectedPoolCondition.Type, expectedPoolCondition.Status, expectedPoolCondition.Reason)
-}
-
-// HTTPRouteAndInferencePoolMustBeAcceptedAndRouteAccepted waits for the specified HTTPRoute
+// HTTPRouteAndInferencePoolMustBeAcceptedAndAcceptedByParent waits for the specified HTTPRoute
 // to be Accepted and have its references resolved by the specified Gateway,
 // AND for the specified InferencePool to be "RouteAccepted" using the specific
 // RouteConditionAccepted criteria.
-func HTTPRouteAndInferencePoolMustBeAcceptedAndRouteAccepted(
+func HTTPRouteAndInferencePoolMustBeAcceptedAndAcceptedByParent(
 	t *testing.T,
 	c client.Client,
 	routeNN types.NamespacedName,
@@ -289,7 +271,7 @@ func HTTPRouteAndInferencePoolMustBeAcceptedAndRouteAccepted(
 	var timeoutConfig config.InferenceExtensionTimeoutConfig = config.DefaultInferenceExtensionTimeoutConfig()
 
 	HTTPRouteMustBeAcceptedAndResolved(t, c, timeoutConfig.TimeoutConfig, routeNN, gatewayNN)
-	InferencePoolMustBeRouteAccepted(t, c, poolNN)
+	InferencePoolMustBeAcceptedByParentGateway(t, c, poolNN, gatewayNN)
 	t.Logf("Successfully verified: HTTPRoute %s (Gateway %s) is Accepted & Resolved, and InferencePool %s is RouteAccepted.",
 		routeNN.String(), gatewayNN.String(), poolNN.String())
 }
@@ -311,63 +293,37 @@ func GetGatewayEndpoint(t *testing.T, k8sClient client.Client, timeoutConfig gat
 
 // GetPodsWithLabel retrieves a list of Pods.
 // It finds pods matching the given labels in a specific namespace.
-func GetPodsWithLabel(t *testing.T, c client.Client, namespace string, labels map[string]string) ([]corev1.Pod, error) {
+func GetPodsWithLabel(t *testing.T, c client.Client, namespace string, labels map[string]string, timeConfig gatewayapiconfig.TimeoutConfig) ([]corev1.Pod, error) {
 	t.Helper()
 
-	podList := &corev1.PodList{}
+	pods := &corev1.PodList{}
+	timeout := timeConfig.RequestTimeout
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	listOptions := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(labels),
 	}
 
 	t.Logf("Searching for Pods with labels %v in namespace %s", labels, namespace)
-	if err := c.List(context.Background(), podList, listOptions...); err != nil {
-		return nil, fmt.Errorf("failed to list pods with labels '%v' in namespace '%s': %w", labels, namespace, err)
-	}
-
-	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("no pods found with labels '%v' in namespace '%s'", labels, namespace)
-	}
-	return podList.Items, nil
-}
-
-// GetPod waits for a Pod matching the specified labels to exist in the given
-// namespace and have an IP address assigned. This function returns the first
-// matching Pod found if there are multiple matches. It fails the on timeout or error.
-// TODO(#1003) combline with GetPodsWithLabel that is being introduced in PR #961
-func GetPod(t *testing.T, c client.Client, namespace string, selector labels.Selector, timeout time.Duration) *corev1.Pod {
-	t.Helper()
-
-	var pods corev1.PodList
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
 	waitErr := wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
-		if err := c.List(ctx, &pods, &client.ListOptions{
-			LabelSelector: selector,
-			Namespace:     namespace,
-		}); err != nil {
-			t.Logf("Error listing pods with selector %s: %v. Retrying.", selector.String(), err)
-			return false, nil
+		if err := c.List(context.Background(), pods, listOptions...); err != nil {
+			return false, fmt.Errorf("failed to list pods with labels '%v' in namespace '%s': %w", labels, namespace, err)
 		}
-
 		if len(pods.Items) > 0 {
-			pod := pods.Items[0]
-			if pod.Status.PodIP != "" && pod.Status.Phase == corev1.PodRunning {
-				return true, nil
+			for _, pod := range pods.Items {
+				if pod.Status.PodIP == "" || pod.Status.Phase != corev1.PodRunning {
+					t.Logf("Pod %s found, but not yet running or has no IP. Current phase: %s, IP: '%s'. Retrying.", pod.Name, pod.Status.Phase, pod.Status.PodIP)
+					return false, nil
+				}
 			}
-			t.Logf("Pod %s found, but not yet running or has no IP. Current phase: %s, IP: '%s'. Retrying.", pod.Name, pod.Status.Phase, pod.Status.PodIP)
 		} else {
-			t.Logf("No pods found with selector %s yet. Retrying.", selector.String())
+			t.Logf("No pods found with selector %v yet. Retrying.", labels)
 		}
 		return false, nil
 	})
-	require.NoErrorf(t, waitErr, "timed out waiting for Pod with selector %s in namespace %s to be ready", selector.String(), namespace)
-	require.NotEmpty(t, pods.Items, "expected at least one pod for selector %s in namespace %s, but found none", selector.String(), namespace)
-
-	pod := &pods.Items[0]
-	t.Logf("Successfully found ready Pod %s with IP %s for selector %s", pod.Name, pod.Status.PodIP, selector.String())
-	return pod
+	return pods.Items, waitErr
 }
 
 // DeleteDeployment deletes the specified Deployment and waits until it is no longer

@@ -48,6 +48,7 @@ var InferencePoolAccepted = suite.ConformanceTest{
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		// created by the associated manifest file.
 		poolNN := types.NamespacedName{Name: "primary-inference-pool", Namespace: "gateway-conformance-app-backend"}
+		primaryGatewayNN := types.NamespacedName{Name: "conformance-primary-gateway", Namespace: "gateway-conformance-infra"}
 
 		t.Run("InferencePool should have Accepted condition set to True", func(t *testing.T) {
 			// Define the expected status condition. We use the standard "Accepted"
@@ -57,7 +58,7 @@ var InferencePoolAccepted = suite.ConformanceTest{
 				Status: metav1.ConditionTrue,
 				Reason: "", // "" means we don't strictly check the Reason for this basic test.
 			}
-			k8sutils.InferencePoolMustHaveCondition(t, s.Client, poolNN, acceptedCondition)
+			k8sutils.InferencePoolMustHaveGatewayCondition(t, s.Client, poolNN, primaryGatewayNN, acceptedCondition)
 		})
 	},
 }
