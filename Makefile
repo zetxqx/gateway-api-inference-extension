@@ -181,7 +181,7 @@ image-local-load: image-local-build
 
 .PHONY: image-build
 image-build: ## Build the EPP image using Docker Buildx.
-	ddocker buildx inspect multiplatform > /dev/null 2>&1 || docker buildx create --name multiplatform --use
+	docker buildx inspect multiplatform > /dev/null 2>&1 || docker buildx create --name multiplatform --use
 	docker run --privileged --rm tonistiigi/binfmt --install all
 	docker buildx inspect --bootstrap
 
