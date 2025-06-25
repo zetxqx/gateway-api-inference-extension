@@ -184,13 +184,21 @@ image-build: ## Build the EPP image using Docker Buildx.
 	ddocker buildx inspect multiplatform > /dev/null 2>&1 || docker buildx create --name multiplatform --use
 	docker run --privileged --rm tonistiigi/binfmt --install all
 	docker buildx inspect --bootstrap
+
+	@bash -ec '\
+	PLATFORMS="$(PLATFORMS)"; \
+	if echo "$(LOAD)" | grep -q -- "--load"; then \
+		echo "⚠️  --load detected; forcing platform to linux/amd64"; \
+		PLATFORMS=linux/amd64; \
+	fi; \
 	$(IMAGE_BUILD_CMD) -t $(IMAGE_TAG) \
-		--platform=$(PLATFORMS) \
+		--platform=$$PLATFORMS \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
 		--build-arg COMMIT_SHA=${GIT_COMMIT_SHA} \
 		--build-arg BUILD_REF=${BUILD_REF} \
 		$(PUSH) \
+		$(LOAD) \
 		$(IMAGE_BUILD_EXTRA_OPTS) ./
 
 .PHONY: image-push
