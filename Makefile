@@ -186,7 +186,7 @@ image-build: ## Build the EPP image using Docker Buildx.
 	docker buildx inspect --bootstrap
 
 	$(IMAGE_BUILD_CMD) -t $(IMAGE_TAG) \
-		--platform=$$PLATFORMS \
+		--platform=$(PLATFORMS) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
 		--build-arg COMMIT_SHA=${GIT_COMMIT_SHA} \
