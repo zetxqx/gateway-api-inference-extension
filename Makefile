@@ -188,7 +188,6 @@ image-build: ## Build the EPP image using Docker Buildx.
 	@bash -ec '\
 	PLATFORMS="$(PLATFORMS)"; \
 	if echo "$(LOAD)" | grep -q -- "--load"; then \
-		echo "⚠️  --load detected; forcing platform to linux/amd64"; \
 		PLATFORMS=linux/amd64; \
 	fi; \
 	$(IMAGE_BUILD_CMD) -t $(IMAGE_TAG) \
@@ -199,7 +198,7 @@ image-build: ## Build the EPP image using Docker Buildx.
 		--build-arg BUILD_REF=${BUILD_REF} \
 		$(PUSH) \
 		$(LOAD) \
-		$(IMAGE_BUILD_EXTRA_OPTS) ./
+		$(IMAGE_BUILD_EXTRA_OPTS) ./'
 
 .PHONY: image-push
 image-push: PUSH=--push ## Build the EPP image and push it to $IMAGE_REPO.
