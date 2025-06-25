@@ -23,7 +23,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 GIT_COMMIT_SHA ?= "$(shell git rev-parse HEAD 2>/dev/null)"
 GIT_TAG ?= $(shell git describe --tags --dirty --always)
-PLATFORMS ?= linux/amd64,linux/arm64
+PLATFORMS ?= linux/amd64
 DOCKER_BUILDX_CMD ?= docker buildx
 IMAGE_BUILD_CMD ?= $(DOCKER_BUILDX_CMD) build
 IMAGE_BUILD_EXTRA_OPTS ?=
@@ -181,10 +181,6 @@ image-local-load: image-local-build
 
 .PHONY: image-build
 image-build: ## Build the EPP image using Docker Buildx.
-	docker buildx inspect multiplatform > /dev/null 2>&1 || docker buildx create --name multiplatform --use
-	docker run --privileged --rm tonistiigi/binfmt --install all
-	docker buildx inspect --bootstrap
-
 	$(IMAGE_BUILD_CMD) -t $(IMAGE_TAG) \
 		--platform=$(PLATFORMS) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
@@ -192,12 +188,19 @@ image-build: ## Build the EPP image using Docker Buildx.
 		--build-arg COMMIT_SHA=${GIT_COMMIT_SHA} \
 		--build-arg BUILD_REF=${BUILD_REF} \
 		$(PUSH) \
+		$(LOAD) \
 		$(IMAGE_BUILD_EXTRA_OPTS) ./
-	docker pull $(IMAGE_TAG)
+
+.PHONY: multi-platform-init
+multi-platform-init: ## Set up Docker Buildx for multi-platform builds.
+	@docker buildx inspect multiplatform >/dev/null 2>&1 || docker buildx create --name multiplatform --use
+	@docker run --privileged --rm tonistiigi/binfmt --install all
+	@docker buildx inspect --bootstrap
 
 .PHONY: image-push
 image-push: PUSH=--push ## Build the EPP image and push it to $IMAGE_REPO.
-image-push: image-build
+image-push: PLATFORMS=linux/amd64,linux/arm64
+image-push: multi-platform-init image-build
 
 .PHONY: image-load
 image-load: LOAD=--load ## Build the EPP image and load it in the local Docker registry.
