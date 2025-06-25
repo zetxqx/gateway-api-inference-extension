@@ -181,6 +181,7 @@ image-local-load: image-local-build
 
 .PHONY: image-build
 image-build: ## Build the EPP image using Docker Buildx.
+	docker run --privileged --rm tonistiigi/binfmt --install all
 	$(IMAGE_BUILD_CMD) -t $(IMAGE_TAG) \
 		--platform=$(PLATFORMS) \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
