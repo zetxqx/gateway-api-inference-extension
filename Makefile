@@ -185,11 +185,6 @@ image-build: ## Build the EPP image using Docker Buildx.
 	docker run --privileged --rm tonistiigi/binfmt --install all
 	docker buildx inspect --bootstrap
 
-	@bash -ec '\
-	PLATFORMS="$(PLATFORMS)"; \
-	if echo "$(LOAD)" | grep -q -- "--load"; then \
-		PLATFORMS=linux/amd64; \
-	fi; \
 	$(IMAGE_BUILD_CMD) -t $(IMAGE_TAG) \
 		--platform=$$PLATFORMS \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
@@ -197,8 +192,8 @@ image-build: ## Build the EPP image using Docker Buildx.
 		--build-arg COMMIT_SHA=${GIT_COMMIT_SHA} \
 		--build-arg BUILD_REF=${BUILD_REF} \
 		$(PUSH) \
-		$(LOAD) \
-		$(IMAGE_BUILD_EXTRA_OPTS) ./'
+		$(IMAGE_BUILD_EXTRA_OPTS) ./
+	docker pull $(IMAGE_TAG)
 
 .PHONY: image-push
 image-push: PUSH=--push ## Build the EPP image and push it to $IMAGE_REPO.
