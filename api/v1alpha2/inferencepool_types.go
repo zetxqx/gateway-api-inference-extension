@@ -194,10 +194,10 @@ type PoolStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// InferencePoolConditionType is a type of condition for a inference pool.
+// InferencePoolConditionType is a type of condition for the InferencePool
 type InferencePoolConditionType string
 
-// InferencePoolReason is a reason for a inference pool condition.
+// InferencePoolReason is the reason for a given InferencePoolConditionType
 type InferencePoolReason string
 
 const (
@@ -252,9 +252,8 @@ const (
 	//
 	// * "InvalidExtensionRef"
 	//
-	// Controllers may raise this condition with other reasons,
-	// but should prefer to use the reasons listed above to improve
-	// interoperability.
+	// Controllers MAY raise this condition with other reasons, but should
+	// prefer to use the reasons listed above to improve interoperability.
 	InferencePoolConditionResolvedRefs InferencePoolConditionType = "ResolvedRefs"
 
 	// This reason is used with the "ResolvedRefs" condition when the condition
