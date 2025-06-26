@@ -222,7 +222,7 @@ const (
 	InferencePoolConditionAccepted InferencePoolConditionType = "Accepted"
 
 	// This reason is used with the "Accepted" condition when the InferencePool has been
-	// accepted by the Gateway because it is referenced by a valid and accepted HTTPRoute.
+	// accepted by the Gateway.
 	InferencePoolReasonAccepted InferencePoolReason = "Accepted"
 
 	// This reason is used with the "Accepted" condition when the InferencePool
