@@ -201,7 +201,7 @@ type InferencePoolConditionType string
 type InferencePoolReason string
 
 const (
-	// This condition indicates whether the inference pool has been accepted or rejected
+	// This condition indicates whether the InferencePool has been accepted or rejected
 	// by a Gateway, and why.
 	//
 	// Possible reasons for this condition to be True are:
@@ -210,51 +210,34 @@ const (
 	//
 	// Possible reasons for this condition to be False are:
 	//
-	// * "NotAllowedByListeners"
-	// * "NoMatchingListenerHostname"
-	// * "NoMatchingParent"
-	// * "UnsupportedValue"
+	// * "NotSupportedByGateway"
+	// * "HTTPRouteNotAccepted"
 	//
 	// Possible reasons for this condition to be Unknown are:
 	//
 	// * "Pending"
 	//
-	// Controllers may raise this condition with other reasons,
-	// but should prefer to use the reasons listed above to improve
-	// interoperability.
+	// Controllers MAY raise this condition with other reasons, but should
+	// prefer to use the reasons listed above to improve interoperability.
 	InferencePoolConditionAccepted InferencePoolConditionType = "Accepted"
 
 	// This reason is used with the "Accepted" condition when the InferencePool has been
-	// accepted by the Gateway.
+	// accepted by the Gateway because it is referenced by a valid and accepted HTTPRoute.
 	InferencePoolReasonAccepted InferencePoolReason = "Accepted"
 
-	// This reason is used with the "Accepted" condition when the inference pool has not
-	// been accepted by a Gateway because the Gateway has no Listener whose
-	// allowedRoutes criteria permit the inference pool
-	InferencePoolReasonNotAllowedByListeners InferencePoolReason = "NotAllowedByListeners"
+	// This reason is used with the "Accepted" condition when the InferencePool
+	// has not been accepted by a Gateway because the Gateway does not support
+	// InferencePool as a backend.
+	InferencePoolReasonNotSupportedByGateway InferencePoolReason = "NotSupportedByGateway"
 
-	// This reason is used with the "Accepted" condition when the Gateway has no
-	// compatible Listeners whose Hostname matches the inference pool
-	InferencePoolReasonNoMatchingListenerHostname InferencePoolReason = "NoMatchingListenerHostname"
-
-	// This reason is used with the "Accepted" condition when there are
-	// no matching Parents. In the case of Gateways, this can occur when
-	// a InferencePool ParentRef specifies a Port and/or SectionName that does not
-	// match any Listeners in the Gateway.
-	InferencePoolReasonNoMatchingParent InferencePoolReason = "NoMatchingParent"
-
-	// This reason is used with the "Accepted" condition when a value for an Enum
-	// is not recognized.
-	InferencePoolReasonUnsupportedValue InferencePoolReason = "UnsupportedValue"
+	// This reason is used with the "Accepted" condition when the InferencePool is
+	// referenced by an HTTPRoute that has been rejected by the Gateway. The user
+	// should inspect the status of the referring HTTPRoute for the specific reason.
+	InferencePoolReasonHTTPRouteNotAccepted InferencePoolReason = "HTTPRouteNotAccepted"
 
 	// This reason is used with the "Accepted" when a controller has not yet
-	// reconciled the inference pool.
+	// reconciled the InferencePool.
 	InferencePoolReasonPending InferencePoolReason = "Pending"
-
-	// This reason is used with the "Accepted" condition when there
-	// are incompatible filters present on a inference pool rule (for example if
-	// the URLRewrite and RequestRedirect are both present on an HTTPRoute).
-	InferencePoolReasonIncompatibleFilters InferencePoolReason = "IncompatibleFilters"
 )
 
 const (
@@ -267,10 +250,7 @@ const (
 	//
 	// Possible reasons for this condition to be False are:
 	//
-	// * "RefNotPermitted"
-	// * "InvalidKind"
-	// * "BackendNotFound"
-	// * "UnsupportedProtocol"
+	// * "InvalidExtensionRef"
 	//
 	// Controllers may raise this condition with other reasons,
 	// but should prefer to use the reasons listed above to improve
@@ -281,23 +261,8 @@ const (
 	// is true.
 	InferencePoolReasonResolvedRefs InferencePoolReason = "ResolvedRefs"
 
-	// This reason is used with the "ResolvedRefs" condition when
-	// one of the Listener's InferencePools has a BackendRef to an object in
-	// another namespace, where the object in the other namespace does
-	// not have a ReferenceGrant explicitly allowing the reference.
-	InferencePoolReasonRefNotPermitted InferencePoolReason = "RefNotPermitted"
-
-	// This reason is used with the "ResolvedRefs" condition when
-	// one of the InferencePool's rules has a reference to an unknown or unsupported
-	// Group and/or Kind.
-	InferencePoolReasonInvalidKind InferencePoolReason = "InvalidKind"
-
-	// This reason is used with the "ResolvedRefs" condition when one of the
-	// InferencePool's rules has a reference to a resource that does not exist.
-	InferencePoolReasonBackendNotFound InferencePoolReason = "BackendNotFound"
-
-	// This reason is used with the "ResolvedRefs" condition when one of the
-	// InferencePool's rules has a reference to a resource with an app protocol that
-	// is not supported by this implementation.
-	InferencePoolReasonUnsupportedProtocol InferencePoolReason = "UnsupportedProtocol"
+	// This reason is used with the "ResolvedRefs" condition when the
+	// ExtensionRef is invalid in some way. This can include an unsupported kind
+	// or API group, or a reference to a resource that can not be found.
+	InferencePoolReasonInvalidExtensionRef InferencePoolReason = "InvalidExtensionRef"
 )
