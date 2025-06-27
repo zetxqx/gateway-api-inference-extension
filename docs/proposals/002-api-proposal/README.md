@@ -166,29 +166,29 @@ type Extension struct {
 // Condition on the InferencePool's status to `status: False`. A 5XX status code MUST be returned
 // for the request that would have otherwise been routed to the invalid backend.
 type ExtensionReference struct {
-	// Group is the group of the referent.
-	// The default value is "", representing the Core API group.
-	Group *Group `json:"group,omitempty"`
+      // Group is the group of the referent.
+      // The default value is "", representing the Core API group.
+      Group *Group `json:"group,omitempty"`
 
-	// Kind is the Kubernetes resource kind of the referent. For example
-	// "Service".
-	//
-	// Defaults to "Service" when not specified.
-	//
-	// ExternalName services can refer to CNAME DNS records that may live
-	// outside of the cluster and as such are difficult to reason about in
-	// terms of conformance. They also may not be safe to forward to (see
-	// CVE-2021-25740 for more information). Implementations MUST NOT
-	// support ExternalName Services.
-	Kind *Kind `json:"kind,omitempty"`
+      // Kind is the Kubernetes resource kind of the referent. For example
+      // "Service".
+      //
+      // Defaults to "Service" when not specified.
+      //
+      // ExternalName services can refer to CNAME DNS records that may live
+      // outside of the cluster and as such are difficult to reason about in
+      // terms of conformance. They also may not be safe to forward to (see
+      // CVE-2021-25740 for more information). Implementations MUST NOT
+      // support ExternalName Services.
+      Kind *Kind `json:"kind,omitempty"`
 
-	// Name is the name of the referent.
-	Name ObjectName `json:"name"`
+      // Name is the name of the referent.
+      Name ObjectName `json:"name"`
 
-	// The port number on the service running the extension. When unspecified,
-	// implementations SHOULD infer a default value of 9002 when the Kind is
-	// Service.
-	PortNumber *PortNumber `json:"portNumber,omitempty"`
+      // The port number on the service running the extension. When unspecified,
+      // implementations SHOULD infer a default value of 9002 when the Kind is
+      // Service.
+      PortNumber *PortNumber `json:"portNumber,omitempty"`
 }
 
 // ExtensionConnection encapsulates options that configures the connection to the extension.
