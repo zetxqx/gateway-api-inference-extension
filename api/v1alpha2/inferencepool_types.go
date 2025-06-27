@@ -93,7 +93,7 @@ type Extension struct {
 	ExtensionConnection `json:",inline"`
 }
 
-// ExtensionReference is a reference to the extension service.
+// ExtensionReference is a reference to the extension.
 //
 // If a reference is invalid, the implementation MUST update the `ResolvedRefs`
 // Condition on the InferencePool's status to `status: False`. A 5XX status code MUST be returned
