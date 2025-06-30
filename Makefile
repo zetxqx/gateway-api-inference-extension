@@ -198,12 +198,6 @@ image-build: ## Build the EPP image using Docker Buildx.
 		$(LOAD) \
 		$(IMAGE_BUILD_EXTRA_OPTS) ./
 
-.PHONY: multi-platform-init
-multi-platform-init: ## Set up Docker Buildx for multi-platform builds.
-	@docker buildx inspect multiplatform >/dev/null 2>&1 || docker buildx create --name multiplatform --use
-	@docker run --privileged --rm tonistiigi/binfmt --install all
-	@docker buildx inspect --bootstrap
-
 .PHONY: image-push
 image-push: PUSH=--push ## Build the EPP image and push it to $IMAGE_REPO.
 image-push: MULTI=true image-build
