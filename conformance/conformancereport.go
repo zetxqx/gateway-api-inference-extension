@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/consts"
 	confapis "sigs.k8s.io/gateway-api/conformance/apis/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -40,8 +39,6 @@ type GatewayAPIInferenceExtentionConformanceReport struct {
 
 // WriteReport writes the generated conformance report to the specified output file or logs it.
 func (report *GatewayAPIInferenceExtentionConformanceReport) WriteReport(logf func(string, ...any), output string) error {
-	// Override the GatewayAPIInferenceExtensionVersion here from pkg/consts.
-	report.GatewayAPIInferenceExtensionVersion = consts.BundleVersion
 	rawReport, err := yaml.Marshal(*report)
 	if err != nil {
 		return fmt.Errorf("error marshaling report: %w", err)

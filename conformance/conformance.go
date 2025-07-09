@@ -52,6 +52,7 @@ import (
 
 	// Import the test definitions package to access the ConformanceTests slice
 	"sigs.k8s.io/gateway-api-inference-extension/conformance/tests"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/consts"
 
 	// Import test packages using blank identifier
 	// This triggers the init() functions in these packages, which register the tests
@@ -243,10 +244,9 @@ func RunConformanceWithOptions(t *testing.T, opts confsuite.ConformanceOptions) 
 		report, err := cSuite.Report() // Use the existing report generation logic.
 		require.NoError(t, err, "error generating conformance report")
 		inferenceReport := GatewayAPIInferenceExtentionConformanceReport{
-			GatewayAPIInferenceExtensionVersion: "v0.5.0",
+			GatewayAPIInferenceExtensionVersion: consts.BundleVersion,
 			ConformanceReport:                   *report,
 		}
-
 		err = inferenceReport.WriteReport(t.Logf, opts.ReportOutputPath)
 		require.NoError(t, err, "error writing conformance report")
 	}
