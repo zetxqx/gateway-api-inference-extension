@@ -243,7 +243,7 @@ func RunConformanceWithOptions(t *testing.T, opts confsuite.ConformanceOptions) 
 		t.Log("Generating Inference Extension conformance report")
 		report, err := cSuite.Report() // Use the existing report generation logic.
 		require.NoError(t, err, "error generating conformance report")
-		inferenceReport := GatewayAPIInferenceExtentionConformanceReport{
+		inferenceReport := GatewayAPIInferenceExtensionConformanceReport{
 			GatewayAPIInferenceExtensionVersion: consts.BundleVersion,
 			ConformanceReport:                   *report,
 		}

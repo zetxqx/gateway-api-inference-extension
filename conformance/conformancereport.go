@@ -26,19 +26,19 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// GatewayAPIInferenceExtentionConformanceReport
-// GatewayAPIInferenceExtentionConformanceReport is a report of conformance testing results of
-// gateway-api-inference-extention including the specific conformance profiles that were tested
+// GatewayAPIInferenceExtensionConformanceReport
+// GatewayAPIInferenceExtensionConformanceReport is a report of conformance testing results of
+// gateway-api-inference-extension including the specific conformance profiles that were tested
 // and the results of the tests with summaries and statistics.
-type GatewayAPIInferenceExtentionConformanceReport struct {
-	// GatewayAPIInferenceExtensionVersion is the version of the gateway-api-inference-extention the tests run against.
+type GatewayAPIInferenceExtensionConformanceReport struct {
+	// GatewayAPIInferenceExtensionVersion is the version of the gateway-api-inference-extension the tests run against.
 	GatewayAPIInferenceExtensionVersion string
 	// ConformanceReport is the fields reused from the gateway-api conformance reports.
 	confapis.ConformanceReport
 }
 
 // WriteReport writes the generated conformance report to the specified output file or logs it.
-func (report *GatewayAPIInferenceExtentionConformanceReport) WriteReport(logf func(string, ...any), output string) error {
+func (report *GatewayAPIInferenceExtensionConformanceReport) WriteReport(logf func(string, ...any), output string) error {
 	rawReport, err := yaml.Marshal(*report)
 	if err != nil {
 		return fmt.Errorf("error marshaling report: %w", err)
