@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// GatewayAPIInferenceExtensionConformanceReport
 // GatewayAPIInferenceExtensionConformanceReport is a report of conformance testing results of
 // gateway-api-inference-extension including the specific conformance profiles that were tested
 // and the results of the tests with summaries and statistics.
