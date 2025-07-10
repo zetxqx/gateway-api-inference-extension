@@ -96,7 +96,7 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: generate
-generate: controller-gen code-generator ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen code-generator ## Generate WebhookConfiguration, ClusterRole, CustomResourceDefinition objects, code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate/boilerplate.generatego.txt" paths="./..."
 	./hack/update-codegen.sh
 
