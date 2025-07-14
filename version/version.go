@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package consts
+package version
 
 const (
 	// BundleVersion is the value used for labeling the version of the gateway-api-inference-extension.
