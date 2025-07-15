@@ -25,9 +25,8 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/crd"
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
+	inferenceversion "sigs.k8s.io/gateway-api-inference-extension/version"
 	"sigs.k8s.io/yaml"
-
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/consts"
 )
 
 // This generation code is largely copied from
@@ -81,7 +80,7 @@ func main() {
 		if crdRaw.ObjectMeta.Annotations == nil {
 			crdRaw.ObjectMeta.Annotations = map[string]string{}
 		}
-		crdRaw.ObjectMeta.Annotations[consts.BundleVersionAnnotation] = consts.BundleVersion
+		crdRaw.ObjectMeta.Annotations[inferenceversion.BundleVersionAnnotation] = inferenceversion.BundleVersion
 
 		// Prevent the top level metadata for the CRD to be generated regardless of the intention in the arguments
 		crd.FixTopLevelMetadata(crdRaw)
