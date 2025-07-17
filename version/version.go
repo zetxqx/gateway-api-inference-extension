@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package consts
+package version
 
 const (
 	// BundleVersionAnnotation is the annotation key used in the Gateway API inference extension CRDs to specify
