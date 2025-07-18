@@ -43,6 +43,21 @@ echo "Using vLLM CPU image version: ${VLLM_CPU}"
 echo "Using vLLM Simulator image version: ${VLLM_SIM}"
 
 # -----------------------------------------------------------------------------
+# Update version/version.go and generating CRDs with new version annotations
+# -----------------------------------------------------------------------------
+VERSION_FILE="version/version.go"
+echo "Updating ${VERSION_FILE} ..."
+
+# Replace bundleVersion in version.go
+# This regex finds the line with "BundleVersion" and replaces the string within the quotes.
+sed -i.bak -E "s|( *BundleVersion = \")[^\"]+(\")|\1${RELEASE_TAG}\2|g" "$VERSION_FILE"
+
+UPDATED_CRD="config/crd/"
+echo "Generating CRDs with new annotations in $UPDATED_CRD"
+go run ./pkg/generator
+echo "Generated CRDs with new annotations in $UPDATED_CRD"
+
+# -----------------------------------------------------------------------------
 # Update pkg/README.md
 # -----------------------------------------------------------------------------
 README="pkg/README.md"
@@ -115,8 +130,8 @@ sed -i.bak '/llm-d\/llm-d-inference-sim/{n;s/Always/IfNotPresent/;}' "$VLLM_SIM_
 # -----------------------------------------------------------------------------
 # Stage the changes
 # -----------------------------------------------------------------------------
-echo "Staging $README $EPP $EPP_HELM $BBR_HELM $CONFORMANCE_MANIFESTS $VLLM_GPU_DEPLOY $VLLM_CPU_DEPLOY $VLLM_SIM_DEPLOY files..."
-git add $README $EPP $EPP_HELM $BBR_HELM $CONFORMANCE_MANIFESTS $VLLM_GPU_DEPLOY $VLLM_CPU_DEPLOY $VLLM_SIM_DEPLOY
+echo "Staging $VERSION_FILE $UPDATED_CRD $README $EPP $EPP_HELM $BBR_HELM $CONFORMANCE_MANIFESTS $VLLM_GPU_DEPLOY $VLLM_CPU_DEPLOY $VLLM_SIM_DEPLOY files..."
+git add $VERSION_FILE $UPDATED_CRD $README $EPP $EPP_HELM $BBR_HELM $CONFORMANCE_MANIFESTS $VLLM_GPU_DEPLOY $VLLM_CPU_DEPLOY $VLLM_SIM_DEPLOY
 
 # -----------------------------------------------------------------------------
 # Cleanup backup files and finish
