@@ -26,11 +26,14 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/logging"
+	resutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/response"
 )
 
 const (
@@ -200,6 +203,17 @@ func (m *Plugin) Score(ctx context.Context, cycleState *types.CycleState, reques
 	return scores
 }
 
+func (m *Plugin) PostResponse(ctx context.Context, request *types.LLMRequest, response *requestcontrol.Response, targetPod *backend.Pod) {
+	loggerTrace := log.FromContext(ctx).V(logutil.TRACE)
+	content, err := resutil.ExtractContentFromResponseBody(response.BodyMap)
+	if err != nil {
+		return
+	}
+	hashes := hashPromptInternal(ctx, request.TargetModel, content, m.HashBlockSize, m.MaxPrefixBlocksToMatch)
+	m.indexer.Add(hashes, ServerID(targetPod.NamespacedName))
+	loggerTrace.V(3).Info("Added response", content, "to indexer hashes")
+}
+
 // PostCycle records in the plugin cache the result of the scheduling selection.
 func (m *Plugin) PostCycle(ctx context.Context, cycleState *types.CycleState, res *types.ProfileRunResult) {
 	targetPod := res.TargetPods[0].GetPod()
@@ -243,8 +257,12 @@ func (m *Plugin) matchLongestPrefix(ctx context.Context, hashes []BlockHash) map
 // hash(0) is the hash of the model name, since different models generally don't share prefix cache.
 // For block i, hash(i) = hash(block i content, hash(i-1)).
 func hashPrompt(ctx context.Context, request *types.LLMRequest, cacheBlockSize int, maxPrefixBlocks int) []BlockHash {
+	return hashPromptInternal(ctx, request.TargetModel, request.Prompt, cacheBlockSize, maxPrefixBlocks)
+}
+
+func hashPromptInternal(ctx context.Context, firstHash, promptFromReq string, cacheBlockSize int, maxPrefixBlocks int) []BlockHash {
 	loggerDebug := log.FromContext(ctx).V(logutil.DEBUG)
-	prompt := []byte(request.Prompt)
+	prompt := []byte(promptFromReq)
 	if len(prompt) < cacheBlockSize {
 		loggerDebug.Info("Request body too small for prefix cache", "size", len(prompt), "block size", cacheBlockSize)
 		return nil
@@ -257,7 +275,7 @@ func hashPrompt(ctx context.Context, request *types.LLMRequest, cacheBlockSize i
 	// If the last block is smaller than cacheBlockSize, it will be ignored.
 	res := make([]BlockHash, 0, 1+len(prompt)/cacheBlockSize)
 	// Add the model to the first block hash so that different models have different hashes even with the same body.
-	res = append(res, BlockHash(xxhash.Sum64String(request.TargetModel)))
+	res = append(res, BlockHash(xxhash.Sum64String(firstHash)))
 	for i := 0; i+cacheBlockSize <= len(prompt); i += cacheBlockSize {
 		block := prompt[i : i+cacheBlockSize]
 		prevBlockHash := res[len(res)-1]

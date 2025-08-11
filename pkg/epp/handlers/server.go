@@ -112,6 +112,7 @@ type Request struct {
 }
 type Response struct {
 	Headers map[string]string
+	Body    map[string]any
 }
 type StreamRequestState int
 
@@ -261,6 +262,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 		case *extProcPb.ProcessingRequest_ResponseBody:
 			if reqCtx.modelServerStreaming {
+				// TODO: how to parse response to add to cache
 				// Currently we punt on response parsing if the modelServer is streaming, and we just passthrough.
 
 				responseText := string(v.ResponseBody.Body)
@@ -294,7 +296,8 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 						reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
 						break
 					}
-
+					reqCtx.Response.Body = responseBody
+					loggerTrace.Info("request body is", responseBody)
 					reqCtx, responseErr = s.HandleResponseBody(ctx, reqCtx, responseBody)
 					if responseErr != nil {
 						if logger.V(logutil.DEBUG).Enabled() {

@@ -276,6 +276,7 @@ func (d *Director) HandleResponse(ctx context.Context, reqCtx *handlers.RequestC
 	response := &Response{
 		RequestId: reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
 		Headers:   reqCtx.Response.Headers,
+		BodyMap:   reqCtx.Response.Body,
 	}
 
 	// TODO: to extend fallback functionality, handle cases where target pod is unavailable

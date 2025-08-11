@@ -24,6 +24,8 @@ type Response struct {
 	Headers map[string]string
 	// Body Is the body of the response or nil during header processing
 	Body string
+	// BodyMap
+	BodyMap map[string]any
 	// IsStreaming indicates whether or not the response is being streamed by the model
 	IsStreaming bool
 	// EndOfStream when true indicates that this invocation contains the last chunk of the response

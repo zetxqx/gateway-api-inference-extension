@@ -61,6 +61,7 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	reqCtx.ResponseComplete = true
 
 	reqCtx.respBodyResp = generateResponseBodyResponses(responseBytes, true)
+	s.director.HandleResponse(ctx, reqCtx)
 	return reqCtx, nil
 }
 
