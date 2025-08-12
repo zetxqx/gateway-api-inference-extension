@@ -34,14 +34,8 @@ import (
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=inference.networking.k8s.io, Version=v1
-	case v1.SchemeGroupVersion.WithKind("EndpointPickerConfig"):
-		return &apiv1.EndpointPickerConfigApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("Extension"):
 		return &apiv1.ExtensionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ExtensionConnection"):
-		return &apiv1.ExtensionConnectionApplyConfiguration{}
-	case v1.SchemeGroupVersion.WithKind("ExtensionReference"):
-		return &apiv1.ExtensionReferenceApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("InferencePool"):
 		return &apiv1.InferencePoolApplyConfiguration{}
 	case v1.SchemeGroupVersion.WithKind("InferencePoolSpec"):
@@ -58,10 +52,6 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apixv1alpha2.EndpointPickerConfigApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("Extension"):
 		return &apixv1alpha2.ExtensionApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("ExtensionConnection"):
-		return &apixv1alpha2.ExtensionConnectionApplyConfiguration{}
-	case v1alpha2.SchemeGroupVersion.WithKind("ExtensionReference"):
-		return &apixv1alpha2.ExtensionReferenceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("InferenceObjective"):
 		return &apixv1alpha2.InferenceObjectiveApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("InferenceObjectiveSpec"):
