@@ -66,17 +66,27 @@ type InferencePoolSpec struct {
 	// +required
 	Selector LabelSelector `json:"selector,omitempty,omitzero"`
 
-	// TargetPortNumber defines the port number to access the selected model server Pods.
-	// The number must be in the range 1 to 65535.
-	//
-	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=65535
+	// TargetPorts defines a list of ports that are exposed by this InferencePool.
+	// Currently, the list may only include a single port definition.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1
+	// +listType=map
+	// +listMapKey=number
 	// +required
-	TargetPortNumber int32 `json:"targetPortNumber,omitempty"`
+	TargetPorts []Port `json:"targetPorts,omitempty"`
 
 	// Extension configures an endpoint picker as an extension service.
-	// +optional
+	// +required
 	ExtensionRef Extension `json:"extensionRef,omitempty,omitzero"`
+}
+
+// Port defines the network port that will be exposed by this InferencePool.
+type Port struct {
+	// Number defines the port number to access the selected model server Pods.
+	// The number must be in the range 1 to 65535.
+	//
+	// +required
+	Number PortNumber `json:"number,omitempty"`
 }
 
 // Extension specifies how to configure an extension that runs the endpoint picker.

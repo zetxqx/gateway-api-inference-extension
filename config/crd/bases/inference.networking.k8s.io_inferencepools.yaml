@@ -132,17 +132,35 @@ spec:
                 required:
                 - matchLabels
                 type: object
-              targetPortNumber:
+              targetPorts:
                 description: |-
-                  TargetPortNumber defines the port number to access the selected model server Pods.
-                  The number must be in the range 1 to 65535.
-                format: int32
-                maximum: 65535
-                minimum: 1
-                type: integer
+                  TargetPorts defines a list of ports that are exposed by this InferencePool.
+                  Currently, the list may only include a single port definition.
+                items:
+                  description: Port defines the network port that will be exposed
+                    by this InferencePool.
+                  properties:
+                    number:
+                      description: |-
+                        Number defines the port number to access the selected model server Pods.
+                        The number must be in the range 1 to 65535.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                  required:
+                  - number
+                  type: object
+                maxItems: 1
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - number
+                x-kubernetes-list-type: map
             required:
+            - extensionRef
             - selector
-            - targetPortNumber
+            - targetPorts
             type: object
           status:
             default:
