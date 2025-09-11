@@ -18,6 +18,7 @@ spec:
       httpHealthCheck:
           requestPath: /health
           port:  {{ .Values.inferencePool.targetPortNumber }}
+{{- if .Values.gke.logging.enable }}
 ---
 apiVersion: networking.gke.io/v1
 kind: GCPBackendPolicy
@@ -35,6 +36,8 @@ spec:
     timeoutSec: 300    # 5-minute timeout (adjust as needed)
     logging:
       enabled: true    # log all requests by default
+{{ end }}
+{{- if .Values.gke.monitoring.enable }}
 ---
 apiVersion: monitoring.googleapis.com/v1
 kind: ClusterPodMonitoring
@@ -52,10 +55,74 @@ spec:
       type: Bearer
       credentials:
         secret:
-          name: {{ .Values.gke.monitoringSecret.name }}
+          name: {{ .Release.Name }}-metrics-reader-secret
           key: token
-          namespace: {{ .Values.gke.monitoringSecret.namespace }}
+          namespace: {{ .Release.Namespace }}
   selector:
     matchLabels:
       {{- include "gateway-api-inference-extension.selectorLabels" . | nindent 8 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-metrics-reader-sa
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}-metrics-reader-binding
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-metrics-reader-sa
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}-metrics-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-metrics-reader-secret
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    kubernetes.io/service-account.name: {{ .Release.Name }}-metrics-reader-sa
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}-secret-reader
+rules:
+- resources:
+  - secrets
+  apiGroups: [""]
+  verbs: ["get", "list", "watch"]
+  resourceNames: [{{ .Release.Name }}-metrics-reader-secret]
+---
+{{- $subjectNamespace := ternary "gke-gmp-system" "gmp-system" (.Values.gke.autopilot | default false) -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $subjectNamespace }}:collector:{{ .Release.Name }}-{{ .Release.Namespace }}-secret-reader-binding
+roleRef:
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}-secret-reader
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- name: collector
+  namespace: {{ $subjectNamespace }}
+  kind: ServiceAccount
+{{- end }}
 {{- end }}

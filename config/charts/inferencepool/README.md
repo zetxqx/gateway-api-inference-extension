@@ -131,7 +131,7 @@ The following table list the configurable parameters of the chart.
 
 | **Parameter Name**                          | **Description**                                                                                                        |
 |---------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| `inferencePool.apiVersion`                  | The API version of the InferencePool resource. Defaults to `inference.networking.k8s.io/v1`. This can be changed to `inference.networking.x-k8s.io/v1alpha2` to support older API versions. |
+| `inferencePool.apiVersion`                  | The API version of the InferencePool resource. Defaults to `inference.networking.ks.io/v1`. This can be changed to `inference.networking.x-k8s.io/v1alpha2` to support older API versions. |
 | `inferencePool.targetPortNumber`            | Target port number for the vllm backends, will be used to scrape metrics by the inference extension. Defaults to 8000. |
 | `inferencePool.modelServerType`            | Type of the model servers in the pool, valid options are [vllm, triton-tensorrt-llm], default is vllm. |
 | `inferencePool.modelServers.matchLabels`    | Label selector to match vllm backends managed by the inference pool.                                                   |
@@ -148,7 +148,10 @@ The following table list the configurable parameters of the chart.
 | `inferenceExtension.tolerations`            | Tolerations for the endpoint picker. Defaults to `[]`.                                                                 |
 | `inferenceExtension.flags.has-enable-leader-election` | Enable leader election for high availability. When enabled, only one EPP pod (the leader) will be ready to serve traffic.       |
 | `inferenceExtension.pluginsCustomConfig`    | Custom config that is passed to EPP as inline yaml.      |
-| `provider.name`                             | Name of the Inference Gateway implementation being used. Possible values: `gke`. Defaults to `none`.                   |
+| `provider.name`                             | Name of the Inference Gateway implementation being used. Possible values: `gke`. Defaults to `none`. |
+| `gke.autopilot`                             | Set to `true` if the GKE cluster is in autopilot mode. This only has an effect if `gke.monitoring.enable` is `true`. Defaults to `true`. |
+| `gke.monitoring.enable`                     | If `true`, creates GKE monitoring resources (`ClusterPodMonitoring`, RBAC) for the inference pool. Defaults to `true`. |
+| `gke.logging.enable`                        | If `true`, creates a `GCPBackendPolicy` to enable GKE logging for the inference pool. Defaults to `true`. |
 
 ## Notes
 

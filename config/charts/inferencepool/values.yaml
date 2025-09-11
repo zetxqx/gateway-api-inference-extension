@@ -57,6 +57,8 @@ provider:
   name: none
 
 gke:
-  monitoringSecret:
-    name: inference-gateway-sa-metrics-reader-secret
-    namespace: default
+  autopilot: false # If the GKE cluster is in autopilot mode or not.
+  monitoring:
+    enable: true
+  logging:
+    enable: true
