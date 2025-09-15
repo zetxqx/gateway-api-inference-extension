@@ -52,7 +52,7 @@ spec:
       type: Bearer
       credentials:
         secret:
-          name: {{ .Values.inferenceExtension.monitoring.secret.name }}
+          name: {{ .Release.Namespace }}-{{ .Release.Name }}-metrics-reader-secret
           key: token
           namespace: {{ .Release.Namespace }}
   selector:
