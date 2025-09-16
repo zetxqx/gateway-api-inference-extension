@@ -174,7 +174,8 @@ The following table list the configurable parameters of the chart.
 | `inferenceExtension.monitoring.interval`   | Metrics scraping interval for monitoring. Defaults to `10s`.                                                           |
 | `inferenceExtension.monitoring.secret.name` | Name of the service account token secret for metrics authentication. Defaults to `inference-gateway-sa-metrics-reader-secret`. |
 | `inferenceExtension.monitoring.prometheus.enabled` | Enable Prometheus ServiceMonitor creation for EPP metrics collection. Defaults to `false`.                      |
-| `inferenceExtension.monitoring.gke.enabled` | Enable GKE monitoring resources (`ClusterPodMonitoring` and RBAC). Defaults to `false`.                      |
+| `inferenceExtension.monitoring.gke.enabled` | Enable GKE monitoring resources (`PodMonitoring` and RBAC). Defaults to `false`.                      |
+| `inferenceExtension.monitoring.gke.autopilot` | Set to `true` if the cluster is a GKE Autopilot cluster. This ensures the correct `gke-gmp-system` namespace is used for the GMP collector. Defaults to `false`. |
 | `inferenceExtension.pluginsCustomConfig`    | Custom config that is passed to EPP as inline yaml.      |
 | `provider.name`                             | Name of the Inference Gateway implementation being used. Possible values: `gke`. Defaults to `none`.                   |
 
