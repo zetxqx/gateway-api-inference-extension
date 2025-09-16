@@ -50,6 +50,9 @@ inferenceExtension:
     # Prometheus ServiceMonitor will be created when enabled for EPP metrics collection
     prometheus:
       enabled: false
+    
+    gke:
+      enabled: false
 
 inferencePool:
   targetPorts:

@@ -133,7 +133,7 @@ inferenceExtension:
 
 **Note:** Prometheus monitoring requires the Prometheus Operator and ServiceMonitor CRD to be installed in the cluster.
 
-For GKE environments, monitoring is automatically configured when `provider.name` is set to `gke`.
+For GKE environments, monitoring is enabled by setting `provider.name` to `gke` and `inferenceExtension.monitoring.gke.enabled` to `true`. This will create the necessary `ClusterPodMonitoring` and RBAC resources for metrics collection.
 
 Then apply it with:
 
@@ -174,6 +174,7 @@ The following table list the configurable parameters of the chart.
 | `inferenceExtension.monitoring.interval`   | Metrics scraping interval for monitoring. Defaults to `10s`.                                                           |
 | `inferenceExtension.monitoring.secret.name` | Name of the service account token secret for metrics authentication. Defaults to `inference-gateway-sa-metrics-reader-secret`. |
 | `inferenceExtension.monitoring.prometheus.enabled` | Enable Prometheus ServiceMonitor creation for EPP metrics collection. Defaults to `false`.                      |
+| `inferenceExtension.monitoring.gke.enabled` | Enable GKE monitoring resources (`ClusterPodMonitoring` and RBAC). Defaults to `false`.                      |
 | `inferenceExtension.pluginsCustomConfig`    | Custom config that is passed to EPP as inline yaml.      |
 | `provider.name`                             | Name of the Inference Gateway implementation being used. Possible values: `gke`. Defaults to `none`.                   |
 
