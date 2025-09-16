@@ -53,6 +53,8 @@ inferenceExtension:
     
     gke:
       enabled: false
+      # Set to true if the cluster is an Autopilot cluster.
+      autopilot: false
 
 inferencePool:
   targetPorts:

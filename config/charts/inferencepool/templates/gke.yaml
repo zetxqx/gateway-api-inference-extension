@@ -36,34 +36,39 @@ spec:
     logging:
       enabled: true    # log all requests by default
 {{- if .Values.inferenceExtension.monitoring.gke.enabled }}
-{{- $saName := printf "%s-metrics-reader-sa" .Release.Name -}}
-{{- $secretName := printf "%s-metrics-reader-secret" .Release.Name -}}
-{{- $clusterRoleName := printf "%s-%s-metrics-reader" .Release.Namespace .Release.Name -}}
-{{- $clusterRoleBindingName := printf "%s-%s-metrics-reader-role-binding" .Release.Namespace .Release.Name -}}
-{{- $secretReadClusterRoleName := printf "%s-%s-metrics-reader-secret-read" .Release.Namespace .Release.Name -}}
-{{- $gmpCollectorRoleBindingName := printf "gmp-system:collector:%s-%s-metrics-reader-secret-read" .Release.Namespace .Release.Name -}}
+{{- $metricsReadSA := printf "%s-metrics-reader-sa" .Release.Name -}}
+{{- $metricsReadSecretName := printf "%s-metrics-reader-secret" .Release.Name -}}
+{{- $metricsReadRoleName := printf "%s-%s-metrics-reader" .Release.Namespace .Release.Name -}}
+{{- $metricsReadRoleBindingName := printf "%s-%s-metrics-reader-role-binding" .Release.Namespace .Release.Name -}}
+{{- $secretReadRoleName := printf "%s-metrics-reader-secret-read" .Release.Name -}}
+{{- $gmpNamespace := "gmp-system" -}}
+{{- if .Values.inferenceExtension.monitoring.gke.autopilot -}}
+{{-   $gmpNamespace = "gke-gmp-system" -}}
+{{- end -}}
+{{- $gmpCollectorRoleBindingName := printf "%s:collector:%s-%s-metrics-reader-secret-read" $gmpNamespace .Release.Namespace .Release.Name -}}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ $saName }}
+  name: {{ $metricsReadSA }}
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ $secretName }}
+  name: {{ $metricsReadSecretName }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "gateway-api-inference-extension.labels" . | nindent 4 }}
   annotations:
-    kubernetes.io/service-account.name: {{ $saName }}
+    kubernetes.io/service-account.name: {{ $metricsReadSA }}
 type: kubernetes.io/service-account-token
 ---
 apiVersion: monitoring.googleapis.com/v1
-kind: ClusterPodMonitoring
+kind: PodMonitoring
 metadata:
-  name: {{ .Release.Namespace }}-{{ .Release.Name }}
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "gateway-api-inference-extension.labels" . | nindent 4 }}
 spec:
@@ -76,9 +81,8 @@ spec:
       type: Bearer
       credentials:
         secret:
-          name: {{ $secretName }}
+          name: {{ $metricsReadSecretName }}
           key: token
-          namespace: {{ .Release.Namespace }}
   selector:
     matchLabels:
       {{- include "gateway-api-inference-extension.selectorLabels" . | nindent 8 }}
@@ -86,7 +90,7 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ $clusterRoleName }}
+  name: {{ $metricsReadRoleName }}
 rules:
 - nonResourceURLs:
   - /metrics
@@ -96,38 +100,39 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ $clusterRoleBindingName }}
+  name: {{ $metricsReadRoleBindingName }}
 subjects:
 - kind: ServiceAccount
-  name: {{ $saName }}
+  name: {{ $metricsReadSA }}
   namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: {{ $clusterRoleName }}
+  name: {{ $metricsReadRoleName }}
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
-  name: {{ $secretReadClusterRoleName }}
+  name: {{ $secretReadRoleName }}
 rules:
 - resources:
   - secrets
   apiGroups: [""]
   verbs: ["get", "list", "watch"]
-  resourceNames: [{{ $secretName | quote }}]
+  resourceNames: [{{ $metricsReadSecretName | quote }}]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: {{ $gmpCollectorRoleBindingName }}
+  namespace: {{ .Release.Namespace }}
 roleRef:
-  name: {{ $secretReadClusterRoleName }}
-  kind: ClusterRole
+  name: {{ $secretReadRoleName }}
+  kind: Role
   apiGroup: rbac.authorization.k8s.io
 subjects:
 - name: collector
-  namespace: gmp-system
+  namespace: {{ $gmpNamespace }}
   kind: ServiceAccount
 {{- end }}
 {{- end }}
