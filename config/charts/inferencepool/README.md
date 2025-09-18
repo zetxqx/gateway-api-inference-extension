@@ -133,7 +133,7 @@ inferenceExtension:
 
 **Note:** Prometheus monitoring requires the Prometheus Operator and ServiceMonitor CRD to be installed in the cluster.
 
-For GKE environments, monitoring is enabled by setting `provider.name` to `gke` and `inferenceExtension.monitoring.gke.enabled` to `true`. This will create the necessary `ClusterPodMonitoring` and RBAC resources for metrics collection.
+For GKE environments, monitoring is enabled by setting `provider.name` to `gke` and `inferenceExtension.monitoring.gke.enabled` to `true`. This will create the necessary `PodMonitoring` and RBAC resources for metrics collection.
 
 Then apply it with:
 
