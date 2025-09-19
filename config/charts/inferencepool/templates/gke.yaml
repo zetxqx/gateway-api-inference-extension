@@ -42,7 +42,11 @@ spec:
 {{- $metricsReadRoleBindingName := printf "%s-%s-metrics-reader-role-binding" .Release.Namespace .Release.Name -}}
 {{- $secretReadRoleName := printf "%s-metrics-reader-secret-read" .Release.Name -}}
 {{- $gmpNamespace := "gmp-system" -}}
-{{- if .Values.inferenceExtension.monitoring.gke.autopilot -}}
+{{- $isAutopilot := false -}}
+{{- with .Values.provider.gke }}
+  {{- $isAutopilot = .autopilot | default false -}}
+{{- end }}
+{{- if $isAutopilot -}}
 {{-   $gmpNamespace = "gke-gmp-system" -}}
 {{- end -}}
 {{- $gmpCollectorRoleBindingName := printf "%s:collector:%s-%s-metrics-reader-secret-read" $gmpNamespace .Release.Namespace .Release.Name -}}
