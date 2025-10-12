@@ -144,6 +144,16 @@ func (p *PodMetricsClientImpl) promToPodMetrics(
 		}
 	}
 
+	if p.MetricMapping.CacheConifgInfo != nil {
+		cacheConfigInfo, err := p.getCacheConfigInfo(metricFamilies)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+		} else if cacheConfigInfo != nil {
+			updated.BlockSize = cacheConfigInfo.blockSize
+			updated.NumGPUBlocks = cacheConfigInfo.numGPUBlocks
+		}
+	}
+
 	return updated, errs
 }
 
@@ -193,6 +203,51 @@ func (p *PodMetricsClientImpl) getLatestLoraMetric(metricFamilies map[string]*dt
 	}
 
 	return latest, nil // Convert nanoseconds to time.Time
+}
+
+type cacheInfo struct {
+	blockSize    int
+	numGPUBlocks int
+}
+
+func (p *PodMetricsClientImpl) getCacheConfigInfo(metricFamilies map[string]*dto.MetricFamily) (*cacheInfo, error) {
+	if p.MetricMapping.CacheConifgInfo == nil {
+		return nil, nil // No CacheConfigInfo configured.
+	}
+
+	metricName := p.MetricMapping.CacheConifgInfo.MetricName
+	cacheConfigInfo, ok := metricFamilies[metricName]
+	if !ok {
+		return nil, fmt.Errorf("metric family %q not found", p.MetricMapping.CacheConifgInfo.MetricName)
+	}
+
+	if len(cacheConfigInfo.GetMetric()) == 0 {
+		return nil, fmt.Errorf("no metrics found in family %q", metricName)
+	}
+
+	var blockSizeStr, numGPUBlocksStr string
+	for _, label := range cacheConfigInfo.GetMetric()[0].GetLabel() {
+		switch label.GetName() {
+		case "block_size":
+			blockSizeStr = label.GetValue()
+		case "num_gpu_blocks":
+			numGPUBlocksStr = label.GetValue()
+		}
+	}
+
+	var errs error
+	blockSize, err := strconv.Atoi(blockSizeStr)
+	if err != nil {
+		errs = multierr.Append(errs, err)
+	}
+	numGPUBlocks, err := strconv.Atoi(numGPUBlocksStr)
+	if err != nil {
+		errs = multierr.Append(errs, err)
+	}
+	if errs != nil {
+		return nil, errs
+	}
+	return &cacheInfo{blockSize, numGPUBlocks}, nil
 }
 
 // getMetric retrieves a specific metric based on MetricSpec.

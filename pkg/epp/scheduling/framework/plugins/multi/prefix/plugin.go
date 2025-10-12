@@ -93,13 +93,18 @@ type podSet map[ServerID]struct{}
 
 type Indexer interface {
 	Get(hash BlockHash) podSet
-	Add(hashes []BlockHash, server ServerID)
+	Add(hashes []BlockHash, server Server)
 	RemovePod(server ServerID)
 	Pods() []ServerID
 }
 
 // BlockHash is a hash of the block of request body.
 type BlockHash uint64
+
+type Server struct {
+	ServerID
+	numOfBlocks int
+}
 
 type ServerID k8stypes.NamespacedName
 
@@ -189,8 +194,15 @@ func (p *Plugin) WithName(name string) *Plugin {
 
 // Score returns the scoring result for the given list of pods based on context.
 func (p *Plugin) Score(ctx context.Context, cycleState *types.CycleState, request *types.LLMRequest, pods []types.Pod) map[types.Pod]float64 {
+	if len(pods) <= 0 {
+		return nil
+	}
+	blockSize := pods[0].GetMetrics().BlockSize * 4 // Assuming the first pod's blockSize is the same as others.
+	if blockSize <= 0 {
+		blockSize = p.config.BlockSize
+	}
 	// pre score step, hashing prompt and find longest prefix match.
-	hashes := hashPrompt(ctx, request, p.config.BlockSize, p.config.MaxPrefixBlocksToMatch)
+	hashes := hashPrompt(ctx, request, blockSize, p.config.MaxPrefixBlocksToMatch)
 	state := &SchedulingContextState{
 		PrefixHashes:       hashes,
 		PrefixCacheServers: p.matchLongestPrefix(ctx, hashes),
@@ -221,6 +233,7 @@ func (p *Plugin) Score(ctx context.Context, cycleState *types.CycleState, reques
 func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, schedulingResult *types.SchedulingResult, _ int) {
 	primaryProfileResult := schedulingResult.ProfileResults[schedulingResult.PrimaryProfileName]
 	targetPod := primaryProfileResult.TargetPods[0].GetPod() // get the first pod of the primary profile
+	targetPodMetrics := primaryProfileResult.TargetPods[0].GetMetrics()
 
 	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](p.pluginState, request.RequestId, plugins.StateKey(p.TypedName().String()))
 	p.pluginState.Delete(request.RequestId) // delete the state explicitly after completing using it
@@ -229,18 +242,19 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 		return
 	}
 
+	server := Server{ServerID: ServerID(targetPod.NamespacedName), numOfBlocks: targetPodMetrics.NumGPUBlocks}
 	// This function is just adding data, it does not need to block other operations.
 	// TODO: look into making this entire function async, none of this needs to be done in-band
 	// The PR that introduces this change is meant as a cherrypick, so it was minimally invasive.
 	// WaitGroup is added to the Plugin struct to allow waiting in tests.
 	p.wg.Add(1)
 	go func() {
-		p.indexer.Add(state.PrefixHashes, ServerID(targetPod.NamespacedName))
+		p.indexer.Add(state.PrefixHashes, server)
 		p.wg.Done()
 	}()
 
 	total := len(state.PrefixHashes)
-	matchLen := state.PrefixCacheServers[ServerID(targetPod.NamespacedName)]
+	matchLen := state.PrefixCacheServers[server.ServerID]
 	metrics.RecordPrefixCacheMatch(matchLen*p.config.BlockSize, total*p.config.BlockSize)
 }
 

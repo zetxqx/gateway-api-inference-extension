@@ -50,13 +50,29 @@ func newIndexer(ctx context.Context, maxLRUSize int) *indexer {
 }
 
 // Add adds a list of prefix hashes to the cache, tied to the server.
-func (i *indexer) Add(hashes []BlockHash, pod ServerID) {
+func (i *indexer) Add(hashes []BlockHash, pod Server) {
 	i.mu.Lock()
 	// Check if the LRU pod exist
-	lruForPod, exists := i.podToLRU[pod]
+	lruForPod, exists := i.podToLRU[pod.ServerID]
 	if !exists {
-		newLRU, _ := lru.NewWithEvict[BlockHash, struct{}](i.maxLRUSize, i.makeEvictionFn(pod))
-		i.podToLRU[pod] = newLRU
+		lruSize := pod.numOfBlocks
+		if lruSize <= 0 {
+			lruSize = i.maxLRUSize
+			log.FromContext(context.Background()).V(logutil.DEFAULT).Info(
+				"Initilaized a new LRU cache for pod bug using default maxLRUSize",
+				"pod", pod,
+				"size", lruSize,
+				"podID", pod.ServerID,
+			)
+		}
+		newLRU, _ := lru.NewWithEvict(lruSize, i.makeEvictionFn(pod.ServerID))
+		log.FromContext(context.Background()).V(logutil.DEFAULT).Info(
+			"Initilaized a new LRU cache for pod",
+			"pod", pod,
+			"size", pod.numOfBlocks,
+			"podID", lruSize,
+		)
+		i.podToLRU[pod.ServerID] = newLRU
 		lruForPod = newLRU
 	}
 
@@ -74,7 +90,7 @@ func (i *indexer) Add(hashes []BlockHash, pod ServerID) {
 		if pods == nil {
 			pods = make(podSet)
 		}
-		pods[pod] = struct{}{}
+		pods[pod.ServerID] = struct{}{}
 		i.hashToPods[hash] = pods
 	}
 
@@ -143,7 +159,6 @@ func (i *indexer) reportLRUSize(ctx context.Context, interval time.Duration) {
 			"avg entries per pod", avg,
 			"pod with max cache", maxPodName,
 			"max pod size", maxPodEntries,
-			"global max LRU cache capacity per pod", i.maxLRUSize,
 		)
 
 		i.mu.RUnlock()
