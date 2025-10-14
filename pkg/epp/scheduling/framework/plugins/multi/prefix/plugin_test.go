@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
@@ -197,6 +198,89 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	}
 	plugin.PreRequest(context.Background(), req5, schedulingResult)
 	plugin.wg.Wait()
+}
+
+func TestPrefixPluginCompletionWithResponse(t *testing.T) {
+	config := Config{
+		DefaultBlockSize:       4,
+		MaxPrefixBlocksToMatch: DefaultMaxPrefixBlocks,
+		LRUCapacityPerServer:   DefaultLRUCapacityPerServer,
+	}
+	plugin := New(context.Background(), config)
+
+	pod1 := &types.PodMetrics{Pod: &backend.Pod{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}
+	pod2 := &types.PodMetrics{Pod: &backend.Pod{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}
+	pods := []types.Pod{pod1, pod2}
+
+	// -- First Request --
+	// This initial request will populate the cache.
+	req1 := &types.LLMRequest{
+		RequestId:   uuid.NewString(),
+		TargetModel: "test-model1",
+		Body: &types.LLMRequestBody{
+			Completions: &types.CompletionsRequest{
+				Prompt: "aaaaaa",
+			},
+		},
+	}
+	scores := plugin.Score(context.Background(), types.NewCycleState(), req1, pods)
+	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](plugin.pluginState, req1.RequestId, plugins.StateKey(plugin.TypedName().String()))
+	assert.NoError(t, err)
+	t.Logf("Hashes %+v, cached servers: %+v", state.PrefixHashes, state.PrefixCacheServers)
+	// Input size is 6, hash block size is 4, so the last 2 characters are ignored.
+	// Total hashes = 1 (for the "aaaa" block) + 1 (for the model prefix).
+	assert.Equal(t, 1, len(state.PrefixHashes), "number of hashes is incorrect")
+	assert.Equal(t, 0, len(state.PrefixCacheServers), "there shouldn't be any cached servers yet")
+	assert.Equal(t, float64(0), scores[pod1], "score for pod1 should be 0 on first request")
+	assert.Equal(t, float64(0), scores[pod2], "score for pod2 should be 0 on first request")
+
+	// Simulate that the scheduler picked pod1 for the first request.
+	schedulingResult := &types.SchedulingResult{
+		PrimaryProfileName: "default",
+		ProfileResults: map[string]*types.ProfileRunResult{
+			"default": {TargetPods: []types.Pod{pod1}},
+		},
+	}
+	plugin.PreRequest(context.Background(), req1, schedulingResult, 0)
+	plugin.wg.Wait()
+
+	// -- Simulate Response Completion --
+	// The ResponseComplete hook is called. The plugin should update pod1's KV cache
+	// with the full context of the completed interaction (prompt + response).
+	//   - Initial Prompt: "aaaaaa"
+	//   - Response Body:  "bb"
+	//   - Cached Sequence: "aaaaaabb" (length 8)
+	// This sequence creates two 4-character blocks to be cached: "aaaa" and "aabb".
+	plugin.ResponseComplete(context.Background(), req1, &requestcontrol.Response{Body: "bb"}, pod1.GetPod())
+	plugin.wg.Wait()
+
+	// -- Second Request: Multi-turn Follow-up --
+	// This request simulates a follow-up message in a chat. The prompt contains the
+	// entire conversation history ("aaaaaabb") plus new text ("cc").
+	// The plugin should find that the first two blocks ("aaaa", "aabb") of this new
+	// prompt are already cached on pod1, giving it a perfect match score of 1.0.
+	// Pod2 has no matching cache entries and should score 0.
+	req2 := &types.LLMRequest{
+		RequestId:   uuid.NewString(),
+		TargetModel: "test-model1",
+		Body: &types.LLMRequestBody{
+			Completions: &types.CompletionsRequest{
+				Prompt: "aaaaaabbcc",
+			},
+		},
+	}
+	scores = plugin.Score(context.Background(), types.NewCycleState(), req2, pods)
+	state, err = plugins.ReadPluginStateKey[*SchedulingContextState](plugin.pluginState, req2.RequestId, plugins.StateKey(plugin.TypedName().String()))
+	assert.NoError(t, err)
+	t.Logf("Hashes %+v, cached servers: %+v", state.PrefixHashes, state.PrefixCacheServers)
+	// Input size is 10, hash block size is 4. The prompt "aaaaaabb" generates 2 hashes.
+	// The last 2 characters ("cc") are ignored.
+	assert.Equal(t, 2, len(state.PrefixHashes), "number of hashes is incorrect")
+	// It should find a server (pod1) that has cached the prefixes.
+	assert.Equal(t, 1, len(state.PrefixCacheServers), "a cached server should have been found")
+	// The score for pod1 should be 1.0 because both prompt blocks ("aaaa" and "aabb") were found in its cache.
+	assert.Equal(t, float64(1), scores[pod1], "score for pod1 should be a perfect match")
+	assert.Equal(t, float64(0), scores[pod2], "score for pod2 should be 0")
 }
 
 func TestPrefixPluginChatCompletions(t *testing.T) {

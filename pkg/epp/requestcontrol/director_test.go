@@ -696,6 +696,23 @@ func TestDirector_HandleResponseComplete(t *testing.T) {
 	mockSched := &mockScheduler{}
 	director := NewDirectorWithConfig(ds, mockSched, nil, NewConfig().WithResponseCompletePlugins(pc1))
 
+	chatCompletionJSON := `{
+		"choices": [
+			{
+				"message": {
+					"role": "assistant",
+					"content": "Hello!"
+				},
+				"finish_reason": "stop"
+			}
+		],
+		"usage": {
+			"prompt_tokens": 1,
+			"completion_tokens": 2,
+			"total_tokens": 3
+		}
+	}`
+
 	reqCtx := &handlers.RequestContext{
 		Request: &handlers.Request{
 			Headers: map[string]string{
@@ -704,6 +721,7 @@ func TestDirector_HandleResponseComplete(t *testing.T) {
 		},
 		Response: &handlers.Response{
 			Headers: map[string]string{"X-Test-Complete-Header": "CompleteValue"},
+			Body:    []byte(chatCompletionJSON),
 		},
 		TargetPod: &backend.Pod{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
 	}
@@ -717,10 +735,13 @@ func TestDirector_HandleResponseComplete(t *testing.T) {
 		t.Errorf("Scheduler.OnComplete RequestId mismatch (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff(reqCtx.Response.Headers, pc1.lastRespOnComplete.Headers); diff != "" {
-		t.Errorf("Scheduler.OnComplete Headers mismatch (-want +got):\n%s", diff)
+		t.Errorf("Scheduler.OnComplete response headers mismatch (-want +got):\n%s", diff)
 	}
 	if diff := cmp.Diff("namespace1/test-pod-name", pc1.lastTargetPodOnComplete); diff != "" {
 		t.Errorf("Scheduler.OnComplete TargetPodName mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff("Hello!", pc1.lastRespOnComplete.Body); diff != "" {
+		t.Errorf("Scheduler.OnComplete response body mismatch (-want +got):\n%s", diff)
 	}
 }
 

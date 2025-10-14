@@ -115,6 +115,7 @@ type Request struct {
 }
 type Response struct {
 	Headers map[string]string
+	Body    []byte
 }
 type StreamRequestState int
 

@@ -280,13 +280,20 @@ func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *hand
 
 // HandleResponseBodyComplete is called when the response body is fully received.
 func (d *Director) HandleResponseBodyComplete(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
-	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk")
+	requestID := reqCtx.Request.Headers[requtil.RequestIdHeaderKey]
+	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk", requtil.RequestIdHeaderKey, requestID)
 	logger.V(logutil.DEBUG).Info("Entering HandleResponseBodyComplete")
-	response := &Response{
-		RequestId: reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
-		Headers:   reqCtx.Response.Headers,
+	llmResponse, err := schedulingtypes.NewLLMResponseFromBytes(reqCtx.Response.Body)
+	if err != nil {
+		logger.Error(err, "HandleResponseBodyComplete: failed to convert the response to LLMResponse.")
+		return reqCtx, err
 	}
-
+	response := &Response{
+		RequestId: requestID,
+		Headers:   reqCtx.Response.Headers,
+		// Currently use the first choice as the response body to process.
+		Body: llmResponse.GetFirstChoiceContent(),
+	}
 	d.runResponseCompletePlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
 
 	logger.V(logutil.DEBUG).Info("Exiting HandleResponseBodyComplete")
