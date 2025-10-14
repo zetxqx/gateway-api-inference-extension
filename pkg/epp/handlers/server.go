@@ -17,6 +17,7 @@ limitations under the License.
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -112,7 +113,9 @@ type Request struct {
 	Metadata map[string]any
 }
 type Response struct {
-	Headers map[string]string
+	Headers       map[string]string
+	Body          map[string]any
+	StreamingBody bytes.Buffer
 }
 type StreamRequestState int
 
@@ -144,10 +147,12 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		},
 		Response: &Response{
 			Headers: make(map[string]string),
+			Body:    make(map[string]any),
 		},
 	}
 
 	var body []byte
+	var responseBuffer bytes.Buffer
 	var responseBody map[string]any
 
 	// Create error handling var as each request should only report once for
@@ -253,15 +258,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			}
 			reqCtx.RequestState = ResponseRecieved
 
-			var responseErr error
-			reqCtx, responseErr = s.HandleResponseHeaders(ctx, reqCtx, v)
-			if responseErr != nil {
-				if logger.V(logutil.DEBUG).Enabled() {
-					logger.V(logutil.DEBUG).Error(responseErr, "Failed to process response headers", "request", req)
-				} else {
-					logger.V(logutil.DEFAULT).Error(responseErr, "Failed to process response headers")
-				}
-			}
+			reqCtx = s.HandleResponseHeaders(ctx, reqCtx, v)
 			reqCtx.respHeaderResp = s.generateResponseHeaderResponse(reqCtx)
 
 		case *extProcPb.ProcessingRequest_ResponseBody:
@@ -280,8 +277,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 				reqCtx.respBodyResp = generateResponseBodyResponses(v.ResponseBody.Body, v.ResponseBody.EndOfStream)
 			} else {
-				body = append(body, v.ResponseBody.Body...)
-
+				responseBuffer.Write(v.ResponseBody.Body)
 				// Message is buffered, we can read and decode.
 				if v.ResponseBody.EndOfStream {
 					loggerTrace.Info("stream completed")
@@ -289,7 +285,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 					// We assume the body is valid JSON, err messages are not guaranteed to be json, and so capturing and sending a 500 obfuscates the response message.
 					// Using the standard 'err' var will send an immediate error response back to the caller.
 					var responseErr error
-					responseErr = json.Unmarshal(body, &responseBody)
+					responseErr = json.Unmarshal(responseBuffer.Bytes(), &responseBody)
 					if responseErr != nil {
 						if logger.V(logutil.DEBUG).Enabled() {
 							logger.V(logutil.DEBUG).Error(responseErr, "Error unmarshalling request body", "body", string(body))

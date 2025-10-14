@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/logging"
 )
 
@@ -61,28 +62,38 @@ data: [DONE]
 
 func TestHandleResponseBody(t *testing.T) {
 	ctx := logutil.NewTestLoggerIntoContext(context.Background())
+	var wantBody map[string]any
+	_ = json.Unmarshal([]byte(body), &wantBody)
 
 	tests := []struct {
-		name    string
-		body    []byte
-		reqCtx  *RequestContext
-		want    Usage
-		wantErr bool
+		name         string
+		body         []byte
+		reqCtx       *RequestContext
+		want         Usage
+		wantResponse *Response
+		wantErr      bool
 	}{
 		{
 			name: "success",
 			body: []byte(body),
+			reqCtx: &RequestContext{
+				Response: &Response{},
+			},
 			want: Usage{
 				PromptTokens:     11,
 				TotalTokens:      111,
 				CompletionTokens: 100,
+			},
+			wantResponse: &Response{
+				Body: wantBody,
 			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &StreamingServer{}
+			director := &testDirector{}
+			server := NewStreamingServer(nil, director)
 			reqCtx := test.reqCtx
 			if reqCtx == nil {
 				reqCtx = &RequestContext{}
@@ -101,6 +112,9 @@ func TestHandleResponseBody(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
+				t.Errorf("HandleResponseBody returned unexpected usage, diff(-want, +got): %v", diff)
+			}
+			if diff := cmp.Diff(test.wantResponse, reqCtx.Response); diff != "" {
 				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
 			}
 		})
@@ -154,4 +168,18 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testDirector struct{}
+
+func (ts *testDirector) HandleRequest(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
+	return reqCtx, nil
+}
+
+func (ts *testDirector) HandleResponse(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
+	return reqCtx, nil
+}
+
+func (ts *testDirector) GetRandomPod() *backend.Pod {
+	return nil
 }

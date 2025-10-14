@@ -1,0 +1,36 @@
+{
+    "choices": [
+        {
+            "finish_reason": "stop",
+            "index": 0,
+            "logprobs": null,
+            "message": {
+                "annotations": null,
+                "audio": null,
+                "content": "\u003cthink\u003e\nOkay, the user provided a block of text that's all in Latin, which is the standard \"Lorem Ipsum\" used in publishing and graphic design. They might be testing if I can recognize it or if I need to respond in a certain way. Since it's just placeholder text, there's no actual question here. I should let them know I noticed it's Lorem Ipsum and ask if they need help with something specific. Maybe they want to use it for a project and need assistance, or perhaps they made a mistake pasting it. I'll keep the response friendly and open-ended to encourage them to clarify their request.\n\u003c/think\u003e\n\nThe text you've provided is **Lorem Ipsum**, a placeholder text commonly used in the design and publishing industries to demonstrate how layouts will look with text. It's derived from a scrambled section of a Latin text by Cicero and has no meaningful content—it's just a tool for visual formatting.\n\nIf you have a specific question, need help with design, or want to discuss something related to this text, feel free to clarify! 😊",
+                "function_call": null,
+                "reasoning_content": null,
+                "refusal": null,
+                "role": "assistant",
+                "tool_calls": []
+            },
+            "stop_reason": null,
+            "token_ids": null
+        }
+    ],
+    "created": 1760069682,
+    "id": "chatcmpl-7e650e05-196e-47e2-b3be-fc35005d05d2",
+    "kv_transfer_params": null,
+    "model": "Qwen/Qwen3-32B",
+    "object": "chat.completion",
+    "prompt_logprobs": null,
+    "prompt_token_ids": null,
+    "service_tier": null,
+    "system_fingerprint": null,
+    "usage": {
+        "completion_tokens": 217,
+        "prompt_tokens": 200,
+        "prompt_tokens_details": null,
+        "total_tokens": 417
+    }
+}

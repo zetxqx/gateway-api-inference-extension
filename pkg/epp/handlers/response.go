@@ -38,6 +38,8 @@ const (
 // HandleResponseBody always returns the requestContext even in the error case, as the request context is used in error handling.
 func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, response map[string]any) (*RequestContext, error) {
 	logger := log.FromContext(ctx)
+	reqCtx.Response.Body = response
+	logger.V(2).Info("HandleResponseBody the reponse is", "body", response)
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
 		return reqCtx, fmt.Errorf("error marshalling responseBody - %w", err)
@@ -56,12 +58,11 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	// ResponseComplete is to indicate the response is complete. In non-streaming
 	// case, it will be set to be true once the response is processed; in
 	// streaming case, it will be set to be true once the last chunk is processed.
-	// TODO(https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/178)
-	// will add the processing for streaming case.
 	reqCtx.ResponseComplete = true
 
 	reqCtx.respBodyResp = generateResponseBodyResponses(responseBytes, true)
-	return reqCtx, nil
+	reqCtx, err = s.director.HandleResponse(ctx, reqCtx)
+	return reqCtx, err
 }
 
 // The function is to handle streaming response if the modelServer is streaming.
@@ -74,7 +75,7 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	}
 }
 
-func (s *StreamingServer) HandleResponseHeaders(ctx context.Context, reqCtx *RequestContext, resp *extProcPb.ProcessingRequest_ResponseHeaders) (*RequestContext, error) {
+func (s *StreamingServer) HandleResponseHeaders(ctx context.Context, reqCtx *RequestContext, resp *extProcPb.ProcessingRequest_ResponseHeaders) *RequestContext {
 	for _, header := range resp.ResponseHeaders.Headers.Headers {
 		if header.RawValue != nil {
 			reqCtx.Response.Headers[header.Key] = string(header.RawValue)
@@ -82,10 +83,7 @@ func (s *StreamingServer) HandleResponseHeaders(ctx context.Context, reqCtx *Req
 			reqCtx.Response.Headers[header.Key] = header.Value
 		}
 	}
-
-	reqCtx, err := s.director.HandleResponse(ctx, reqCtx)
-
-	return reqCtx, err
+	return reqCtx
 }
 
 func (s *StreamingServer) generateResponseHeaderResponse(reqCtx *RequestContext) *extProcPb.ProcessingResponse {
@@ -163,6 +161,7 @@ func parseRespForUsage(ctx context.Context, responseText string) ResponseBody {
 			continue
 		}
 		content := strings.TrimPrefix(line, streamingRespPrefix)
+		logger.V(2).Info("Streaming response is", "content", content)
 		if content == "[DONE]" {
 			continue
 		}

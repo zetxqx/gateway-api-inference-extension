@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
@@ -82,6 +83,10 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	}
 	plugin.PreRequest(context.Background(), req1, schedulingResult, 0)
 	plugin.wg.Wait()
+	response := requestcontrol.Response{
+		Body: "xxxxxx",
+	}
+	plugin.PostResponse(context.Background(), req1, &response, pod1.GetPod())
 
 	// Second request doesn't share any prefix with first one. It should be added to the cache but
 	// the pod score should be 0.
@@ -121,7 +126,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		TargetModel: "test-model1",
 		Body: &types.LLMRequestBody{
 			Completions: &types.CompletionsRequest{
-				Prompt: "aaaabbbb",
+				Prompt: "aaaaaaxxxxxx",
 			},
 		},
 	}
@@ -131,9 +136,9 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	t.Logf("Hashes %+v, cached servers: %+v", state.PrefixHashes, state.PrefixCacheServers)
 	// Input size is 8, hash block size is 4, so 2 hashes will be calculated.
 	// Total hashes = 2 (the first one is for the prefix with model)
-	assert.Equal(t, 2, len(state.PrefixHashes), "number of hashes is incorrect")
+	assert.Equal(t, 3, len(state.PrefixHashes), "number of hashes is incorrect")
 	assert.Equal(t, 1, len(state.PrefixCacheServers), "pod1 should have cached the aaaa prefix")
-	assert.Equal(t, 0.5, scores[pod1], "score should be 0.5 - the model and the first prefix block match")
+	assert.Equal(t, 1.0, scores[pod1], "score should be 0.5 - the model and the first prefix block match")
 	assert.Equal(t, float64(0), scores[pod2], "score for pod2")
 
 	schedulingResult = &types.SchedulingResult{
@@ -181,7 +186,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		TargetModel: "test-model1",
 		Body: &types.LLMRequestBody{
 			Completions: &types.CompletionsRequest{
-				Prompt: "aaaabbbbcccc",
+				Prompt: "aaaaaaxxcccc",
 			},
 		},
 	}
