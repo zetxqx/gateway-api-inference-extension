@@ -18,6 +18,7 @@ package types
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -26,19 +27,19 @@ import (
 type LLMResponse struct {
 	// ChatCompletion is the representation of the OpenAI /v1/chat/completions response body.
 	ChatCompletion *ChatCompletionResponse `json:"chat_completion,omitempty"`
-	// LegacyCompletion is the representation of the OpenAI /v1/completions response body.
-	LegacyCompletion *LegacyCompletionResponse `json:"legacy_completion,omitempty"`
+	// Completion is the representation of the OpenAI /v1/completions response body.
+	Completion *CompletionResponse `json:"legacy_completion,omitempty"`
 }
 
-// GetFirstChoiceContent extracts the primary text content from the first choice
-// in either a ChatCompletion or a LegacyCompletion response.
-func (res *LLMResponse) GetFirstChoiceContent() string {
+// FirstChoiceContent extracts the first choice of the response.
+func (res *LLMResponse) FirstChoiceContent() ([]byte, error) {
 	if res.ChatCompletion != nil && len(res.ChatCompletion.Choices) > 0 {
-		return res.ChatCompletion.Choices[0].Message.Content
-	} else if res.LegacyCompletion != nil && len(res.LegacyCompletion.Choices) > 0 {
-		return res.LegacyCompletion.Choices[0].Text
+		return MarshalMessagesToJSON(res.ChatCompletion.Choices[0].Message)
 	}
-	return ""
+	if res.Completion != nil && len(res.Completion.Choices) > 0 {
+		return []byte(res.Completion.Choices[0].Text), nil
+	}
+	return nil, errors.New("no choices found in the LLM response")
 }
 
 // ChatCompletionResponse represents the full response body for the chat completions API.
@@ -53,15 +54,15 @@ func (r *ChatCompletionResponse) String() string {
 	}
 	contentLen := 0
 	if len(r.Choices) > 0 {
-		contentLen = len(r.Choices[0].Message.Content)
+		contentLen = len(r.Choices[0].Message.Content.Raw)
 	}
 	return fmt.Sprintf("{ContentLength: %d, Usage: %s}", contentLen, r.Usage)
 }
 
 // ChatChoice represents a single choice in the chat completion response.
 type ChatChoice struct {
-	Message      ChatMessage `json:"message"`
-	FinishReason string      `json:"finish_reason"`
+	Message      Message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
 }
 
 // ChatMessage represents the message object within a choice.
@@ -70,13 +71,13 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
-// LegacyCompletionResponse represents the full response body for the legacy completions API.
-type LegacyCompletionResponse struct {
-	Choices []LegacyChoice `json:"choices"`
-	Usage   *Usage         `json:"usage,omitempty"`
+// CompletionResponse represents the full response body for the legacy completions API.
+type CompletionResponse struct {
+	Choices []CompletionChoice `json:"choices"`
+	Usage   *Usage             `json:"usage,omitempty"`
 }
 
-func (r *LegacyCompletionResponse) String() string {
+func (r *CompletionResponse) String() string {
 	if r == nil {
 		return nilString
 	}
@@ -87,8 +88,8 @@ func (r *LegacyCompletionResponse) String() string {
 	return fmt.Sprintf("{TextLength: %d, Usage: %v}", textLen, r.Usage)
 }
 
-// LegacyChoice represents a single choice in the legacy completion response.
-type LegacyChoice struct {
+// CompletionChoice represents a single choice in the legacy completion response.
+type CompletionChoice struct {
 	Text         string `json:"text"`
 	FinishReason string `json:"finish_reason"`
 }
@@ -111,7 +112,7 @@ func (u *Usage) String() string {
 // as a chat completion and then as a legacy completion response.
 func NewLLMResponseFromBytes(body []byte) (*LLMResponse, error) {
 	if len(body) == 0 {
-		return nil, fmt.Errorf("input bytes are empty")
+		return nil, errors.New("input bytes are empty")
 	}
 
 	// Attempt to unmarshal as a ChatCompletionResponse first.
@@ -124,12 +125,12 @@ func NewLLMResponseFromBytes(body []byte) (*LLMResponse, error) {
 	}
 
 	// Try to unmarshal as a LegacyCompletionResponse.
-	var legacyResp LegacyCompletionResponse
+	var legacyResp CompletionResponse
 	if err := json.Unmarshal(body, &legacyResp); err == nil {
 		if len(legacyResp.Choices) > 0 {
-			return &LLMResponse{LegacyCompletion: &legacyResp}, nil
+			return &LLMResponse{Completion: &legacyResp}, nil
 		}
 	}
 
-	return nil, fmt.Errorf("failed to unmarshal body into any known LLM response format")
+	return nil, errors.New("failed to unmarshal body into any known LLM response format")
 }

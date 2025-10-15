@@ -109,9 +109,11 @@ func TestNewLLMResponseFromBytes(t *testing.T) {
 				ChatCompletion: &ChatCompletionResponse{
 					Choices: []ChatChoice{
 						{
-							Message: ChatMessage{
-								Role:    "assistant",
-								Content: "Hello!",
+							Message: Message{
+								Role: "assistant",
+								Content: Content{
+									Raw: "Hello!",
+								},
 							},
 							FinishReason: "stop",
 						},
@@ -129,8 +131,8 @@ func TestNewLLMResponseFromBytes(t *testing.T) {
 			name:  "valid legacy completion response",
 			input: []byte(legacyCompletionJSON),
 			want: &LLMResponse{
-				LegacyCompletion: &LegacyCompletionResponse{
-					Choices: []LegacyChoice{
+				Completion: &CompletionResponse{
+					Choices: []CompletionChoice{
 						{
 							Text:         "Hello there!",
 							FinishReason: "stop",
@@ -182,9 +184,11 @@ func TestNewLLMResponseFromBytes(t *testing.T) {
 				ChatCompletion: &ChatCompletionResponse{
 					Choices: []ChatChoice{
 						{
-							Message: ChatMessage{
-								Role:    "assistant",
-								Content: "Hello!",
+							Message: Message{
+								Role: "assistant",
+								Content: Content{
+									Raw: "Hello!",
+								},
 							},
 							FinishReason: "stop",
 						},
@@ -197,8 +201,8 @@ func TestNewLLMResponseFromBytes(t *testing.T) {
 			name:  "legacy completion with empty usage",
 			input: []byte(legacyCompletionEmptyUsageJSON),
 			want: &LLMResponse{
-				LegacyCompletion: &LegacyCompletionResponse{
-					Choices: []LegacyChoice{
+				Completion: &CompletionResponse{
+					Choices: []CompletionChoice{
 						{
 							Text:         "Hello there!",
 							FinishReason: "stop",
@@ -226,33 +230,37 @@ func TestNewLLMResponseFromBytes(t *testing.T) {
 	}
 }
 
-func TestGetFirstChoiceContent(t *testing.T) {
+func TestFirstChoiceContent(t *testing.T) {
 	testCases := []struct {
-		name string
-		res  *LLMResponse
-		want string
+		name      string
+		res       *LLMResponse
+		want      []byte
+		wantError bool
 	}{
 		{
 			name: "chatCompletion with choice",
 			res: &LLMResponse{
 				ChatCompletion: &ChatCompletionResponse{
 					Choices: []ChatChoice{
-						{Message: ChatMessage{Content: "Hello from Chat"}},
+						{Message: Message{Role: "assistant",
+							Content: Content{
+								Raw: "Hello from Chat",
+							}}},
 					},
 				},
 			},
-			want: "Hello from Chat",
+			want: []byte(`{"role":"assistant","content":"Hello from Chat"},`),
 		},
 		{
 			name: "legacyCompletion with choice",
 			res: &LLMResponse{
-				LegacyCompletion: &LegacyCompletionResponse{
-					Choices: []LegacyChoice{
+				Completion: &CompletionResponse{
+					Choices: []CompletionChoice{
 						{Text: "Hello from Legacy"},
 					},
 				},
 			},
-			want: "Hello from Legacy",
+			want: []byte(`Hello from Legacy`),
 		},
 		{
 			name: "chatCompletion with no choices",
@@ -261,37 +269,40 @@ func TestGetFirstChoiceContent(t *testing.T) {
 					Choices: []ChatChoice{},
 				},
 			},
-			want: "",
+			wantError: true,
 		},
 		{
 			name: "legacyCompletion with no choices",
 			res: &LLMResponse{
-				LegacyCompletion: &LegacyCompletionResponse{
-					Choices: []LegacyChoice{},
+				Completion: &CompletionResponse{
+					Choices: []CompletionChoice{},
 				},
 			},
-			want: "",
+			wantError: true,
 		},
 		{
 			name: "LLMResponse with all fields nil",
 			res: &LLMResponse{
-				ChatCompletion:   nil,
-				LegacyCompletion: nil,
+				ChatCompletion: nil,
+				Completion:     nil,
 			},
-			want: "",
+			wantError: true,
 		},
 		{
-			name: "Empty LLMResponse struct",
-			res:  &LLMResponse{},
-			want: "",
+			name:      "Empty LLMResponse struct",
+			res:       &LLMResponse{},
+			wantError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.res.GetFirstChoiceContent()
+			got, err := tc.res.FirstChoiceContent()
+			if tc.wantError != (err != nil) {
+				t.Errorf("FirstChoiceContent() wantError is %v, but got error: %v", tc.wantError, err)
+			}
 			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("GetFirstChoiceContent() mismatch (-want +got):\n%s", diff)
+				t.Errorf("FirstChoiceContent() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -345,7 +356,7 @@ func TestChatCompletionResponse_String(t *testing.T) {
 			name: "response with choices",
 			r: &ChatCompletionResponse{
 				Choices: []ChatChoice{
-					{Message: ChatMessage{Content: "hello"}},
+					{Message: Message{Content: Content{Raw: "hello"}}},
 				},
 				Usage: &Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3},
 			},
@@ -362,10 +373,10 @@ func TestChatCompletionResponse_String(t *testing.T) {
 }
 
 func TestLegacyCompletionResponse_String(t *testing.T) {
-	var nilResp *LegacyCompletionResponse
+	var nilResp *CompletionResponse
 	tests := []struct {
 		name string
-		r    *LegacyCompletionResponse
+		r    *CompletionResponse
 		want string
 	}{
 		{
@@ -375,13 +386,13 @@ func TestLegacyCompletionResponse_String(t *testing.T) {
 		},
 		{
 			name: "response with no choices",
-			r:    &LegacyCompletionResponse{Choices: []LegacyChoice{}, Usage: &Usage{}},
+			r:    &CompletionResponse{Choices: []CompletionChoice{}, Usage: &Usage{}},
 			want: "{TextLength: 0, Usage: {Prompt: 0, Completion: 0, Total: 0}}",
 		},
 		{
 			name: "response with choices",
-			r: &LegacyCompletionResponse{
-				Choices: []LegacyChoice{
+			r: &CompletionResponse{
+				Choices: []CompletionChoice{
 					{Text: "hello world"},
 				},
 				Usage: &Usage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3},

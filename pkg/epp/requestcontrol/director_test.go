@@ -712,6 +712,10 @@ func TestDirector_HandleResponseComplete(t *testing.T) {
 			"total_tokens": 3
 		}
 	}`
+	wantLLMResponse, err := schedulingtypes.NewLLMResponseFromBytes([]byte(chatCompletionJSON))
+	if err != nil {
+		t.Fatalf("NewLLMResponseFromBytes failed with error: %v", err)
+	}
 
 	reqCtx := &handlers.RequestContext{
 		Request: &handlers.Request{
@@ -726,21 +730,15 @@ func TestDirector_HandleResponseComplete(t *testing.T) {
 		TargetPod: &backend.Pod{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
 	}
 
-	_, err := director.HandleResponseBodyComplete(ctx, reqCtx)
+	_, err = director.HandleResponseBodyComplete(ctx, reqCtx)
 	if err != nil {
 		t.Fatalf("HandleResponseBodyComplete() returned unexpected error: %v", err)
 	}
 
-	if diff := cmp.Diff("test-req-id-for-complete", pc1.lastRespOnComplete.RequestId); diff != "" {
-		t.Errorf("Scheduler.OnComplete RequestId mismatch (-want +got):\n%s", diff)
-	}
-	if diff := cmp.Diff(reqCtx.Response.Headers, pc1.lastRespOnComplete.Headers); diff != "" {
-		t.Errorf("Scheduler.OnComplete response headers mismatch (-want +got):\n%s", diff)
-	}
 	if diff := cmp.Diff("namespace1/test-pod-name", pc1.lastTargetPodOnComplete); diff != "" {
 		t.Errorf("Scheduler.OnComplete TargetPodName mismatch (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff("Hello!", pc1.lastRespOnComplete.Body); diff != "" {
+	if diff := cmp.Diff(wantLLMResponse, pc1.lastRespOnComplete); diff != "" {
 		t.Errorf("Scheduler.OnComplete response body mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -765,7 +763,7 @@ type testResponseStreaming struct {
 
 type testResponseComplete struct {
 	tn                      plugins.TypedName
-	lastRespOnComplete      *Response
+	lastRespOnComplete      *schedulingtypes.LLMResponse
 	lastTargetPodOnComplete string
 }
 
@@ -809,7 +807,7 @@ func (p *testResponseStreaming) ResponseStreaming(_ context.Context, _ *scheduli
 	p.lastTargetPodOnStreaming = targetPod.NamespacedName.String()
 }
 
-func (p *testResponseComplete) ResponseComplete(_ context.Context, _ *schedulingtypes.LLMRequest, response *Response, targetPod *backend.Pod) {
+func (p *testResponseComplete) ResponseComplete(_ context.Context, _ *schedulingtypes.LLMRequest, response *schedulingtypes.LLMResponse, targetPod *backend.Pod) {
 	p.lastRespOnComplete = response
 	p.lastTargetPodOnComplete = targetPod.NamespacedName.String()
 }

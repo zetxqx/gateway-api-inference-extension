@@ -288,13 +288,7 @@ func (d *Director) HandleResponseBodyComplete(ctx context.Context, reqCtx *handl
 		logger.Error(err, "HandleResponseBodyComplete: failed to convert the response to LLMResponse.")
 		return reqCtx, err
 	}
-	response := &Response{
-		RequestId: requestID,
-		Headers:   reqCtx.Response.Headers,
-		// Currently use the first choice as the response body to process.
-		Body: llmResponse.GetFirstChoiceContent(),
-	}
-	d.runResponseCompletePlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
+	d.runResponseCompletePlugins(ctx, reqCtx.SchedulingRequest, llmResponse, reqCtx.TargetPod)
 
 	logger.V(logutil.DEBUG).Info("Exiting HandleResponseBodyComplete")
 	return reqCtx, nil
@@ -344,7 +338,7 @@ func (d *Director) runResponseStreamingPlugins(ctx context.Context, request *sch
 	}
 }
 
-func (d *Director) runResponseCompletePlugins(ctx context.Context, request *schedulingtypes.LLMRequest, response *Response, targetPod *backend.Pod) {
+func (d *Director) runResponseCompletePlugins(ctx context.Context, request *schedulingtypes.LLMRequest, response *schedulingtypes.LLMResponse, targetPod *backend.Pod) {
 	loggerDebug := log.FromContext(ctx).V(logutil.DEBUG)
 	for _, plugin := range d.requestControlPlugins.responseCompletePlugins {
 		loggerDebug.Info("Running ResponseComplete plugin", "plugin", plugin.TypedName())

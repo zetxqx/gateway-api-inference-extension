@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
 
@@ -201,8 +200,9 @@ func TestPrefixPluginCompletion(t *testing.T) {
 }
 
 func TestPrefixPluginCompletionWithResponse(t *testing.T) {
+	const defaultBlockSize = 4
 	config := Config{
-		DefaultBlockSize:       4,
+		DefaultBlockSize:       defaultBlockSize,
 		MaxPrefixBlocksToMatch: DefaultMaxPrefixBlocks,
 		LRUCapacityPerServer:   DefaultLRUCapacityPerServer,
 	}
@@ -231,6 +231,9 @@ func TestPrefixPluginCompletionWithResponse(t *testing.T) {
 	// Total hashes = 1 (for the "aaaa" block) + 1 (for the model prefix).
 	assert.Equal(t, 1, len(state.PrefixHashes), "number of hashes is incorrect")
 	assert.Equal(t, 0, len(state.PrefixCacheServers), "there shouldn't be any cached servers yet")
+	// The last 2 characters are recorded in restBytes of the state.
+	assert.Equal(t, 2, len(state.RestBytes), "number of restBytes is incorrect")
+	assert.Equal(t, defaultBlockSize, state.BlockSize, "blockSize is incorrect")
 	assert.Equal(t, float64(0), scores[pod1], "score for pod1 should be 0 on first request")
 	assert.Equal(t, float64(0), scores[pod2], "score for pod2 should be 0 on first request")
 
@@ -241,7 +244,7 @@ func TestPrefixPluginCompletionWithResponse(t *testing.T) {
 			"default": {TargetPods: []types.Pod{pod1}},
 		},
 	}
-	plugin.PreRequest(context.Background(), req1, schedulingResult, 0)
+	plugin.PreRequest(context.Background(), req1, schedulingResult)
 	plugin.wg.Wait()
 
 	// -- Simulate Response Completion --
@@ -251,7 +254,16 @@ func TestPrefixPluginCompletionWithResponse(t *testing.T) {
 	//   - Response Body:  "bb"
 	//   - Cached Sequence: "aaaaaabb" (length 8)
 	// This sequence creates two 4-character blocks to be cached: "aaaa" and "aabb".
-	plugin.ResponseComplete(context.Background(), req1, &requestcontrol.Response{Body: "bb"}, pod1.GetPod())
+	resp1 := &types.LLMResponse{
+		Completion: &types.CompletionResponse{
+			Choices: []types.CompletionChoice{
+				{
+					Text: "bb",
+				},
+			},
+		},
+	}
+	plugin.ResponseComplete(context.Background(), req1, resp1, pod1.GetPod())
 	plugin.wg.Wait()
 
 	// -- Second Request: Multi-turn Follow-up --
@@ -278,6 +290,9 @@ func TestPrefixPluginCompletionWithResponse(t *testing.T) {
 	assert.Equal(t, 2, len(state.PrefixHashes), "number of hashes is incorrect")
 	// It should find a server (pod1) that has cached the prefixes.
 	assert.Equal(t, 1, len(state.PrefixCacheServers), "a cached server should have been found")
+	// The last 2 characters ("cc") are recorded in restBytes of the state.
+	assert.Equal(t, 2, len(state.RestBytes), "number of restBytes is incorrect")
+	assert.Equal(t, defaultBlockSize, state.BlockSize, "blockSize is incorrect")
 	// The score for pod1 should be 1.0 because both prompt blocks ("aaaa" and "aabb") were found in its cache.
 	assert.Equal(t, float64(1), scores[pod1], "score for pod1 should be a perfect match")
 	assert.Equal(t, float64(0), scores[pod2], "score for pod2 should be 0")
@@ -362,6 +377,19 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	plugin.PreRequest(context.Background(), req1, schedulingResult)
 	plugin.wg.Wait()
 
+	resp1 := &types.LLMResponse{
+		ChatCompletion: &types.ChatCompletionResponse{
+			Choices: []types.ChatChoice{
+				{
+					Message: types.Message{Role: "assistant", Content: types.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
+				},
+			},
+		},
+	}
+	// Trigger to simulate the resp1 is added to the kvCache recording.
+	plugin.ResponseComplete(context.Background(), req1, resp1, pod1.GetPod())
+	plugin.wg.Wait()
+
 	// Second request adds assistant response and new user message (conversation grows)
 	req2 := &types.LLMRequest{
 		RequestId:   uuid.NewString(),
@@ -389,10 +417,24 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	cachedBlocks := state.PrefixCacheServers[ServerID(pod1.GetPod().NamespacedName)]
 	expectedScore := float64(cachedBlocks) / float64(extendedHashCount)
 	assert.Equal(t, expectedScore, scores[pod1], "pod1 should have prefix cache hit")
+	assert.Greater(t, scores[pod1], float64(0.5), "given the response is also prefix cached the cache hit should be well above 0.5")
 	assert.Equal(t, float64(0), scores[pod2], "pod2 should have no cache hit")
 
 	// Simulate pod1 was picked again
 	plugin.PreRequest(context.Background(), req2, schedulingResult)
+	plugin.wg.Wait()
+
+	resp2 := &types.LLMResponse{
+		ChatCompletion: &types.ChatCompletionResponse{
+			Choices: []types.ChatChoice{
+				{
+					Message: types.Message{Role: "assistant", Content: types.Content{Raw: "Prefix caching is a technique where..."}},
+				},
+			},
+		},
+	}
+	// Trigger to simulate the resp1 is added to the kvCache recording.
+	plugin.ResponseComplete(context.Background(), req2, resp2, pod1.GetPod())
 	plugin.wg.Wait()
 
 	// Third request continues the conversation even further
@@ -424,7 +466,7 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	cachedBlocks = state.PrefixCacheServers[ServerID(pod1.GetPod().NamespacedName)]
 	expectedScore = float64(cachedBlocks) / float64(longHashCount)
 	assert.Equal(t, expectedScore, scores[pod1], "pod1 should have higher prefix cache hit")
-	assert.Greater(t, scores[pod1], float64(0.5), "cache hit rate should be substantial for growing conversation")
+	assert.Greater(t, scores[pod1], float64(0.8), "cache hit rate should be substantial for growing conversation")
 	assert.Equal(t, float64(0), scores[pod2], "pod2 should still have no cache hit")
 }
 
