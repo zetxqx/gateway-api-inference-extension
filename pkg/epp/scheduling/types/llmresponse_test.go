@@ -17,6 +17,7 @@ limitations under the License.
 package types
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -225,6 +226,115 @@ func TestNewLLMResponseFromBytes(t *testing.T) {
 
 			if diff := cmp.Diff(tc.want, got); diff != "" {
 				t.Errorf("NewLLMResponseFromBytes() (-want +got): %v", diff)
+			}
+		})
+	}
+}
+
+func TestNewLLMResponseFromStream(t *testing.T) {
+	testCases := []struct {
+		name        string
+		streamData  []byte
+		want        *LLMResponse
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "valid chat stream with content and usage",
+			streamData: []byte(`
+			data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant"}}]} 
+
+			data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"}}]} 
+
+			data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" world"}}]} 
+
+			data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]} 
+
+			data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}} 
+
+			data: [DONE]
+			`),
+			want: &LLMResponse{
+				ChatCompletion: &ChatCompletionResponse{
+					Choices: []ChatChoice{
+						{
+							Message: Message{
+								Role:    "assistant",
+								Content: Content{Raw: "Hello world"},
+							},
+							FinishReason: "stop",
+						},
+					},
+					Usage: &Usage{
+						PromptTokens:     5,
+						CompletionTokens: 7,
+						TotalTokens:      12,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid completion stream with content and usage",
+			streamData: []byte(`
+			data: {"id":"cmpl-1","object":"text_completion","choices":[{"index":0,"text":"Hello"}]} 
+
+			data: {"id":"cmpl-1","object":"text_completion","choices":[{"index":0,"text":" world"}]} 
+
+			data: {"id":"cmpl-1","object":"text_completion","choices":[{"index":0,"text":"","finish_reason":"stop"}]} 
+
+			data: {"id":"cmpl-1","object":"text_completion","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}} 
+
+			data: [DONE]
+			`),
+			want: &LLMResponse{
+				Completion: &CompletionResponse{
+					Choices: []CompletionChoice{
+						{
+							Text:         "Hello world",
+							FinishReason: "stop",
+						},
+					},
+					Usage: &Usage{
+						PromptTokens:     5,
+						CompletionTokens: 7,
+						TotalTokens:      12,
+					},
+				},
+			},
+		},
+		{
+			name:        "empty stream data",
+			streamData:  []byte(""),
+			wantErr:     true,
+			errContains: "input bytes are empty",
+		},
+		{
+			name:        "stream with no choices",
+			streamData:  []byte(`data: [DONE]`),
+			wantErr:     true,
+			errContains: "failed to determine stream type",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := NewLLMResponseFromStream(tc.streamData)
+
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("Expected an error, but got nil")
+				}
+				if err != nil && tc.errContains != "" && !strings.Contains(err.Error(), tc.errContains) {
+					t.Errorf("Expected error to contain '%s', but got '%s'", tc.errContains, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error: %v", err)
+				}
+				if diff := cmp.Diff(tc.want, got); diff != "" {
+					t.Errorf("NewLLMResponseFromStream() mismatch (-want +got):\n%s", diff)
+				}
 			}
 		})
 	}

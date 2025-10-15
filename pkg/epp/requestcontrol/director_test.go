@@ -725,9 +725,9 @@ func TestDirector_HandleResponseComplete(t *testing.T) {
 		},
 		Response: &handlers.Response{
 			Headers: map[string]string{"X-Test-Complete-Header": "CompleteValue"},
-			Body:    []byte(chatCompletionJSON),
 		},
-		TargetPod: &backend.Pod{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
+		SchedulingResponse: wantLLMResponse,
+		TargetPod:          &backend.Pod{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
 	}
 
 	_, err = director.HandleResponseBodyComplete(ctx, reqCtx)

@@ -20,6 +20,7 @@ package requestcontrol
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -283,12 +284,11 @@ func (d *Director) HandleResponseBodyComplete(ctx context.Context, reqCtx *handl
 	requestID := reqCtx.Request.Headers[requtil.RequestIdHeaderKey]
 	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk", requtil.RequestIdHeaderKey, requestID)
 	logger.V(logutil.DEBUG).Info("Entering HandleResponseBodyComplete")
-	llmResponse, err := schedulingtypes.NewLLMResponseFromBytes(reqCtx.Response.Body)
-	if err != nil {
-		logger.Error(err, "HandleResponseBodyComplete: failed to convert the response to LLMResponse.")
+	if reqCtx.SchedulingResponse == nil {
+		err := errors.New("nil scheduling response from reqCtx")
 		return reqCtx, err
 	}
-	d.runResponseCompletePlugins(ctx, reqCtx.SchedulingRequest, llmResponse, reqCtx.TargetPod)
+	d.runResponseCompletePlugins(ctx, reqCtx.SchedulingRequest, reqCtx.SchedulingResponse, reqCtx.TargetPod)
 
 	logger.V(logutil.DEBUG).Info("Exiting HandleResponseBodyComplete")
 	return reqCtx, nil
