@@ -123,6 +123,8 @@ type SchedulingContextState struct {
 	// If not empty, this will be used as the starting block for the following response that will
 	// be added to the response as well. This happens especially at the multi-turn scenario.
 	RestBytes []byte
+	// BlockSize is the block size used to caculate the hash of the request/response.
+	BlockSize int
 	// A map of server to its longest prefix cache match length.
 	PrefixCacheServers map[ServerID]int
 }
@@ -198,11 +200,13 @@ func (p *Plugin) WithName(name string) *Plugin {
 
 // Score returns the scoring result for the given list of pods based on context.
 func (p *Plugin) Score(ctx context.Context, cycleState *types.CycleState, request *types.LLMRequest, pods []types.Pod) map[types.Pod]float64 {
+	blockSize := getBlockSize(pods, p.config.DefaultBlockSize)
 	// pre score step, hashing prompt and find longest prefix match.
-	hashes, restBytes := hashPrompt(ctx, request, getBlockSize(pods, p.config.DefaultBlockSize), p.config.MaxPrefixBlocksToMatch)
+	hashes, restBytes := hashPrompt(ctx, request, blockSize, p.config.MaxPrefixBlocksToMatch)
 	state := &SchedulingContextState{
 		PrefixHashes:       hashes,
 		RestBytes:          restBytes,
+		BlockSize:          blockSize,
 		PrefixCacheServers: p.matchLongestPrefix(ctx, hashes),
 	}
 
@@ -233,7 +237,6 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 	targetPod := primaryProfileResult.TargetPods[0].GetPod() // get the first pod of the primary profile
 
 	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](p.pluginState, request.RequestId, plugins.StateKey(p.TypedName().String()))
-	p.pluginState.Delete(request.RequestId) // delete the state explicitly after completing using it
 	if err != nil {
 		log.FromContext(ctx).Error(err, "failed to read prefix plugin state", "requestID", request.RequestId)
 		return
@@ -251,9 +254,7 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 
 	total := len(state.PrefixHashes)
 	matchLen := state.PrefixCacheServers[ServerID(targetPod.NamespacedName)]
-
-	blockSize := getBlockSize(primaryProfileResult.TargetPods, p.config.DefaultBlockSize)
-	metrics.RecordPrefixCacheMatch(matchLen*blockSize, total*blockSize)
+	metrics.RecordPrefixCacheMatch(matchLen*state.BlockSize, total*state.BlockSize)
 }
 
 // matchLongestPrefix returns a map of servers and length of prefix that each server caches.
@@ -375,19 +376,25 @@ func getUserInputBytes(request *types.LLMRequest) ([]byte, error) {
 	}
 
 	// must be chat-completions request at this point, return bytes of entire messages
-	return json.Marshal(request.Body.ChatCompletions.Messages)
+	return types.MarshalMessagesToJSON(request.Body.ChatCompletions.Messages...)
 }
 
-func (p *Plugin) ResponseComplete(ctx context.Context, request *types.LLMRequest, response *requestcontrol.Response, targetPod *backend.Pod) {
+func (p *Plugin) ResponseComplete(ctx context.Context, request *types.LLMRequest, response *types.LLMResponse, targetPod *backend.Pod) {
 	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](p.pluginState, request.RequestId, plugins.StateKey(p.TypedName().String()))
 	if err != nil {
 		log.FromContext(ctx).Error(err, "failed to read prefix plugin state", "requestID", request.RequestId)
 		return
 	}
 	p.pluginState.Delete(request.RequestId) // delete the state explicitly after completing using it.
+
+	reponseForKVCache, err := response.FirstChoiceContent()
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to get first choice content", "requestID", request.RequestId)
+		return
+	}
 	var input bytes.Buffer
 	input.Write(state.RestBytes)
-	input.Write([]byte(response.Body))
+	input.Write(reponseForKVCache)
 
 	server := ServerID(targetPod.NamespacedName)
 	prevBlockHash := defaultPrevBlock(request)
@@ -396,8 +403,7 @@ func (p *Plugin) ResponseComplete(ctx context.Context, request *types.LLMRequest
 		prevBlockHash = state.PrefixHashes[len(state.PrefixHashes)-1]
 		prevBlockHashLength = len(state.PrefixHashes)
 	}
-	inputBytes := input.Bytes()
-	hashBlocks, _ := hashInputWithPrevBlockHash(ctx, prevBlockHash, prevBlockHashLength, inputBytes, p.config.DefaultBlockSize, p.config.MaxPrefixBlocksToMatch)
+	hashBlocks, _ := hashInputWithPrevBlockHash(ctx, prevBlockHash, prevBlockHashLength, input.Bytes(), state.BlockSize, p.config.MaxPrefixBlocksToMatch)
 	p.wg.Add(1)
 	go func() {
 		p.indexer.Add(hashBlocks, server)
