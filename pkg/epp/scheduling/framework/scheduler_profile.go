@@ -115,14 +115,29 @@ func (p *SchedulerProfile) String() string {
 // Run runs a SchedulerProfile. It invokes all the SchedulerProfile plugins for the given request in this
 // order - Filters, Scorers, Picker. After completing all, it returns the result.
 func (p *SchedulerProfile) Run(ctx context.Context, request *types.LLMRequest, cycleState *types.CycleState, candidatePods []types.Pod) (*types.ProfileRunResult, error) {
+	logger := log.FromContext(ctx).V(logutil.DEFAULT)
 	pods := p.runFilterPlugins(ctx, request, cycleState, candidatePods)
 	if len(pods) == 0 {
 		return nil, errutil.Error{Code: errutil.Internal, Msg: "no pods available for the given request"}
 	}
 	// if we got here, there is at least one pod to score
-	weightedScorePerPod := p.runScorerPlugins(ctx, request, cycleState, pods)
+	weightedScorePerPod, detailedWeightedScores := p.runScorerPlugins(ctx, request, cycleState, pods)
 
 	result := p.runPickerPlugin(ctx, cycleState, weightedScorePerPod)
+
+	// Record the contribution percentage for the winning pod.
+	if result != nil {
+		for _, winningPod := range result.TargetPods {
+			totalScore := weightedScorePerPod[winningPod]
+			logger.Info("Recording the contribution percentage for the winning pod.", totalScore)
+			if totalScore > 0 {
+				for scorerName, weightedScore := range detailedWeightedScores[winningPod] {
+					percentage := (weightedScore / totalScore) * 100
+					metrics.RecordScorerContributionPercentage(scorerName, percentage)
+				}
+			}
+		}
+	}
 
 	return result, nil
 }
@@ -147,13 +162,19 @@ func (p *SchedulerProfile) runFilterPlugins(ctx context.Context, request *types.
 	return filteredPods
 }
 
-func (p *SchedulerProfile) runScorerPlugins(ctx context.Context, request *types.LLMRequest, cycleState *types.CycleState, pods []types.Pod) map[types.Pod]float64 {
+func (p *SchedulerProfile) runScorerPlugins(ctx context.Context, request *types.LLMRequest, cycleState *types.CycleState, pods []types.Pod) (map[types.Pod]float64, map[types.Pod]map[string]float64) {
 	logger := log.FromContext(ctx)
 	logger.V(logutil.DEBUG).Info("Before running scorer plugins", "pods", pods)
 
 	weightedScorePerPod := make(map[types.Pod]float64, len(pods))
+	// a map from pod to a map from scorer name to its score for the pod.
+	detailedScores := make(map[types.Pod]map[string]float64)
+	detailedWeightedScores := make(map[types.Pod]map[string]float64)
+
 	for _, pod := range pods {
 		weightedScorePerPod[pod] = float64(0) // initialize weighted score per pod with 0 value
+		detailedScores[pod] = make(map[string]float64)
+		detailedWeightedScores[pod] = make(map[string]float64)
 	}
 	// Iterate through each scorer in the chain and accumulate the weighted scores.
 	for _, scorer := range p.scorers {
@@ -163,13 +184,18 @@ func (p *SchedulerProfile) runScorerPlugins(ctx context.Context, request *types.
 		metrics.RecordPluginProcessingLatency(ScorerExtensionPoint, scorer.TypedName().Type, scorer.TypedName().Name, time.Since(before))
 		for pod, score := range scores { // weight is relative to the sum of weights
 			logger.V(logutil.DEBUG).Info("Calculated score", "plugin", scorer.TypedName(), "endpoint", pod.GetPod().NamespacedName, "score", score)
-			weightedScorePerPod[pod] += enforceScoreRange(score) * float64(scorer.Weight())
+			metrics.RecordScorerScores(scorer.TypedName().Type, scorer.TypedName().Name, score)
+			weightedScore := enforceScoreRange(score) * float64(scorer.Weight())
+			metrics.RecordScorerWeightedScores(scorer.TypedName().Type, scorer.TypedName().Name, weightedScore)
+			weightedScorePerPod[pod] += weightedScore
+			detailedScores[pod][scorer.TypedName().String()] = score
+			detailedWeightedScores[pod][scorer.TypedName().String()] = weightedScore
 		}
 		logger.V(logutil.DEBUG).Info("Completed running scorer plugin successfully", "plugin", scorer.TypedName())
 	}
-	logger.V(logutil.DEBUG).Info("Completed running scorer plugins successfully")
+	logger.V(logutil.DEBUG).Info("Completed running scorer plugins successfully", "weightedScorePerPod", weightedScorePerPod, "detailedScores", detailedScores)
 
-	return weightedScorePerPod
+	return weightedScorePerPod, detailedWeightedScores
 }
 
 func (p *SchedulerProfile) runPickerPlugin(ctx context.Context, cycleState *types.CycleState, weightedScorePerPod map[types.Pod]float64) *types.ProfileRunResult {

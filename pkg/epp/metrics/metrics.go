@@ -195,6 +195,36 @@ var (
 		[]string{"extension_point", "plugin_type", "plugin_name"},
 	)
 
+	ScorerScores = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Subsystem: InferenceExtension,
+			Name:      "scorer_scores",
+			Help:      metricsutil.HelpMsgWithStability("Scores given by each scorer plugin.", compbasemetrics.ALPHA),
+			Buckets:   []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0},
+		},
+		[]string{"plugin_type", "plugin_name"},
+	)
+
+	ScorerWeightedScores = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Subsystem: InferenceExtension,
+			Name:      "scorer_weighted_scores",
+			Help:      metricsutil.HelpMsgWithStability("Weighted scores (score * weight) given by each scorer plugin.", compbasemetrics.ALPHA),
+			Buckets:   []float64{0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0},
+		},
+		[]string{"plugin_type", "plugin_name"},
+	)
+
+	ScorerContributionPercentage = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Subsystem: InferenceExtension,
+			Name:      "scorer_contribution_percentage",
+			Help:      metricsutil.HelpMsgWithStability("The percentage contribution of each scorer to the final score of the winning pod.", compbasemetrics.ALPHA),
+			Buckets:   []float64{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100},
+		},
+		[]string{"plugin_name"},
+	)
+
 	// Prefix indexer Metrics
 	PrefixCacheSize = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -278,6 +308,9 @@ func Register(customCollectors ...prometheus.Collector) {
 		metrics.Registry.MustRegister(inferencePoolReadyPods)
 		metrics.Registry.MustRegister(SchedulerE2ELatency)
 		metrics.Registry.MustRegister(PluginProcessingLatencies)
+		metrics.Registry.MustRegister(ScorerScores)
+		metrics.Registry.MustRegister(ScorerWeightedScores)
+		metrics.Registry.MustRegister(ScorerContributionPercentage)
 		metrics.Registry.MustRegister(InferenceExtensionInfo)
 		metrics.Registry.MustRegister(PrefixCacheSize)
 		metrics.Registry.MustRegister(PrefixCacheHitRatio)
@@ -306,6 +339,9 @@ func Reset() {
 	inferencePoolReadyPods.Reset()
 	SchedulerE2ELatency.Reset()
 	PluginProcessingLatencies.Reset()
+	ScorerScores.Reset()
+	ScorerWeightedScores.Reset()
+	ScorerContributionPercentage.Reset()
 	InferenceExtensionInfo.Reset()
 	PrefixCacheSize.Reset()
 	PrefixCacheHitRatio.Reset()
@@ -417,6 +453,21 @@ func RecordSchedulerE2ELatency(duration time.Duration) {
 // RecordPluginProcessingLatency records the processing latency for a plugin.
 func RecordPluginProcessingLatency(extensionPoint, pluginType, pluginName string, duration time.Duration) {
 	PluginProcessingLatencies.WithLabelValues(extensionPoint, pluginType, pluginName).Observe(duration.Seconds())
+}
+
+// RecordScorerScores records the scores given by a scorer plugin.
+func RecordScorerScores(pluginType, pluginName string, score float64) {
+	ScorerScores.WithLabelValues(pluginType, pluginName).Observe(score)
+}
+
+// RecordScorerWeightedScores records the weighted scores given by a scorer plugin.
+func RecordScorerWeightedScores(pluginType, pluginName string, weightedScore float64) {
+	ScorerWeightedScores.WithLabelValues(pluginType, pluginName).Observe(weightedScore)
+}
+
+// RecordScorerContributionPercentage records the percentage contribution of a scorer plugin to the final score of the winning pod.
+func RecordScorerContributionPercentage(pluginName string, percentage float64) {
+	ScorerContributionPercentage.WithLabelValues(pluginName).Observe(percentage)
 }
 
 // RecordPrefixCacheSize records the size of the prefix indexer in megabytes.
