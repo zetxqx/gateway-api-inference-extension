@@ -21,6 +21,9 @@ import (
 	"encoding/json"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/test"
@@ -65,6 +68,11 @@ func (f *HeaderBasedTestingFilter) WithName(name string) *HeaderBasedTestingFilt
 }
 
 // Filter selects pods that match the IP addresses specified in the request header.
+// For the purpose of conformance testing, if an IP address in the header does not
+// correspond to any of the available pods in the InferencePool, this filter will
+// construct a mock Pod object for that IP. This allows testing scenarios where the
+// EPP returns an endpoint that the Gateway must validate and potentially reject
+// (e.g., an endpoint in a different namespace).
 func (f *HeaderBasedTestingFilter) Filter(_ context.Context, _ *types.CycleState, request *types.LLMRequest, pods []types.Pod) []types.Pod {
 	headerValue, ok := request.Headers[test.HeaderTestEppEndPointSelectionKey]
 	if !ok || headerValue == "" {
@@ -82,6 +90,26 @@ func (f *HeaderBasedTestingFilter) Filter(_ context.Context, _ *types.CycleState
 		trimmedEndpoint := strings.TrimSpace(endpoint)
 		if pod, found := podAddressMap[trimmedEndpoint]; found {
 			filteredPods = append(filteredPods, pod)
+		} else {
+			// The requested endpoint is not in the InferencePool.
+			// Create a mock pod representation to return this arbitrary endpoint.
+			// This is crucial for testing the Gateway's validation logic.
+			mockV1Pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "fake-pod-for-" + trimmedEndpoint,
+				},
+				Status: corev1.PodStatus{PodIP: trimmedEndpoint},
+			}
+			backendPod, err := backend.NewPod(mockV1Pod)
+			if err != nil {
+				continue
+			}
+
+			mockTypedPod := &types.PodMetrics{
+				Pod:          backendPod,
+				MetricsState: nil,
+			}
+			filteredPods = append(filteredPods, mockTypedPod)
 		}
 	}
 	return filteredPods

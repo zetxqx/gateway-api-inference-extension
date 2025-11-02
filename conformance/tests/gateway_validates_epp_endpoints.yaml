@@ -1,0 +1,82 @@
+# A new namespace for the alternative backend
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference-conformance-app-backend-alt
+  labels:
+    inference-conformance: backend-alt
+
+---
+# A mock backend service in the alternative namespace
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alt-namespace-backend-deployment
+  namespace: inference-conformance-app-backend-alt
+  labels:
+    app: alt-namespace-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alt-namespace-backend
+  template:
+    metadata:
+      labels:
+        app: alt-namespace-backend
+    spec:
+      containers:
+      - name: echoserver
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        ports:
+        - containerPort: 3000
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alt-namespace-backend-svc
+  namespace: inference-conformance-app-backend-alt
+spec:
+  selector:
+    app: alt-namespace-backend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+# HTTPRoute for the test
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-validates-epp-endpoints
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+  hostnames:
+  - "validates-epp-endpoints.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: primary-inference-pool
+    matches:
+    - path:
+        type: PathPrefix
+        value: /test
