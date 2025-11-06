@@ -384,9 +384,7 @@ func RecordOutputTokens(modelName, targetModelName string, size int) {
 
 // RecordPromptCachedTokens records prompt cached tokens count.
 func RecordPromptCachedTokens(modelName, targetModelName string, size int) {
-	if size > 0 {
-		promptCachedTokens.WithLabelValues(modelName, targetModelName).Observe(float64(size))
-	}
+	promptCachedTokens.WithLabelValues(modelName, targetModelName).Observe(float64(size))
 }
 
 // RecordNormalizedTimePerOutputToken (NTPOT) records the normalized time per output token.

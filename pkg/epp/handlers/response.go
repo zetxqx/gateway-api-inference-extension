@@ -86,9 +86,11 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 		reqCtx.Usage = resp.Usage
 		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, resp.Usage.PromptTokens)
 		metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, resp.Usage.CompletionTokens)
+		cachedToken := 0
 		if resp.Usage.PromptTokenDetails != nil {
-			metrics.RecordPromptCachedTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, resp.Usage.PromptTokenDetails.CachedTokens)
+			cachedToken = resp.Usage.PromptTokenDetails.CachedTokens
 		}
+		metrics.RecordPromptCachedTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, cachedToken)
 		_, err := s.director.HandleResponseBodyComplete(ctx, reqCtx)
 		if err != nil {
 			logger.Error(err, "error in HandleResponseBodyComplete")
