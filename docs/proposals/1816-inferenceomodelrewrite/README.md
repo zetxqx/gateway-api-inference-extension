@@ -55,7 +55,7 @@ type InferenceModelRewriteList struct {
 type InferenceModelRewriteSpec struct {
 	// PoolRef is a reference to the inference pool.
 	// +kubebuilder:validation:Required
-	PoolRef PoolObjectReference `json:"poolRef"`
+	PoolRef *PoolObjectReference `json:"poolRef"`
 
 	// Rules are the ordered set of rules for rewriting inference requests.
 	// The first rule to match a request will be used.
@@ -64,7 +64,7 @@ type InferenceModelRewriteSpec struct {
 	// If multiple InferenceModelRewrite resources target the same
 	// InferencePool, the controller will merge them based on precedence.
 	//
-	// **Timestamp Wins:** If two rules from different policies all matches,
+	// **Timestamp Wins:** If two rules from different rewrite all matches,
 	// the rule from the *oldest*
 	// InferenceModelRewrite resource (determined by
 	// metadata.creationTimestamp) will be used.
@@ -75,10 +75,9 @@ type InferenceModelRewriteSpec struct {
 // InferenceModelRewriteRule defines the match criteria and corresponding action.
 //
 // A specific model name can only be matched by one rule across all
-// policies attached to the same InferencePool. If multiple policies attempt
-// to match the same model name, the oldest policy (by creationTimestamp)
-// will be the only one considered valid. Newer policies with conflicting
-// matches will be marked as invalid in their status.
+// rewrites attached to the same InferencePool. If multiple rules attempt
+// to match the same model name, the oldest rule (by creationTimestamp)
+// will be the only one considered valid.
 type InferenceModelRewriteRule struct {
 	// Matches defines the criteria for matching a request.
 	// If multiple match criteria are specified, a request matches if
@@ -121,7 +120,7 @@ type TargetModel struct {
 
 	// --- Destination Types ---
 	// ModelRewrite specifies a static model name destination.
-	// +optional
+	// +required
 	ModelRewrite string `json:"modelRewrite"`
 }
 
@@ -168,7 +167,6 @@ type InferenceModelRewriteStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	// +kubebuilder:validation:MaxItems=8
-	// +kubebuilder:default={{type: "Accepted", status: "Unknown", reason:"Pending", message:"Waiting for controller", lastTransitionTime: "1970-01-01T00:00:00Z"}}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
@@ -179,7 +177,7 @@ type InferenceModelRewriteConditionType string
 type InferenceModelRewriteConditionReason string
 
 const (
-	// RewriteConditionAccepted indicates if the rewrite policy is accepted, and if not, why.
+	// RewriteConditionAccepted indicates if the rewrite is accepted, and if not, why.
 	// This is the primary condition for this resource.
 	//
 	// Possible reasons for this condition to be True are:
@@ -192,7 +190,7 @@ const (
 	//
 	RewriteConditionAccepted InferenceModelRewriteConditionType = "Accepted"
 
-	// RewriteReasonAccepted indicates the policy is valid, non-conflicting,
+	// RewriteReasonAccepted indicates the rewrite is valid, non-conflicting,
 	// and has been successfully applied to the inference pool.
 	RewriteReasonAccepted InferenceModelRewriteConditionReason = "Accepted"
 

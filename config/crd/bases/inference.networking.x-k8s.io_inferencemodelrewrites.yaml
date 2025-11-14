@@ -76,10 +76,9 @@ spec:
                     InferenceModelRewriteRule defines the match criteria and corresponding action.
 
                     A specific model name can only be matched by one rule across all
-                    policies attached to the same InferencePool. If multiple policies attempt
-                    to match the same model name, the oldest policy (by creationTimestamp)
-                    will be the only one considered valid. Newer policies with conflicting
-                    matches will be marked as invalid in their status.
+                    rules attached to the same InferencePool. If multiple rules attempt
+                    to match the same model name, the oldest rule (by creationTimestamp)
+                    will be the only one considered valid.
                   properties:
                     matches:
                       items:
@@ -137,6 +136,8 @@ spec:
                             maximum: 1000000
                             minimum: 1
                             type: integer
+                        required:
+                        - modelRewrite
                         type: object
                       minItems: 1
                       type: array
@@ -151,12 +152,6 @@ spec:
               InferenceModelRewrite.
             properties:
               conditions:
-                default:
-                - lastTransitionTime: "1970-01-01T00:00:00Z"
-                  message: Waiting for controller
-                  reason: Pending
-                  status: Unknown
-                  type: Accepted
                 description: |-
                   Conditions track the state of the InferenceModelRewrite.
 
