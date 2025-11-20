@@ -31,7 +31,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
@@ -101,7 +100,7 @@ type datastore struct {
 	parentCtx context.Context
 	// mu is used to synchronize access to pool, objectives, and rewrites.
 	mu   sync.RWMutex
-	pool *v1.InferencePool
+	pool *datalayer.EndpointPool
 	// key: InferenceObjective name, value: *InferenceObjective
 	objectives map[string]*v1alpha2.InferenceObjective
 	// rewrites store for InferenceModelRewrite objects.
@@ -156,7 +155,7 @@ func (ds *datastore) PoolSet(ctx context.Context, reader client.Reader, endpoint
 	return nil
 }
 
-func (ds *datastore) PoolGet() (*v1.InferencePool, error) {
+func (ds *datastore) PoolGet() (*datalayer.EndpointPool, error) {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 	if !ds.PoolHasSynced() {
