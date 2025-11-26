@@ -69,6 +69,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/saturationdetector"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/multi/prefix"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/multi/slo_aware_router"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/picker"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/profile"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework/plugins/scorer"
@@ -126,6 +127,7 @@ var (
 		"then a self-signed certificate is used.")
 	// metric flags
 	totalQueuedRequestsMetric    = flag.String("total-queued-requests-metric", runserver.DefaultTotalQueuedRequestsMetric, "Prometheus metric for the number of queued requests.")
+	totalRunningRequestsMetric   = flag.String("total-running-requests-metric", runserver.DefaultTotalRunningRequestsMetric, "Prometheus metric for the number of running requests.")
 	kvCacheUsagePercentageMetric = flag.String("kv-cache-usage-percentage-metric", runserver.DefaultKvCacheUsagePercentageMetric, "Prometheus metric for the fraction of KV-cache blocks currently in use (from 0 to 1).")
 	// LoRA metrics
 	loraInfoMetric = flag.String("lora-info-metric", runserver.DefaultLoraInfoMetric, "Prometheus metric for the LoRA info metrics (must be in vLLM label format).")
@@ -139,8 +141,9 @@ var (
 	configFile = flag.String("config-file", runserver.DefaultConfigFile, "The path to the configuration file")
 	configText = flag.String("config-text", runserver.DefaultConfigText, "The configuration specified as text, in lieu of a file")
 
-	modelServerMetricsPort = flag.Int("model-server-metrics-port", 0, "Port to scrape metrics from pods. "+
-		"Default value will be set to the InferencePool.Spec.TargetPorts[0].Number if not set.")
+	modelServerMetricsPort = flag.Int("model-server-metrics-port", 0, "[DEPRECATED] Port to scrape metrics from pods. "+
+		"Default value will be set to the InferencePool.Spec.TargetPorts[0].Number if not set."+
+		"This option will be removed in the next release.")
 	modelServerMetricsPath                    = flag.String("model-server-metrics-path", "/metrics", "Path to scrape metrics from pods")
 	modelServerMetricsScheme                  = flag.String("model-server-metrics-scheme", "http", "Scheme to scrape metrics from pods")
 	modelServerMetricsHttpsInsecureSkipVerify = flag.Bool("model-server-metrics-https-insecure-skip-verify", true, "When using 'https' scheme for 'model-server-metrics-scheme', configure 'InsecureSkipVerify' (default to true)")
@@ -197,6 +200,8 @@ func (r *Runner) Run(ctx context.Context) error {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 	initLogging(&opts)
+
+	r.deprecatedFlagsHandler(setupLog)
 
 	if *tracing {
 		err := common.InitTracing(ctx, setupLog)
@@ -426,6 +431,9 @@ func (r *Runner) registerInTreePlugins() {
 	plugins.Register(scorer.KvCacheUtilizationScorerType, scorer.KvCacheUtilizationScorerFactory)
 	plugins.Register(scorer.QueueScorerType, scorer.QueueScorerFactory)
 	plugins.Register(scorer.LoraAffinityScorerType, scorer.LoraAffinityScorerFactory)
+	// Latency predictor plugins
+	plugins.Register(slo_aware_router.SLOAwareRouterPluginType, slo_aware_router.SLOAwareRouterFactory)
+	plugins.Register(profile.SLOAwareProfileHandlerType, profile.SLOAwareProfileHandlerFactory)
 	// register filter for test purpose only (used in conformance tests)
 	plugins.Register(testfilter.HeaderBasedTestingFilterType, testfilter.HeaderBasedTestingFilterFactory)
 	// register response received plugin for test purpose only (used in conformance tests)
@@ -478,12 +486,24 @@ func (r *Runner) parseConfigurationPhaseTwo(ctx context.Context, rawConfig *conf
 
 	// Add requestControl plugins
 	r.requestControlConfig.AddPlugins(handle.GetAllPlugins()...)
+	// Sort prepare data plugins in DAG order (topological sort). Also check prepare data plugins for cycles.
+	if r.requestControlConfig.PrepareDataPluginGraph() != nil {
+		return nil, errors.New("failed to load the configuration - prepare data plugins have cyclic dependencies")
+	}
 
 	// Handler deprecated configuration options
 	r.deprecatedConfigurationHelper(cfg, logger)
 
 	logger.Info("loaded configuration from file/text successfully")
 	return cfg, nil
+}
+
+func (r *Runner) deprecatedFlagsHandler(logger logr.Logger) {
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "model-server-metrics-port" { // future: use  map/set to store deprecated flags (and replacements?)
+			logger.Info("deprecated option will be removed in the next release.", "option", f.Name)
+		}
+	})
 }
 
 func (r *Runner) deprecatedConfigurationHelper(cfg *config.Config, logger logr.Logger) {
@@ -538,6 +558,7 @@ func (r *Runner) setupMetricsCollection(setupLog logr.Logger, useExperimentalDat
 func setupMetricsV1(setupLog logr.Logger) (datalayer.EndpointFactory, error) {
 	mapping, err := backendmetrics.NewMetricMapping(
 		*totalQueuedRequestsMetric,
+		*totalRunningRequestsMetric,
 		*kvCacheUsagePercentageMetric,
 		*loraInfoMetric,
 		*cacheInfoMetric,
@@ -586,6 +607,7 @@ func setupDatalayer(logger logr.Logger) (datalayer.EndpointFactory, error) {
 		*modelServerMetricsHttpsInsecureSkipVerify,
 		nil)
 	extractor, err := dlmetrics.NewExtractor(*totalQueuedRequestsMetric,
+		*totalRunningRequestsMetric,
 		*kvCacheUsagePercentageMetric,
 		*loraInfoMetric, *cacheInfoMetric)
 
