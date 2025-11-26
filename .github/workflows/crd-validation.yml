@@ -2,14 +2,30 @@ name: CRD Validation
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
+  ack-breaking-changes:
+    name: Ack Breaking Changes Labeler
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ack-breaking-changes')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add Label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.issue.number }} --add-label "ack-breaking-changes"
+          echo "✅ Added 'ack-breaking-changes' label based on comment."
+
   crd-validation:
     name: CRD Validation Check
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -28,7 +44,17 @@ jobs:
         run: |
           go install sigs.k8s.io/crdify@latest
 
+      - name: Reset Validation Approval
+        if: github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'ack-breaking-changes')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.pull_request.number }} --remove-label "ack-breaking-changes"
+          echo "⚠️ Removed 'ack-breaking-changes' label due to new changes. Re-approval required."
+
       - name: Run CRD Validation Check
+        env:
+          ALLOW_BREAKING: ${{ contains(github.event.pull_request.labels.*.name, 'ack-breaking-changes') && github.event.action != 'synchronize' }}
         run: |
           git fetch origin ${{ github.base_ref }}:upstream_base
           BASE_SHA=$(git rev-parse upstream_base)
@@ -44,8 +70,14 @@ jobs:
           done
 
           if [ "$FAILED" -gt 0 ]; then
-            echo "::error::Validation failed! Found $FAILED incompatible CRD change(s)."
-            exit 1
+            if [[ "$ALLOW_BREAKING" == "true" ]]; then
+               echo "⚠️ Validation failed with $FAILED incompatible change(s), but allowed via '/ack-breaking-changes' label."
+               exit 0
+            else
+               echo "❌ error: Validation failed! Found $FAILED incompatible CRD change(s)."
+               echo "⚠️ notice: To allow these changes, a reviewer must add the 'ack-breaking-changes' label to the PR or comment '/ack-breaking-changes'."
+               exit 1
+            fi
           fi
 
           echo "All CRDs are compatible."
