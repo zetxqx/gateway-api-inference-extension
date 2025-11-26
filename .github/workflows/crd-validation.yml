@@ -13,7 +13,7 @@ permissions:
 jobs:
   ack-breaking-changes:
     name: Ack Breaking Changes Labeler
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/ack-breaking-changes')
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/ack-breaking-changes')
     runs-on: ubuntu-latest
     steps:
       - name: Add Label
@@ -71,7 +71,7 @@ jobs:
 
           if [ "$FAILED" -gt 0 ]; then
             if [[ "$ALLOW_BREAKING" == "true" ]]; then
-               echo "⚠️ Validation failed with $FAILED incompatible change(s), but allowed via '/ack-breaking-changes' label."
+               echo "⚠️ Validation failed with $FAILED incompatible change(s), but allowed via 'ack-breaking-changes' label."
                exit 0
             else
                echo "❌ error: Validation failed! Found $FAILED incompatible CRD change(s)."
