@@ -9,8 +9,21 @@ permissions:
   pull-requests: write
 
 jobs:
+  ack-breaking-changes:
+    name: Ack Breaking Changes Labeler
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/ack-breaking-changes')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add Label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.issue.number }} --add-label "ack-breaking-changes"
+          echo "✅ Added 'ack-breaking-changes' label based on comment."
+
   crd-validation:
     name: CRD Validation Check
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

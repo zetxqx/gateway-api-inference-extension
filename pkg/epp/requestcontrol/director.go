@@ -305,8 +305,9 @@ func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *hand
 	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk")
 	logger.V(logutil.TRACE).Info("Entering HandleResponseBodyChunk")
 	response := &Response{
-		RequestId: reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
-		Headers:   reqCtx.Response.Headers,
+		RequestId:   reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
+		Headers:     reqCtx.Response.Headers,
+		EndOfStream: reqCtx.ResponseComplete,
 	}
 
 	d.runResponseStreamingPlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
@@ -351,13 +352,9 @@ func (d *Director) runPreRequestPlugins(ctx context.Context, request *scheduling
 	}
 }
 
-// TODO: Execute plugins in parallel once DAG execution is supported.
-// runPrepareDataPlugins executes PrepareDataPlugins sequentially.
 func (d *Director) runPrepareDataPlugins(ctx context.Context,
 	request *schedulingtypes.LLMRequest, pods []schedulingtypes.Pod) error {
-	return prepareDataPluginsWithTimeout(
-		prepareDataTimeout, d.requestControlPlugins.prepareDataPlugins, ctx, request, pods)
-
+	return prepareDataPluginsWithTimeout(prepareDataTimeout, d.requestControlPlugins.prepareDataPlugins, ctx, request, pods)
 }
 
 func (d *Director) runAdmissionPlugins(ctx context.Context,
