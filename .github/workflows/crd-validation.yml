@@ -3,8 +3,6 @@ name: CRD Validation
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
-  issue_comment:
-    types: [created]
 
 permissions:
   contents: read
@@ -63,7 +61,7 @@ jobs:
           for crd in config/crd/bases/*.yaml; do
             if ! crdify "git://${BASE_SHA}?path=$crd" "git://HEAD?path=$crd"; then
               echo "❌ Incompatible change detected in $crd"
-              ((FAILED++))
+              FAILED=$((FAILED + 1))
             else
               echo "✅ $crd is valid"
             fi
@@ -75,7 +73,7 @@ jobs:
                exit 0
             else
                echo "❌ error: Validation failed! Found $FAILED incompatible CRD change(s)."
-               echo "⚠️ notice: To allow these changes, a reviewer must add the 'ack-breaking-changes' label to the PR or comment '/ack-breaking-changes'."
+               echo "⚠️ notice: To allow these changes, a reviewer must add the 'ack-breaking-changes' label to the PR."
                exit 1
             fi
           fi
