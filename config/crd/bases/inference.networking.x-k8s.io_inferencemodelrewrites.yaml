@@ -110,7 +110,7 @@ spec:
                         - model
                         type: object
                       type: array
-                    split:
+                    targets:
                       items:
                         description: TargetModel defines a weighted model destination
                           for traffic distribution.
