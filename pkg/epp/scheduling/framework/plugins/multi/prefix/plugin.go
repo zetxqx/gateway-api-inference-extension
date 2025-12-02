@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +56,9 @@ const (
 	// in vLLM, we will have 250K / 16 = 31.25K blocks.
 	DefaultLRUCapacityPerServer = 31250
 
+	// DefaultMedium is the default medium to use for LRU capacity.
+	DefaultMedium = "gpu"
+
 	PrefixCachePluginType = "prefix-cache-scorer"
 )
 
@@ -70,6 +74,7 @@ var DefaultConfig = Config{
 	BlockSize:              DefaultBlockSize,
 	MaxPrefixBlocksToMatch: DefaultMaxPrefixBlocks,
 	LRUCapacityPerServer:   DefaultLRUCapacityPerServer,
+	Medium: DefaultMedium,
 }
 
 type Config struct {
@@ -84,6 +89,9 @@ type Config struct {
 	MaxPrefixBlocksToMatch int `json:"maxPrefixBlocksToMatch"`
 	// Max capacity size of the LRU indexer in number of entries per server (pod).
 	LRUCapacityPerServer int `json:"lruCapacityPerServer"`
+	// Medium defaults to "gpu" but can be set to "cpu".
+	// This determines whether to use GPU or CPU cache block metrics for the LRU capacity.
+	Medium string `json:"medium"`
 }
 
 type Plugin struct {
@@ -109,7 +117,7 @@ type BlockHash uint64
 
 type Server struct {
 	ServerID
-	numOfGPUBlocks int
+	NumBlocks int
 }
 
 type ServerID k8stypes.NamespacedName
@@ -241,9 +249,24 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 	primaryProfileResult := schedulingResult.ProfileResults[schedulingResult.PrimaryProfileName]
 	targetPod := primaryProfileResult.TargetPods[0] // get the first pod of the primary profile
 
-	gpuBlocks := p.config.LRUCapacityPerServer
-	if p.config.AutoTune && targetPod.GetMetrics().CacheNumGPUBlocks > 0 {
-		gpuBlocks = targetPod.GetMetrics().CacheNumGPUBlocks
+	numBlocks := p.config.LRUCapacityPerServer
+	if p.config.AutoTune {
+		metrics := targetPod.GetMetrics()
+		// If metrics are available, update the LRU capacity (numBlocks) based on the configured medium (CPU/GPU).
+		if metrics != nil {
+			switch strings.ToLower(p.config.Medium) {
+			case "gpu":
+				// Using GPU metrics for LRU capacity
+				if metrics.CacheNumGPUBlocks > 0 {
+					numBlocks = metrics.CacheNumGPUBlocks
+				}
+			case "cpu":
+				// Using CPU metrics for LRU capacity
+				if metrics.CacheNumCPUBlocks > 0 {
+					numBlocks = metrics.CacheNumCPUBlocks
+				}
+			}
+		}
 	}
 
 	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](p.pluginState, request.RequestId, plugins.StateKey(p.TypedName().String()))
@@ -260,8 +283,8 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 	p.wg.Add(1)
 	go func() {
 		p.indexer.Add(state.PrefixHashes, Server{
-			ServerID(targetPod.GetPod().NamespacedName),
-			gpuBlocks,
+			ServerID:  ServerID(targetPod.GetPod().NamespacedName),
+			NumBlocks: numBlocks,
 		})
 		p.wg.Done()
 	}()
