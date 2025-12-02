@@ -55,7 +55,7 @@ func (i *indexer) Add(hashes []BlockHash, pod Server) {
 	// Check if the LRU pod exist
 	lruForPod, exists := i.podToLRU[pod.ServerID]
 	if !exists {
-		lruSize := pod.numOfGPUBlocks
+		lruSize := pod.NumBlocks
 		if lruSize <= 0 {
 			lruSize = i.defaultLRUSize
 		}

@@ -35,6 +35,8 @@ type Metrics struct {
 	CacheBlockSize          int
 	// Number of GPU blocks in the model server for KV Cache.
 	CacheNumGPUBlocks int
+	// Number of CPU blocks in the model server for KV Cache
+	CacheNumCPUBlocks int
 
 	// UpdateTime records the last time when the metrics were updated.
 	UpdateTime time.Time

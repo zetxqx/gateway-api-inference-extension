@@ -24,10 +24,10 @@ import (
 
 func TestIndexer_AddAndGet(t *testing.T) {
 	server := Server{
-		ServerID:       ServerID{Namespace: "default", Name: "server1"},
-		numOfGPUBlocks: 2,
+		ServerID:  ServerID{Namespace: "default", Name: "server1"},
+		NumBlocks: 2,
 	}
-	i := newIndexer(context.Background(), 3) // Initialize with an lruSize greater than server.numOfGPUBlocks to verify server-defined limits take precedence.
+	i := newIndexer(context.Background(), 3) // Initialize with an lruSize greater than server.NumBlocks to verify server-defined limits take precedence.
 
 	hash1 := BlockHash(1)
 	// Add an entry to the cache

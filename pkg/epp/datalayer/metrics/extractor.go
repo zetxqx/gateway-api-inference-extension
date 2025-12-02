@@ -42,6 +42,7 @@ const (
 
 	CacheConfigBlockSizeInfoMetricName = "block_size"
 	CacheConfigNumGPUBlocksMetricName  = "num_gpu_blocks"
+	CacheConfigNumCPUBlocksMetricName  = "num_cpu_blocks"
 )
 
 // Extractor implements the metrics extraction based on the model
@@ -206,6 +207,14 @@ func populateCacheInfoMetrics(clone *datalayer.Metrics, metric *dto.Metric, errs
 			if label.GetValue() != "" {
 				if val, err := strconv.Atoi(label.GetValue()); err == nil {
 					clone.CacheNumGPUBlocks = val
+				} else {
+					*errs = append(*errs, err)
+				}
+			}
+		case CacheConfigNumCPUBlocksMetricName:
+			if label.GetValue() != "" {
+				if val, err := strconv.Atoi(label.GetValue()); err == nil {
+					clone.CacheNumCPUBlocks = val
 				} else {
 					*errs = append(*errs, err)
 				}
