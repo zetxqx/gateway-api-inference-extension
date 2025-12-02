@@ -34,6 +34,7 @@ type indexer struct {
 	mu             sync.RWMutex
 	hashToPods     map[BlockHash]podSet                         // the lookup data structure to find pods that have the BlockHash cached
 	podToLRU       map[ServerID]*lru.Cache[BlockHash, struct{}] // key is pod namespacedName, value is an LRU cache
+	podToCapacity  map[ServerID]int                             // key is pod namespacedName, value is the capacity of the LRU cache
 	defaultLRUSize int
 }
 
@@ -42,6 +43,7 @@ func newIndexer(ctx context.Context, defaultLRUSize int) *indexer {
 	indexer := &indexer{
 		hashToPods:     make(map[BlockHash]podSet),
 		podToLRU:       make(map[ServerID]*lru.Cache[BlockHash, struct{}]),
+		podToCapacity:  make(map[ServerID]int),
 		defaultLRUSize: defaultLRUSize,
 	}
 
@@ -61,6 +63,7 @@ func (i *indexer) Add(hashes []BlockHash, pod Server) {
 		}
 		newLRU, _ := lru.NewWithEvict(lruSize, i.makeEvictionFn(pod.ServerID))
 		i.podToLRU[pod.ServerID] = newLRU
+		i.podToCapacity[pod.ServerID] = lruSize
 		lruForPod = newLRU
 	}
 
@@ -113,6 +116,25 @@ func (i *indexer) makeEvictionFn(pod ServerID) func(BlockHash, struct{}) {
 			}
 		}
 	}
+}
+
+// ResizeLRU adjusts the size of the LRU cache for a specific pod.
+func (i *indexer) ResizeLRU(pod ServerID, newSize int) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if lruCache, exists := i.podToLRU[pod]; exists {
+		lruCache.Resize(newSize)
+		i.podToCapacity[pod] = newSize
+	}
+}
+
+// GetLRUCapacity returns the current capacity of the LRU cache for a specific pod.
+func (i *indexer) GetLRUCapacity(pod ServerID) int {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	return i.podToCapacity[pod]
 }
 
 // reportLRUSize starts a goroutine that periodically reports the LRU cache size metric.
@@ -171,6 +193,7 @@ func (i *indexer) RemovePod(pod ServerID) {
 
 	i.mu.Lock()
 	delete(i.podToLRU, pod)
+	delete(i.podToCapacity, pod)
 	i.mu.Unlock()
 }
 

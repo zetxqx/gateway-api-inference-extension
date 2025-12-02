@@ -350,9 +350,19 @@ func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *hand
 func (d *Director) HandleResponseBodyComplete(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk")
 	logger.V(logutil.DEBUG).Info("Entering HandleResponseBodyComplete")
+	cachedTokens := 0
+	if reqCtx.Usage.PromptTokenDetails != nil {
+		cachedTokens = reqCtx.Usage.PromptTokenDetails.CachedTokens
+	}
 	response := &Response{
 		RequestId: reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
 		Headers:   reqCtx.Response.Headers,
+		Usage: Usage{
+			PromptTokens:     reqCtx.Usage.PromptTokens,
+			CompletionTokens: reqCtx.Usage.CompletionTokens,
+			TotalTokens:      reqCtx.Usage.TotalTokens,
+			CachedTokens:     cachedTokens,
+		},
 	}
 
 	d.runResponseCompletePlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)

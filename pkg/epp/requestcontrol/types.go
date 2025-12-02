@@ -32,4 +32,14 @@ type Response struct {
 	// It is populated with Envoy's dynamic metadata when ext_proc is processing ProcessingRequest_ResponseHeaders.
 	// Currently, this is only used by conformance test.
 	ReqMetadata map[string]any
+	// Usage contains token usage information from the response
+	Usage Usage
+}
+
+// Usage contains token usage statistics
+type Usage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+	CachedTokens     int
 }

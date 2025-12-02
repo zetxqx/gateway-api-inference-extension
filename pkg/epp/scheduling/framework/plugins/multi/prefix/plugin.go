@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/requestcontrol"
@@ -54,6 +56,14 @@ const (
 	// token is about 128KB in size, so we can cache 500K tokens. Using the default block size of 16
 	// in vLLM, we will have 250K / 16 = 31.25K blocks.
 	DefaultLRUCapacityPerServer = 31250
+
+	// CapacityGrowThreshold is the minimum percentage increase required to expand the LRU capacity.
+	// We are more conservative with growth (10%) to avoid thrashing.
+	CapacityGrowThreshold = 0.10
+
+	// CapacityShrinkThreshold is the minimum percentage decrease required to shrink the LRU capacity.
+	// We are more sensitive to shrinking (5%) because overestimation leads to cache misses (latency penalty).
+	CapacityShrinkThreshold = 0.05
 
 	PrefixCachePluginType = "prefix-cache-scorer"
 )
@@ -102,6 +112,8 @@ type Indexer interface {
 	Add(hashes []BlockHash, server Server)
 	RemovePod(server ServerID)
 	Pods() []ServerID
+	GetLRUCapacity(pod ServerID) int
+	ResizeLRU(pod ServerID, newSize int)
 }
 
 // BlockHash is a hash of the block of request body.
@@ -127,6 +139,8 @@ type SchedulingContextState struct {
 	PrefixHashes []BlockHash
 	// A map of server to its longest prefix cache match length.
 	PrefixCacheServers map[ServerID]int
+	// BlockSize used for hashing.
+	BlockSize int
 }
 
 func (s *SchedulingContextState) Clone() plugins.StateData {
@@ -140,13 +154,15 @@ func (s *SchedulingContextState) Clone() plugins.StateData {
 	return &SchedulingContextState{
 		PrefixHashes:       prefixHashes,
 		PrefixCacheServers: prefixCacheServers,
+		BlockSize:          s.BlockSize,
 	}
 }
 
 // compile-time type assertion
 var (
-	_ framework.Scorer          = &Plugin{}
-	_ requestcontrol.PreRequest = &Plugin{}
+	_ framework.Scorer            = &Plugin{}
+	_ requestcontrol.PreRequest   = &Plugin{}
+	_ requestcontrol.ResponseComplete = &Plugin{}
 )
 
 // PrefixCachePluginFactory defines the factory function for Prefix plugin.
@@ -209,10 +225,12 @@ func (p *Plugin) WithName(name string) *Plugin {
 // Score returns the scoring result for the given list of pods based on context.
 func (p *Plugin) Score(ctx context.Context, cycleState *types.CycleState, request *types.LLMRequest, pods []types.Pod) map[types.Pod]float64 {
 	// pre score step, hashing prompt and find longest prefix match.
-	hashes := hashPrompt(ctx, request, getBlockSize(pods, p.config), p.config.MaxPrefixBlocksToMatch)
+	blockSize := getBlockSize(pods, p.config)
+	hashes := hashPrompt(ctx, request, blockSize, p.config.MaxPrefixBlocksToMatch)
 	state := &SchedulingContextState{
 		PrefixHashes:       hashes,
 		PrefixCacheServers: p.matchLongestPrefix(ctx, hashes),
+		BlockSize:          blockSize,
 	}
 
 	cycleState.Write(plugins.StateKey(p.TypedName().String()), state)
@@ -247,7 +265,7 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 	}
 
 	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](p.pluginState, request.RequestId, plugins.StateKey(p.TypedName().String()))
-	p.pluginState.Delete(request.RequestId) // delete the state explicitly after completing using it
+	// State will be deleted in ResponseComplete
 	if err != nil {
 		log.FromContext(ctx).Error(err, "failed to read prefix plugin state", "requestID", request.RequestId)
 		return
@@ -271,6 +289,100 @@ func (p *Plugin) PreRequest(ctx context.Context, request *types.LLMRequest, sche
 
 	blockSize := getBlockSize(primaryProfileResult.TargetPods, p.config)
 	metrics.RecordPrefixCacheMatch(matchLen*blockSize, total*blockSize)
+}
+
+// ResponseComplete checks the actual cache usage from the model server and adjusts the LRU size if needed.
+func (p *Plugin) ResponseComplete(ctx context.Context, request *types.LLMRequest, response *requestcontrol.Response, targetPod *backend.Pod) {
+	defer p.pluginState.Delete(request.RequestId)
+	logger := log.FromContext(ctx)
+
+	// Check if we have usage info and AutoTune is enabled
+	if !p.config.AutoTune {
+		return
+	}
+	if response.Usage.TotalTokens == 0 && response.Usage.CachedTokens == 0 {
+		return
+	}
+
+	state, err := plugins.ReadPluginStateKey[*SchedulingContextState](p.pluginState, request.RequestId, plugins.StateKey(p.TypedName().String()))
+	if err != nil {
+		// State might be missing if PreRequest wasn't called or failed
+		return
+	}
+
+	podID := ServerID(targetPod.NamespacedName)
+	predictedBlocks := state.PrefixCacheServers[podID]
+	
+	// Ensure BlockSize is valid to avoid division by zero
+	if state.BlockSize <= 0 {
+		return
+	}
+
+	// vLLM default token block size is 16, and a good guess of average characters per token is 4.
+	// state.BlockSize is in characters. We need to convert it to tokens.
+	tokenBlockSize := state.BlockSize / 4
+	if tokenBlockSize <= 0 {
+		tokenBlockSize = 1 // Prevent division by zero if BlockSize is very small
+	}
+
+	actualBlocks := response.Usage.CachedTokens / tokenBlockSize
+
+	// Feedback Logic:
+	// We compare the actual cache usage (actualBlocks) with what our indexer predicted (predictedBlocks).
+	// We adjust the LRU capacity based on the ratio of actual vs predicted to converge faster.
+
+	currentCapacity := p.indexer.GetLRUCapacity(podID)
+	newCapacity := currentCapacity
+
+	if predictedBlocks > 0 {
+		// Calculate the ratio.
+		// If actual < predicted (e.g. 0.8), we overestimated -> shrink capacity to 80%.
+		// If actual > predicted (e.g. 1.2), we underestimated -> grow capacity to 120%.
+		ratio := float64(actualBlocks) / float64(predictedBlocks)
+		newCapacity = int(float64(currentCapacity) * ratio)
+	} else if actualBlocks > 0 {
+		// predictedBlocks == 0 but we actually had cached blocks.
+		// We can't calculate a ratio, so we fall back to additive increase.
+		// We know we missed at least 'actualBlocks', so we add them.
+		newCapacity = currentCapacity + actualBlocks
+	}
+
+	// Calculate percentage change to check against threshold
+	var percentDiff float64
+	threshold := CapacityGrowThreshold
+
+	if currentCapacity > 0 {
+		diff := float64(newCapacity - currentCapacity)
+		percentDiff = math.Abs(diff) / float64(currentCapacity)
+		
+		// Use different thresholds for growing vs shrinking
+		if newCapacity < currentCapacity {
+			threshold = CapacityShrinkThreshold
+		}
+	} else if newCapacity > 0 {
+		// If current is 0 and new is > 0, that's infinite growth, definitely update.
+		percentDiff = 1.0
+	}
+
+	// Only update if the change is significant (larger than threshold)
+	if percentDiff >= threshold {
+		// Ensure new capacity is positive and within reasonable bounds (e.g., at least 1 block)
+		if newCapacity < 1 {
+			newCapacity = 1
+		}
+
+		logger.V(logutil.VERBOSE).Info("Adjusting LRU capacity",
+			"pod", podID,
+			"oldCapacity", currentCapacity,
+			"newCapacity", newCapacity,
+			"predictedBlocks", predictedBlocks,
+			"actualBlocks", actualBlocks,
+			"tokenBlockSize", tokenBlockSize,
+			"percentDiff", percentDiff,
+			"threshold", threshold)
+
+		p.indexer.ResizeLRU(podID, newCapacity)
+	}
 }
 
 // matchLongestPrefix returns a map of servers and length of prefix that each server caches.
