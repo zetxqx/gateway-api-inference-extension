@@ -204,7 +204,8 @@ func (r *Runner) Run(ctx context.Context) error {
 		setupLog.Error(err, "Failed to extract GKNN")
 		return err
 	}
-	disableK8sCrdReconcile := opts.EndpointSelector != ""
+	disableK8sCrdReconcile := *endpointSelector != ""
+	controllerCfg := runserver.NewControllerConfig(disableK8sCrdReconcile)
 	ds, err := setupDatastore(setupLog, ctx, epf, int32(opts.ModelServerMetricsPort), disableK8sCrdReconcile,
 		opts.PoolName, opts.PoolNamespace, opts.EndpointSelector, opts.EndpointTargetPorts)
 	if err != nil {
@@ -240,7 +241,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	isLeader := &atomic.Bool{}
 	isLeader.Store(false)
 
-	mgr, err := runserver.NewDefaultManager(disableK8sCrdReconcile, *gknn, cfg, metricsServerOptions, opts.EnableLeaderElection)
+	mgr, err := runserver.NewDefaultManager(controllerCfg, *gknn, cfg, metricsServerOptions, opts.EnableLeaderElection)
 	if err != nil {
 		setupLog.Error(err, "Failed to create controller manager")
 		return err
@@ -328,7 +329,7 @@ func (r *Runner) Run(ctx context.Context) error {
 		GrpcPort:                         opts.GRPCPort,
 		GKNN:                             *gknn,
 		Datastore:                        ds,
-		DisableK8sCrdReconcile:           disableK8sCrdReconcile,
+		DisableK8sCrdReconcile:           controllerCfg,
 		SecureServing:                    opts.SecureServing,
 		HealthChecking:                   opts.HealthChecking,
 		CertPath:                         opts.CertPath,
