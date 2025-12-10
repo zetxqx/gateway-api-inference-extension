@@ -1,7 +1,7 @@
-name: GKE Prefix Cache Test
+name: GKE Prefill Heavy Test
 
 on:
-  # Runs with a PR comment /run-gke-prefix-cache
+  # Runs with a PR comment /run-gke-prefill-heavy
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -24,7 +24,7 @@ jobs:
     if: |
       (github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/run-gke-prefix-cache')) || github.event_name == 'workflow_dispatch'
+      contains(github.event.comment.body, '/run-gke-prefill-heavy')) || github.event_name == 'workflow_dispatch'
     
     outputs:
       authorized: ${{ steps.auth_logic.outputs.authorized }}
@@ -75,6 +75,7 @@ jobs:
       
     name: Test on ${{ matrix.accelerator.name }}
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -86,7 +87,7 @@ jobs:
       GCP_PROJECT_ID: llm-d-scale
       GKE_CLUSTER_NAME: llm-d-e2e-us-east5
       GKE_CLUSTER_ZONE: us-east5
-      NAMESPACE: igw-prefix-cache
+      NAMESPACE: igw-prefill-heavy
       GATEWAY: gke-l7-regional-external-managed
       GATEWAY_TYPE: gke
       PR_OR_BRANCH: ${{ github.event.inputs.pr_or_branch || github.event.issue.number || github.event.number || 'actions' }}
@@ -166,12 +167,11 @@ jobs:
       - name: Deploy Model Server and CRDs
         run: |
           cd config/manifests/vllm
-          sed -i '/- --model/a\          - --enable-prefix-caching' gpu-deployment.yaml
           echo "Deploying Model Server..."
-          kubectl apply -f gpu-deployment.yaml -n ${NAMESPACE} | tee ~/igw-prefix-cache-deployment.log
+          kubectl apply -f gpu-deployment.yaml -n ${NAMESPACE} | tee ~/igw-prefill-heavy-deployment.log
           echo "Installing CRDs"
           kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.1.0/manifests.yaml
-          echo "---------------------------------------" >> ~/igw-prefix-cache-deployment.log
+          echo "---------------------------------------" >> ~/igw-prefill-heavy-deployment.log
 
       - name: Deploy InferencePool and Endpoint Picker Extension
         run: |
@@ -181,8 +181,8 @@ jobs:
           --set inferencePool.modelServers.matchLabels.app=vllm-llama3-8b-instruct \
           --set provider.name=$GATEWAY_TYPE \
           --version $IGW_CHART_VERSION \
-          oci://registry.k8s.io/gateway-api-inference-extension/charts/inferencepool | tee ~/igw-prefix-cache-deployment.log
-          echo "---------------------------------------" >> ~/igw-prefix-cache-deployment.log
+          oci://registry.k8s.io/gateway-api-inference-extension/charts/inferencepool | tee ~/igw-prefill-heavy-deployment.log
+          echo "---------------------------------------" >> ~/igw-prefill-heavy-deployment.log
 
       - name: Wait for all pods to be ready
         run: |
@@ -200,10 +200,10 @@ jobs:
           kubectl delete httproute llm-route -n ${NAMESPACE} --ignore-not-found
           kubectl delete gateway ${GATEWAY_NAME} -n ${NAMESPACE} --ignore-not-found
           echo "Deploying Gateway..."
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/v1.1.0/config/manifests/gateway/gke/gateway.yaml -n ${NAMESPACE} | tee ~/igw-prefix-cache-deployment.log 
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/v1.1.0/config/manifests/gateway/gke/gateway.yaml -n ${NAMESPACE} | tee ~/igw-prefill-heavy-deployment.log 
           echo "Deploying HTTPRoute..."
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/v1.1.0/config/manifests/gateway/gke/httproute.yaml -n ${NAMESPACE} | tee ~/igw-prefix-cache-deployment.log
-          echo "---------------------------------------" >> ~/igw-prefix-cache-deployment.log
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/refs/tags/v1.1.0/config/manifests/gateway/gke/httproute.yaml -n ${NAMESPACE} | tee ~/igw-prefill-heavy-deployment.log
+          echo "---------------------------------------" >> ~/igw-prefill-heavy-deployment.log
 
       - name: Wait for gateway to be ready
         run: |
@@ -247,7 +247,7 @@ jobs:
       - name: Run benchmarking test
         run: |
           TIMESTAMP=$(date +"%Y-%m-%d-%H-%M-%S")
-          cd benchmarking/prefix-cache-aware
+          cd benchmarking/single-workload
           host="${GATEWAY_HOST:-$(kubectl get gateway -n "$NAMESPACE" \
           -o jsonpath='{.items[0].status.addresses[0].value}' 2>/dev/null || true)}"
           if [[ -z "$host" ]]; then
@@ -256,20 +256,22 @@ jobs:
           fi
           port=80
           svc_host="${host}:${port}"
-          helm install prefix-cache-benchmark ../inference-perf/ -f high-cache-values.yaml \
+          helm install prefill-heavy-benchmark ../inference-perf/ -f prefill-heavy-values.yaml \
             --namespace "${NAMESPACE}" \
             --create-namespace \
-            --set hfToken="${HF_TOKEN}" \
+            --set token.hfToken="${HF_TOKEN}" \
             --set "config.server.base_url=http://${svc_host}" \
             --set "job.serviceAccountName=$KSA_NAME" \
             --set "job.image.tag=latest" \
             --set "config.storage.google_cloud_storage.bucket_name=${GCS_BUCKET}" \
             --set "config.storage.google_cloud_storage.path=${NAMESPACE}/${TIMESTAMP}" \
+            --set "gcsPath=gs://${GCS_BUCKET}/datasets/billsum_conversations.json" \
+            --set "config.data.path=/gcsDataset/gcs-dataset.json" \
             --set-string 'job.resources.limits.nvidia\.com/gpu=1'
 
       - name: Wait for benchmarking job to finish
         run: |
-          job_name=prefix-cache-benchmark-inference-perf-job
+          job_name=prefill-heavy-benchmark-inference-perf-job
           TIMEOUT_DURATION="7200s"
           if ! kubectl wait --for=condition=complete job/"$job_name" -n "$NAMESPACE" --timeout="$TIMEOUT_DURATION"; then
             echo "Error: Benchmark job $job_name did not complete successfully within $TIMEOUT_DURATION." >&2
@@ -284,23 +286,23 @@ jobs:
       - name: Collect and upload Kubernetes pod logs
         if: always()
         run: |
-            mkdir -p pod-logs-inference-prefix-cache
-            cd pod-logs-inference-prefix-cache
+            mkdir -p pod-logs-inference-prefill-heavy
+            cd pod-logs-inference-prefill-heavy
             echo "Fetching ${NAMESPACE} pods log..."
             kubectl get pods -n "${NAMESPACE}" --no-headers -o custom-columns=":metadata.name" \
             | xargs -I{} sh -c 'kubectl logs --all-containers=true -n "${NAMESPACE}" {} > "{}.log" 2>&1'
             echo "Fetching ${NAMESPACE} pods descriptions..."
             kubectl get pods -n "${NAMESPACE}" --no-headers -o custom-columns=":metadata.name" \
             | xargs -I{} sh -c 'kubectl describe pod -n "${NAMESPACE}" {} > "{}-describe.log" 2>&1'
-            mv ~/igw-prefix-cache-deployment.log . || true
+            mv ~/igw-prefill-heavy-deployment.log . || true
             mv ~/install-deps.log . || true
 
       - name: Upload pod logs as artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: igw-pod-logs-inference-prefix-cache-${{ matrix.accelerator.name }}
-          path: pod-logs-inference-prefix-cache
+          name: igw-pod-logs-inference-prefill-heavy-${{ matrix.accelerator.name }}
+          path: pod-logs-inference-prefill-heavy
 
       - name: Send Google Chat notification on failure
         if: failure()
@@ -315,6 +317,6 @@ jobs:
         run: |
           GATEWAY_NAME=inference-gateway
           helm uninstall vllm-llama3-8b-instruct -n ${NAMESPACE} --ignore-not-found
-          helm uninstall prefix-cache-benchmark -n ${NAMESPACE} --ignore-not-found
+          helm uninstall prefill-heavy-benchmark -n ${NAMESPACE} --ignore-not-found
           kubectl delete httproute llm-route -n ${NAMESPACE} --ignore-not-found
           kubectl delete gateway ${GATEWAY_NAME} -n ${NAMESPACE} --ignore-not-found
