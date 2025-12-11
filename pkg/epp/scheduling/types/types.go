@@ -199,7 +199,10 @@ type Pod interface {
 
 type ScoredPod struct {
 	Pod
-	Score float64
+	Score            float64
+	ScoreDetails     map[string]float64
+	MaxPossibleScore float64
+	TargetModel      string
 }
 
 func (pm *PodMetrics) String() string {

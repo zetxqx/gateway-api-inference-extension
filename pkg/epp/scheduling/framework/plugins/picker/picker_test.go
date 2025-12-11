@@ -23,12 +23,98 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 )
+
+func TestPickMaxScorePicker_ScorerMarginContribution(t *testing.T) {
+	// Register metrics to ensure they are available
+	metrics.Register()
+	metrics.Reset()
+
+	pod1 := &types.PodMetrics{Pod: &backend.Pod{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}
+	pod2 := &types.PodMetrics{Pod: &backend.Pod{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}
+
+	// Scenario: Winner has score 80, RunnerUp has score 60. MaxPossible is 100.
+	// Scorer A: Winner 50, RunnerUp 40. Diff = 10. Contribution = 10/100 = 0.1
+	// Scorer B: Winner 30, RunnerUp 20. Diff = 10. Contribution = 10/100 = 0.1
+	// Scorer C: Winner 0, RunnerUp 0. Diff = 0. Contribution = 0.
+
+	input := []*types.ScoredPod{
+		{
+			Pod:              pod1,
+			Score:            80,
+			MaxPossibleScore: 100,
+			ScoreDetails: map[string]float64{
+				"ScorerA": 50,
+				"ScorerB": 30,
+				"ScorerC": 0,
+			},
+			TargetModel: "modelX",
+		},
+		{
+			Pod:              pod2,
+			Score:            60,
+			MaxPossibleScore: 100,
+			ScoreDetails: map[string]float64{
+				"ScorerA": 40,
+				"ScorerB": 20,
+				"ScorerC": 0,
+			},
+			TargetModel: "modelX",
+		},
+	}
+
+	picker := NewMaxScorePicker(1)
+	picker.Pick(context.Background(), types.NewCycleState(), input)
+
+	// Helper to get histogram
+	getHistogram := func(t *testing.T, label string) *dto.Histogram {
+		t.Helper()
+		h, err := metrics.ScorerMarginContribution.GetMetricWithLabelValues(label)
+		if err != nil {
+			t.Fatalf("Failed to get metric for label %s: %v", label, err)
+		}
+		metricDto := &dto.Metric{}
+		if err := h.(prometheus.Histogram).Write(metricDto); err != nil {
+			t.Fatalf("Failed to write metric dto: %v", err)
+		}
+		return metricDto.GetHistogram()
+	}
+
+	// Verify ScorerA
+	histA := getHistogram(t, "ScorerA")
+	if histA.GetSampleCount() != 1 {
+		t.Errorf("ScorerA: expected count 1, got %d", histA.GetSampleCount())
+	}
+	if sum := histA.GetSampleSum(); math.Abs(sum-0.1) > 0.0001 {
+		t.Errorf("ScorerA: expected sum 0.1, got %f", sum)
+	}
+
+	// Verify ScorerB
+	histB := getHistogram(t, "ScorerB")
+	if histB.GetSampleCount() != 1 {
+		t.Errorf("ScorerB: expected count 1, got %d", histB.GetSampleCount())
+	}
+	if sum := histB.GetSampleSum(); math.Abs(sum-0.1) > 0.0001 {
+		t.Errorf("ScorerB: expected sum 0.1, got %f", sum)
+	}
+
+	// Verify ScorerC
+	histC := getHistogram(t, "ScorerC")
+	if histC.GetSampleCount() != 1 {
+		t.Errorf("ScorerC: expected count 1, got %d", histC.GetSampleCount())
+	}
+	if sum := histC.GetSampleSum(); math.Abs(sum-0.0) > 0.0001 {
+		t.Errorf("ScorerC: expected sum 0.0, got %f", sum)
+	}
+}
 
 func TestPickMaxScorePicker(t *testing.T) {
 	pod1 := &types.PodMetrics{Pod: &backend.Pod{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}

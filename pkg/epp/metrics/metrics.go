@@ -393,6 +393,16 @@ var (
 		},
 		[]string{"model_rewrite_name", "model_name", "target_model"},
 	)
+
+	ScorerMarginContribution = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Subsystem: InferenceExtension,
+			Name:      "scheduler_scorer_margin_normalized",
+			Help:      metricsutil.HelpMsgWithStability("The weighted contribution normalized by total system weight (-1.0 to 1.0).", compbasemetrics.ALPHA),
+			Buckets:   []float64{-0.5, -0.2, -0.05, -0.01, 0.01, 0.05, 0.2, 0.5},
+		},
+		[]string{"scorer_name"},
+	)
 )
 
 var registerMetrics sync.Once
@@ -438,6 +448,7 @@ func Register(customCollectors ...prometheus.Collector) {
 		metrics.Registry.MustRegister(flowControlRequestQueueDuration)
 		metrics.Registry.MustRegister(flowControlQueueSize)
 		metrics.Registry.MustRegister(inferenceModelRewriteDecisionsTotal)
+		metrics.Registry.MustRegister(ScorerMarginContribution)
 		for _, collector := range customCollectors {
 			metrics.Registry.MustRegister(collector)
 		}
@@ -484,6 +495,7 @@ func Reset() {
 	flowControlRequestQueueDuration.Reset()
 	flowControlQueueSize.Reset()
 	inferenceModelRewriteDecisionsTotal.Reset()
+	ScorerMarginContribution.Reset()
 }
 
 // RecordRequestCounter records the number of requests.
@@ -779,4 +791,9 @@ func SetTPOTSLOThreshold(modelName, targetModelName string, threshold float64) {
 // RecordInferenceModelRewriteDecision records the routing decision for InferenceModelRewrite.
 func RecordInferenceModelRewriteDecision(modelRewriteName, modelName, targetModel string) {
 	inferenceModelRewriteDecisionsTotal.WithLabelValues(modelRewriteName, modelName, targetModel).Inc()
+}
+
+// RecordScorerMarginContribution records the scorer margin contribution.
+func RecordScorerMarginContribution(scorerName string, contribution float64) {
+	ScorerMarginContribution.WithLabelValues(scorerName).Observe(contribution)
 }

@@ -24,6 +24,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/framework"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
@@ -95,6 +96,7 @@ func (p *MaxScorePicker) Pick(ctx context.Context, cycleState *types.CycleState,
 		}
 		return 0
 	})
+	recordScorerContribution(scoredPods)
 
 	// if we have enough pods to return keep only the "maxNumOfEndpoints" highest scored pods
 	if p.maxNumOfEndpoints < len(scoredPods) {
@@ -107,4 +109,26 @@ func (p *MaxScorePicker) Pick(ctx context.Context, cycleState *types.CycleState,
 	}
 
 	return &types.ProfileRunResult{TargetPods: targetPods}
+}
+
+func recordScorerContribution(scoredPods []*types.ScoredPod) {
+	if len(scoredPods) < 2 {
+		return
+	}
+
+	winner := scoredPods[0]
+	runnerUp := scoredPods[1]
+
+	// Total Possible Score (Sum of weights) - all pods share the same profile configuration
+	maxPossibleScore := winner.MaxPossibleScore
+	if maxPossibleScore == 0 {
+		return
+	}
+
+	for scorerName, winnerScore := range winner.ScoreDetails {
+		runnerUpScore := runnerUp.ScoreDetails[scorerName]
+		// Normalized Contribution
+		contribution := (winnerScore - runnerUpScore) / maxPossibleScore
+		metrics.RecordScorerMarginContribution(scorerName, contribution)
+	}
 }
