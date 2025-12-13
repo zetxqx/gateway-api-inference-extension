@@ -84,7 +84,7 @@ func NewDefaultExtProcServerRunner() *ExtProcServerRunner {
 	return &ExtProcServerRunner{
 		GrpcPort:                         opts.GRPCPort,
 		GKNN:                             gknn,
-		ControllerCfg:                    ControllerConfig{false, true, true},
+		ControllerCfg:                    ControllerConfig{true, true, true},
 		SecureServing:                    opts.SecureServing,
 		HealthChecking:                   opts.HealthChecking,
 		RefreshPrometheusMetricsInterval: opts.RefreshPrometheusMetricsInterval,
@@ -96,7 +96,7 @@ func NewDefaultExtProcServerRunner() *ExtProcServerRunner {
 // SetupWithManager sets up the runner with the given manager.
 func (r *ExtProcServerRunner) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	// Create the controllers and register them with the manager
-	if !r.ControllerCfg.disableK8sCrdReconcile {
+	if r.ControllerCfg.startCrdReconcilers {
 		if err := (&controller.InferencePoolReconciler{
 			Datastore: r.Datastore,
 			Reader:    mgr.GetClient(),

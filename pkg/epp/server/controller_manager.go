@@ -59,7 +59,7 @@ func defaultManagerOptions(cfg ControllerConfig, gknn common.GKNN, metricsServer
 		},
 		Metrics: metricsServerOptions,
 	}
-	if !cfg.disableK8sCrdReconcile {
+	if cfg.startCrdReconcilers {
 		if cfg.hasInferenceObjective {
 			opt.Cache.ByObject[&v1alpha2.InferenceObjective{}] = cache.ByObject{Namespaces: map[string]cache.Config{
 				gknn.Namespace: {},
