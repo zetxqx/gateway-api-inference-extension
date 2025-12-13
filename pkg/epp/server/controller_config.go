@@ -25,19 +25,19 @@ import (
 )
 
 type ControllerConfig struct {
-	disableK8sCrdReconcile    bool
+	startCrdReconcilers       bool
 	hasInferenceObjective     bool
 	hasInferenceModelRewrites bool
 }
 
-func NewControllerConfig(disableK8sCrdReconcile bool) ControllerConfig {
+func NewControllerConfig(startCrdReconcilers bool) ControllerConfig {
 	return ControllerConfig{
-		disableK8sCrdReconcile: disableK8sCrdReconcile,
+		startCrdReconcilers: startCrdReconcilers,
 	}
 }
 
 func (cc *ControllerConfig) PopulateControllerConfig(cfg *rest.Config) error {
-	if cc.disableK8sCrdReconcile {
+	if !cc.startCrdReconcilers {
 		return nil
 	}
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)

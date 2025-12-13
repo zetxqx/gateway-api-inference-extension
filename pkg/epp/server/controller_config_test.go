@@ -27,13 +27,13 @@ import (
 
 func TestNewControllerConfig(t *testing.T) {
 	c := NewControllerConfig(true)
-	if !c.disableK8sCrdReconcile {
-		t.Error("expected disableK8sCrdReconcile to be true")
+	if !c.startCrdReconcilers {
+		t.Error("expected startCrdReconcilers to be true")
 	}
 
 	c = NewControllerConfig(false)
-	if c.disableK8sCrdReconcile {
-		t.Error("expected disableK8sCrdReconcile to be false")
+	if c.startCrdReconcilers {
+		t.Error("expected startCrdReconcilers to be false")
 	}
 }
 
@@ -96,7 +96,7 @@ func TestPopulateWithDiscovery(t *testing.T) {
 }
 
 func TestPopulateControllerConfig_Disable(t *testing.T) {
-	c := NewControllerConfig(true)
+	c := NewControllerConfig(false)
 	err := c.PopulateControllerConfig(nil)
 	if err != nil {
 		t.Errorf("expected nil error, got %v", err)
