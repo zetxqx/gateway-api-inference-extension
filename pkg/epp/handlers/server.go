@@ -17,7 +17,9 @@ limitations under the License.
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"strings"
@@ -29,10 +31,12 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
+	vllm "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/grpc/gen"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling/types"
 	errutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/error"
@@ -90,7 +94,10 @@ type RequestContext struct {
 	ResponseComplete          bool
 	ResponseStatusCode        string
 	RequestRunning            bool
+	IsGrpc                    bool
 	Request                   *Request
+
+	GrpcRequest *vllm.GenerateRequest
 
 	SchedulingRequest *schedulingtypes.LLMRequest
 
@@ -199,6 +206,13 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			ctx = log.IntoContext(ctx, logger)
 
 			err = s.HandleRequestHeaders(reqCtx, v)
+			if err == nil {
+				ct := reqCtx.Request.Headers["content-type"]
+				if strings.Contains(strings.ToLower(ct), "application/grpc") {
+					reqCtx.IsGrpc = true
+					reqCtx.modelServerStreaming = true
+				}
+			}
 		case *extProcPb.ProcessingRequest_RequestBody:
 			loggerTrace.Info("Incoming body chunk", "EoS", v.RequestBody.EndOfStream)
 			// In the stream case, we can receive multiple request bodies.
@@ -207,15 +221,23 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			// Message is buffered, we can read and decode.
 			if v.RequestBody.EndOfStream {
 				loggerTrace.Info("decoding")
-				if errUnmarshal := json.Unmarshal(body, &reqCtx.Request.Body); errUnmarshal != nil {
-					if logger.V(logutil.DEBUG).Enabled() {
-						logger.Info("Error unmarshaling request body", "body", string(body), "err", errUnmarshal)
+				if reqCtx.IsGrpc {
+					if errGrpc := s.handleGrpcRequestBody(reqCtx, body); errGrpc != nil {
+						logger.V(logutil.DEBUG).Info("Error handling gRPC request body", "err", errGrpc)
+						err = errGrpc
+						break
 					}
-					err = errutil.Error{
-						Code: errutil.BadRequest,
-						Msg:  "Error unmarshaling request body",
+				} else {
+					if errUnmarshal := json.Unmarshal(body, &reqCtx.Request.Body); errUnmarshal != nil {
+						if logger.V(logutil.DEBUG).Enabled() {
+							logger.Info("Error unmarshaling request body", "body", string(body), "err", errUnmarshal)
+						}
+						err = errutil.Error{
+							Code: errutil.BadRequest,
+							Msg:  "Error unmarshaling request body",
+						}
+						break
 					}
-					break
 				}
 
 				// Body stream complete. Allocate empty slice for response to use.
@@ -228,7 +250,12 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				}
 
 				// Populate the ExtProc protocol responses for the request body.
-				requestBodyBytes, err := json.Marshal(reqCtx.Request.Body)
+				var requestBodyBytes []byte
+				if reqCtx.IsGrpc {
+					requestBodyBytes, err = s.marshalGrpcRequest(reqCtx.GrpcRequest)
+				} else {
+					requestBodyBytes, err = json.Marshal(reqCtx.Request.Body)
+				}
 				if err != nil {
 					logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
 					break
@@ -268,7 +295,11 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			reqCtx.respHeaderResp = s.generateResponseHeaderResponse(reqCtx)
 
 		case *extProcPb.ProcessingRequest_ResponseBody:
-			if reqCtx.modelServerStreaming {
+			switch {
+			case reqCtx.IsGrpc:
+				s.handleGrpcResponseBody(ctx, reqCtx, v.ResponseBody.Body, v.ResponseBody.EndOfStream)
+				reqCtx.respBodyResp = generateResponseBodyResponses(v.ResponseBody.Body, v.ResponseBody.EndOfStream)
+			case reqCtx.modelServerStreaming:
 				// Currently we punt on response parsing if the modelServer is streaming, and we just passthrough.
 
 				responseText := string(v.ResponseBody.Body)
@@ -283,7 +314,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				}
 
 				reqCtx.respBodyResp = generateResponseBodyResponses(v.ResponseBody.Body, v.ResponseBody.EndOfStream)
-			} else {
+			default:
 				body = append(body, v.ResponseBody.Body...)
 
 				// Message is buffered, we can read and decode.
@@ -530,4 +561,136 @@ func buildCommonResponses(bodyBytes []byte, byteLimit int, setEos bool) []*extPr
 	}
 
 	return responses
+}
+
+func (s *StreamingServer) handleGrpcRequestBody(reqCtx *RequestContext, body []byte) error {
+	// Parse gRPC frames
+	msgs, err := s.unframeGrpc(body)
+	if err != nil {
+		return err
+	}
+	if len(msgs) == 0 {
+		// Could be empty body?
+		return nil
+	}
+
+	// Use the first message
+	req := &vllm.GenerateRequest{}
+	if err := proto.Unmarshal(msgs[0], req); err != nil {
+		return errutil.Error{Code: errutil.BadRequest, Msg: "failed to unmarshal gRPC request"}
+	}
+	reqCtx.GrpcRequest = req
+
+	// Convert to map for Director
+	reqCtx.Request.Body = s.grpcToMap(req)
+
+	// Inject model from header if available and not in map
+	if _, ok := reqCtx.Request.Body["model"]; !ok {
+		if val, ok := reqCtx.Request.Headers["model"]; ok {
+			reqCtx.Request.Body["model"] = val
+		} else if val, ok := reqCtx.Request.Headers["x-model-name"]; ok {
+			reqCtx.Request.Body["model"] = val
+		}
+	}
+
+	return nil
+}
+
+func (s *StreamingServer) marshalGrpcRequest(req *vllm.GenerateRequest) ([]byte, error) {
+	bytes, err := proto.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	return s.frameGrpc(bytes), nil
+}
+
+func (s *StreamingServer) handleGrpcResponseBody(ctx context.Context, reqCtx *RequestContext, body []byte, eos bool) {
+	msgs, err := s.unframeGrpc(body)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to unframe gRPC response")
+		return
+	}
+
+	for _, msg := range msgs {
+		resp := &vllm.GenerateResponse{}
+		if err := proto.Unmarshal(msg, resp); err != nil {
+			continue
+		}
+
+		// Extract usage
+		if chunk := resp.GetChunk(); chunk != nil {
+			reqCtx.Usage.CompletionTokens = int(chunk.CompletionTokens)
+			reqCtx.Usage.PromptTokens = int(chunk.PromptTokens)
+			reqCtx.Usage.PromptTokenDetails = &PromptTokenDetails{
+				CachedTokens: int(chunk.CachedTokens),
+			}
+		} else if complete := resp.GetComplete(); complete != nil {
+			reqCtx.Usage.CompletionTokens = int(complete.CompletionTokens)
+			reqCtx.Usage.PromptTokens = int(complete.PromptTokens)
+			reqCtx.Usage.PromptTokenDetails = &PromptTokenDetails{
+				CachedTokens: int(complete.CachedTokens),
+			}
+			reqCtx.ResponseComplete = true
+		}
+	}
+
+	if eos {
+		reqCtx.ResponseComplete = true
+		reqCtx.ResponseCompleteTimestamp = time.Now()
+		metrics.RecordRequestLatencies(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp)
+		metrics.RecordResponseSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.ResponseSize)
+		metrics.RecordNormalizedTimePerOutputToken(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp, reqCtx.Usage.CompletionTokens)
+	}
+}
+
+func (s *StreamingServer) unframeGrpc(data []byte) ([][]byte, error) {
+	var msgs [][]byte
+	buf := bytes.NewBuffer(data)
+	for buf.Len() > 0 {
+		// Read header (5 bytes)
+		header := make([]byte, 5)
+		if _, err := io.ReadFull(buf, header); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		// Length (bytes 1-4, big endian)
+		length := binary.BigEndian.Uint32(header[1:])
+
+		msg := make([]byte, length)
+		if _, err := io.ReadFull(buf, msg); err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
+func (s *StreamingServer) frameGrpc(msg []byte) []byte {
+	length := uint32(len(msg))
+	buf := make([]byte, 5+length)
+	buf[0] = 0 // No compression
+	binary.BigEndian.PutUint32(buf[1:], length)
+	copy(buf[5:], msg)
+	return buf
+}
+
+func (s *StreamingServer) grpcToMap(req *vllm.GenerateRequest) map[string]any {
+	m := make(map[string]any)
+	m["stream"] = req.Stream
+	if req.RequestId != "" {
+		m["request_id"] = req.RequestId
+	}
+	if sp := req.SamplingParams; sp != nil {
+		m["temperature"] = sp.Temperature
+		m["top_p"] = sp.TopP
+		// Check optional fields
+		if sp.MaxTokens != nil {
+			m["max_tokens"] = *sp.MaxTokens
+		}
+		m["n"] = sp.N
+	}
+	return m
 }
