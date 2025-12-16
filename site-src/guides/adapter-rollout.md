@@ -50,7 +50,7 @@ First, we establish a stable baseline where all requests for `food-review` are s
 
 A client requests the model `food-review`. We want to ensure this maps strictly to `food-review-v1`.
 
-#### InferenceModelRewrite
+### InferenceModelRewrite
 
 Apply the following `InferenceModelRewrite` CR to map `food-review` → `food-review-v1`:
 
@@ -71,8 +71,6 @@ spec:
       targets:
         - modelRewrite: "food-review-v1"
 ```
-
-##### Result
 
 When a client requests `"model": "food-review"`, the system serves the request using `food-review-v1`.
 
@@ -128,7 +126,7 @@ Response:
 Now that `food-review-v2` is loaded (from the Prerequisites step), we can begin splitting traffic. Traffic splitting allows you to divide incoming traffic for a single model name across different adapters. This is critical for A/B testing or gradual updates.
 You want to direct 90% of `food-review` traffic to the stable `food-review-v1` and 10% to the new `food-review-v2`.
 
-#### InferenceModelRewrites (90 / 10 split)
+### InferenceModelRewrites (90 / 10 split)
 
 Update the existing `InferenceModelRewrite`:
 
@@ -153,7 +151,7 @@ spec:
           weight: 10
 ```
 
-##### Result
+Run the [test traffic script](#test-traffic-script) as follows:
 
 ```bash
 ❯ ./test-traffic-splitting.sh
@@ -163,7 +161,7 @@ food-review-v1: 17 requests
 food-review-v2: 3 requests
 ```
 
-#### InferenceModelRewrites (50 / 50 split)
+### InferenceModelRewrites (50 / 50 split)
 
 To increase traffic to the new model, simply adjust the weights.
 
@@ -175,7 +173,7 @@ To increase traffic to the new model, simply adjust the weights.
           weight: 50
 ```
 
-##### Result
+Run the [test traffic script](#test-traffic-script) again:
 
 ```bash
 ❯ ./test-traffic-splitting.sh
@@ -185,7 +183,7 @@ food-review-v1: 10 requests
 food-review-v2: 10 requests
 ```
 
-#### InferenceModelRewrites (0 / 100 split)
+### InferenceModelRewrites (0 / 100 split)
 
 Once the new model is verified, shift all traffic to it.
 
@@ -195,7 +193,7 @@ Once the new model is verified, shift all traffic to it.
           weight: 100
 ```
 
-##### Result
+Run the [test traffic script](#test-traffic-script) one last time:
 
 ```bash
 ❯ ./test-traffic-splitting.sh
@@ -236,7 +234,7 @@ With this, the old adapter is removed, and the rollout is complete.
 
 ## Appendix
 
-#### `./test-traffic-splitting.sh`
+### Test Traffic Script
 
 ```bash
 #!/bin/bash
