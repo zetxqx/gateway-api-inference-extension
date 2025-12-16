@@ -2,22 +2,22 @@
 
 The goal of this guide is to show you how to perform incremental roll out operations,
 which gradually deploy new versions of your inference infrastructure.
-You can update LoRA adapters and Inference Pool with minimal service disruption.
+You can update LoRA adapters in an InferencePool with minimal service disruption.
 
 LoRA adapter rollouts let you deploy new versions of LoRA adapters in phases,
 without altering the underlying base model or infrastructure.
 Use LoRA adapter rollouts to test improvements, bug fixes, or new features in your LoRA adapters.
 
-The [`InferenceModelRewrite`](/api-types/inferencemodelrewrite) resource allows platform administrators and model owners to control how inference requests are routed to specific models within an Inference Pool.
-This capability is essential for managing model lifecycles without disrupting client applications.
+The [`InferenceModelRewrite`](/api-types/inferencemodelrewrite) resource allows platform administrators and model owners to control how inference requests are routed to specific models within an InferencePool.
+This capability is essential for managing model/adapter lifecycles without disrupting client applications.
 
 ## Prerequisites & Setup
 
 Follow [getting-started](https://gateway-api-inference-extension.sigs.k8s.io/guides/getting-started-latest/#getting-started-with-an-inference-gateway) to set up the IGW stack.
 
-In this guide, we modify the LoRA adapters configMap to have two food-review models to better illustrate the gradual rollout scenario.
+In this guide, we modify the LoRA adapters ConfigMap to have two food-review models to better illustrate the gradual rollout scenario.
 
-The configMap used in this guide is as follows:
+The ConfigMap used in this guide is as follows:
 
 ```yaml
 apiVersion: v1
@@ -44,15 +44,13 @@ data:
 curl http://${IP}/v1/models | jq . 
 ```
 
-## Step 1: Establish Baseline (Alias v1)
+## Step 1: Establishing A Baseline (Alias v1)
 
 First, we establish a stable baseline where all requests for `food-review` are served by the existing version, `food-review-v1`. This decouples the client's request (for "food-review") from the specific version running on the backend.
 
-### Scenario
-
 A client requests the model `food-review`. We want to ensure this maps strictly to `food-review-v1`.
 
-### InferenceModelRewrite
+#### InferenceModelRewrite
 
 Apply the following `InferenceModelRewrite` CR to map `food-review` → `food-review-v1`:
 
@@ -74,7 +72,7 @@ spec:
         - modelRewrite: "food-review-v1"
 ```
 
-### Result
+##### Result
 
 When a client requests `"model": "food-review"`, the system serves the request using `food-review-v1`.
 
@@ -127,13 +125,10 @@ Response:
 
 ## Step 2: Gradual Rollout
 
-Now that `food-review-v2` is loaded (from the Prerequisites step), we can begin splitting traffic. Traffic splitting allows you to divide incoming traffic for a single model name across multiple backend models. This is critical for A/B testing or gradual updates.
-
-### Scenario: 90/10 Split
-
+Now that `food-review-v2` is loaded (from the Prerequisites step), we can begin splitting traffic. Traffic splitting allows you to divide incoming traffic for a single model name across different adapters. This is critical for A/B testing or gradual updates.
 You want to direct 90% of `food-review` traffic to the stable `food-review-v1` and 10% to the new `food-review-v2`.
 
-#### InferenceModelRewrites
+#### InferenceModelRewrites (90 / 10 split)
 
 Update the existing `InferenceModelRewrite`:
 
@@ -158,7 +153,7 @@ spec:
           weight: 10
 ```
 
-#### Result
+##### Result
 
 ```bash
 ❯ ./test-traffic-splitting.sh
@@ -168,7 +163,7 @@ food-review-v1: 17 requests
 food-review-v2: 3 requests
 ```
 
-### Scenario: 50/50 Split
+#### InferenceModelRewrites (50 / 50 split)
 
 To increase traffic to the new model, simply adjust the weights.
 
@@ -180,7 +175,7 @@ To increase traffic to the new model, simply adjust the weights.
           weight: 50
 ```
 
-#### Result
+##### Result
 
 ```bash
 ❯ ./test-traffic-splitting.sh
@@ -190,7 +185,7 @@ food-review-v1: 10 requests
 food-review-v2: 10 requests
 ```
 
-### Scenario: 100% Cutover (Finalizing Rollout)
+#### InferenceModelRewrites (0 / 100 split)
 
 Once the new model is verified, shift all traffic to it.
 
@@ -200,7 +195,7 @@ Once the new model is verified, shift all traffic to it.
           weight: 100
 ```
 
-#### Result
+##### Result
 
 ```bash
 ❯ ./test-traffic-splitting.sh
@@ -241,7 +236,7 @@ With this, the old adapter is removed, and the rollout is complete.
 
 ## Appendix
 
-### `./test-traffic-splitting.sh`
+#### `./test-traffic-splitting.sh`
 
 ```bash
 #!/bin/bash

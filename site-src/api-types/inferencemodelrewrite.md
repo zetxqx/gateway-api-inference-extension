@@ -7,7 +7,7 @@
 
 ## Background
 
-The **InferenceModelRewrite** resource allows platform administrators and model owners to control how inference requests are routed to specific models within an Inference Pool.
+The **InferenceModelRewrite** resource allows platform administrators and model owners to control how inference requests are routed to specific models within an InferencePool.
 This capability is essential for managing model lifecycles without disrupting client applications.
 
 ## Usages
@@ -15,6 +15,9 @@ This capability is essential for managing model lifecycles without disrupting cl
 *   **Model Aliasing**: Map a model name in the request body (e.g., `food-review`) to a specific version (e.g., `food-review-v1`).
 *   **Generic Fallbacks**: Redirect unknown model requests to a default model.
 *   **Traffic Splitting**: Gradually roll out new model versions (Canary deployment) by splitting traffic between two models based on percentage weights.
+
+    !!! note "Scope of Traffic Splitting"
+        Traffic splitting with `InferenceModelRewrite` is scoped to traffic within a single `InferencePool`. It will not split traffic between two different pools, but rather between two adapters served by the same `InferencePool`.
 
 ## Spec
 
@@ -46,7 +49,7 @@ spec:
 
 ### Generic (Wildcard) Rewrites
 
-Redirect any request with an unrecognized or unspecified model name to a default safe model. An empty `matches` list implies that the rule applies to **all** requests not matched by previous rules.
+Redirect any request with an unrecognized or unspecified model name to a default model. An empty `matches` list implies that the rule applies to **all** requests not matched by previous rules.
 
 ```yaml
 apiVersion: inference.networking.k8s.io/v1alpha2
@@ -65,7 +68,7 @@ spec:
 
 ### Traffic Splitting (Canary Rollout)
 
-Divide incoming traffic for a single model name across multiple backend models. This is useful for A/B testing or gradual rollouts.
+Divide incoming traffic for a single model name across multiple adapters within the InferencePool. This is useful for A/B testing or gradual rollouts for LoRA adapter updates.
 
 ```yaml
 apiVersion: inference.networking.k8s.io/v1alpha2
