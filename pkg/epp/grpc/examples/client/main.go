@@ -16,7 +16,10 @@ import (
 )
 
 const (
-	address = "YOUR_IP:YOUR_PORT "
+	// address = "35.212.230.187:443" // l7lb
+	// address = "34.82.30.251:443" // l4lb
+	// address = "35.212.202.130:443" // igw
+	address = "35.212.234.191:80" // igw no tls
 )
 
 func secureConn() *grpc.ClientConn {
@@ -42,7 +45,7 @@ func insecureConn() *grpc.ClientConn {
 }
 
 func main() {
-	conn := insecureConn()
+	conn := secureConn()
 	defer conn.Close()
 	c := vllm.NewVllmEngineClient(conn)
 
