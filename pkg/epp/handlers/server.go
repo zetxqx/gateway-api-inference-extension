@@ -17,7 +17,6 @@ limitations under the License.
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -98,6 +97,8 @@ type RequestContext struct {
 	Request                   *Request
 
 	GrpcRequest *vllm.GenerateRequest
+
+	grpcResponseBuffer []byte
 
 	SchedulingRequest *schedulingtypes.LLMRequest
 
@@ -211,6 +212,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				if strings.Contains(strings.ToLower(ct), "application/grpc") {
 					reqCtx.IsGrpc = true
 					reqCtx.modelServerStreaming = true
+					logger.Info("gRPC request detected")
 				}
 			}
 		case *extProcPb.ProcessingRequest_RequestBody:
@@ -222,7 +224,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			if v.RequestBody.EndOfStream {
 				loggerTrace.Info("decoding")
 				if reqCtx.IsGrpc {
-					if errGrpc := s.handleGrpcRequestBody(reqCtx, body); errGrpc != nil {
+					if errGrpc := s.handleGrpcRequestBody(reqCtx, body, logger); errGrpc != nil {
 						logger.V(logutil.DEBUG).Info("Error handling gRPC request body", "err", errGrpc)
 						err = errGrpc
 						break
@@ -563,12 +565,15 @@ func buildCommonResponses(bodyBytes []byte, byteLimit int, setEos bool) []*extPr
 	return responses
 }
 
-func (s *StreamingServer) handleGrpcRequestBody(reqCtx *RequestContext, body []byte) error {
+func (s *StreamingServer) handleGrpcRequestBody(reqCtx *RequestContext, body []byte, logger logr.Logger) error {
+	logger.Info("Handling gRPC request body", "size", len(body))
 	// Parse gRPC frames
-	msgs, err := s.unframeGrpc(body)
+	msgs, _, err := s.unframeGrpc(body)
 	if err != nil {
+		logger.Error(err, "Failed to unframe gRPC request")
 		return err
 	}
+	logger.Info("Unframed gRPC request", "msgCount", len(msgs))
 	if len(msgs) == 0 {
 		// Could be empty body?
 		return nil
@@ -577,8 +582,10 @@ func (s *StreamingServer) handleGrpcRequestBody(reqCtx *RequestContext, body []b
 	// Use the first message
 	req := &vllm.GenerateRequest{}
 	if err := proto.Unmarshal(msgs[0], req); err != nil {
+		logger.Error(err, "Failed to unmarshal gRPC request")
 		return errutil.Error{Code: errutil.BadRequest, Msg: "failed to unmarshal gRPC request"}
 	}
+	logger.Info("Successfully unmarshaled gRPC request", "requestID", req.RequestId, "stream", req.Stream)
 	reqCtx.GrpcRequest = req
 
 	// Convert to map for Director
@@ -605,32 +612,51 @@ func (s *StreamingServer) marshalGrpcRequest(req *vllm.GenerateRequest) ([]byte,
 }
 
 func (s *StreamingServer) handleGrpcResponseBody(ctx context.Context, reqCtx *RequestContext, body []byte, eos bool) {
-	msgs, err := s.unframeGrpc(body)
+	logger := log.FromContext(ctx)
+	logger.Info("Handling gRPC response body", "chunkSize", len(body), "bufferSize", len(reqCtx.grpcResponseBuffer), "eos", eos)
+
+	// Append new chunk to buffer
+	reqCtx.grpcResponseBuffer = append(reqCtx.grpcResponseBuffer, body...)
+
+	msgs, bytesRead, err := s.unframeGrpc(reqCtx.grpcResponseBuffer)
 	if err != nil {
-		log.FromContext(ctx).Error(err, "failed to unframe gRPC response")
+		logger.Error(err, "failed to unframe gRPC response")
+		// Clear buffer on fatal error to prevent stuck loop?
+		// Actually, if it's compression error, we should probably abort.
 		return
 	}
+	logger.Info("Unframed gRPC response", "msgCount", len(msgs), "bytesRead", bytesRead, "remainingBuffer", len(reqCtx.grpcResponseBuffer)-bytesRead)
 
-	for _, msg := range msgs {
+	// Advance buffer
+	if bytesRead > 0 {
+		reqCtx.grpcResponseBuffer = reqCtx.grpcResponseBuffer[bytesRead:]
+	}
+
+	for i, msg := range msgs {
 		resp := &vllm.GenerateResponse{}
 		if err := proto.Unmarshal(msg, resp); err != nil {
+			logger.Error(err, "Failed to unmarshal gRPC response message", "index", i)
 			continue
 		}
-
+		
 		// Extract usage
 		if chunk := resp.GetChunk(); chunk != nil {
+			logger.Info("Processed chunk", "index", i, "completionTokens", chunk.CompletionTokens, "promptTokens", chunk.PromptTokens)
 			reqCtx.Usage.CompletionTokens = int(chunk.CompletionTokens)
 			reqCtx.Usage.PromptTokens = int(chunk.PromptTokens)
 			reqCtx.Usage.PromptTokenDetails = &PromptTokenDetails{
 				CachedTokens: int(chunk.CachedTokens),
 			}
 		} else if complete := resp.GetComplete(); complete != nil {
+			logger.Info("Processed complete response", "index", i, "completionTokens", complete.CompletionTokens, "promptTokens", complete.PromptTokens)
 			reqCtx.Usage.CompletionTokens = int(complete.CompletionTokens)
 			reqCtx.Usage.PromptTokens = int(complete.PromptTokens)
 			reqCtx.Usage.PromptTokenDetails = &PromptTokenDetails{
 				CachedTokens: int(complete.CachedTokens),
 			}
 			reqCtx.ResponseComplete = true
+		} else if errResp := resp.GetError(); errResp != nil {
+			logger.Info("Received error in gRPC response", "error", errResp.Message)
 		}
 	}
 
@@ -643,29 +669,33 @@ func (s *StreamingServer) handleGrpcResponseBody(ctx context.Context, reqCtx *Re
 	}
 }
 
-func (s *StreamingServer) unframeGrpc(data []byte) ([][]byte, error) {
+func (s *StreamingServer) unframeGrpc(data []byte) ([][]byte, int, error) {
 	var msgs [][]byte
-	buf := bytes.NewBuffer(data)
-	for buf.Len() > 0 {
+	bytesRead := 0
+
+	for len(data[bytesRead:]) >= 5 {
 		// Read header (5 bytes)
-		header := make([]byte, 5)
-		if _, err := io.ReadFull(buf, header); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
+		header := data[bytesRead : bytesRead+5]
+		compressed := header[0] == 1
+		if compressed {
+			return nil, bytesRead, status.Error(codes.Unimplemented, "gRPC compression not supported")
 		}
 
 		// Length (bytes 1-4, big endian)
-		length := binary.BigEndian.Uint32(header[1:])
+		length := int(binary.BigEndian.Uint32(header[1:]))
 
-		msg := make([]byte, length)
-		if _, err := io.ReadFull(buf, msg); err != nil {
-			return nil, err
+		// Check if we have the full message
+		if len(data[bytesRead+5:]) < length {
+			break // Incomplete message, wait for more data
 		}
+
+		// Extract message
+		msg := data[bytesRead+5 : bytesRead+5+length]
 		msgs = append(msgs, msg)
+		bytesRead += 5 + length
 	}
-	return msgs, nil
+
+	return msgs, bytesRead, nil
 }
 
 func (s *StreamingServer) frameGrpc(msg []byte) []byte {

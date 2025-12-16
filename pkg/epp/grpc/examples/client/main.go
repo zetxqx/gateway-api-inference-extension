@@ -19,7 +19,8 @@ const (
 	// address = "35.212.230.187:443" // l7lb
 	// address = "34.82.30.251:443" // l4lb
 	// address = "35.212.202.130:443" // igw
-	address = "35.212.234.191:80" // igw no tls
+	// address = "35.212.234.191:80" // igw no tls
+	address = "34.169.180.33:8081" // standalone
 )
 
 func secureConn() *grpc.ClientConn {
@@ -45,7 +46,7 @@ func insecureConn() *grpc.ClientConn {
 }
 
 func main() {
-	conn := secureConn()
+	conn := insecureConn()
 	defer conn.Close()
 	c := vllm.NewVllmEngineClient(conn)
 
