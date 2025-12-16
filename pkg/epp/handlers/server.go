@@ -224,10 +224,15 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			if v.RequestBody.EndOfStream {
 				loggerTrace.Info("decoding")
 				if reqCtx.IsGrpc {
-					if errGrpc := s.handleGrpcRequestBody(reqCtx, body, logger); errGrpc != nil {
-						logger.V(logutil.DEBUG).Info("Error handling gRPC request body", "err", errGrpc)
-						err = errGrpc
-						break
+					path := reqCtx.Request.Headers[":path"]
+					if requtil.IsSystemPath(path) {
+						logger.V(logutil.DEBUG).Info("Skipping gRPC body parsing for system path", "path", path)
+					} else {
+						if errGrpc := s.handleGrpcRequestBody(reqCtx, body, logger); errGrpc != nil {
+							logger.V(logutil.DEBUG).Info("Error handling gRPC request body", "err", errGrpc)
+							err = errGrpc
+							break
+						}
 					}
 				} else {
 					if errUnmarshal := json.Unmarshal(body, &reqCtx.Request.Body); errUnmarshal != nil {
@@ -254,7 +259,12 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				// Populate the ExtProc protocol responses for the request body.
 				var requestBodyBytes []byte
 				if reqCtx.IsGrpc {
-					requestBodyBytes, err = s.marshalGrpcRequest(reqCtx.GrpcRequest)
+					path := reqCtx.Request.Headers[":path"]
+					if requtil.IsSystemPath(path) {
+						requestBodyBytes = body
+					} else {
+						requestBodyBytes, err = s.marshalGrpcRequest(reqCtx.GrpcRequest)
+					}
 				} else {
 					requestBodyBytes, err = json.Marshal(reqCtx.Request.Body)
 				}
@@ -299,7 +309,12 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		case *extProcPb.ProcessingRequest_ResponseBody:
 			switch {
 			case reqCtx.IsGrpc:
-				s.handleGrpcResponseBody(ctx, reqCtx, v.ResponseBody.Body, v.ResponseBody.EndOfStream)
+				path := reqCtx.Request.Headers[":path"]
+				if requtil.IsSystemPath(path) {
+					logger.V(logutil.DEBUG).Info("Skipping gRPC response body parsing for system path", "path", path)
+				} else {
+					s.handleGrpcResponseBody(ctx, reqCtx, v.ResponseBody.Body, v.ResponseBody.EndOfStream)
+				}
 				reqCtx.respBodyResp = generateResponseBodyResponses(v.ResponseBody.Body, v.ResponseBody.EndOfStream)
 			case reqCtx.modelServerStreaming:
 				// Currently we punt on response parsing if the modelServer is streaming, and we just passthrough.
@@ -566,41 +581,108 @@ func buildCommonResponses(bodyBytes []byte, byteLimit int, setEos bool) []*extPr
 }
 
 func (s *StreamingServer) handleGrpcRequestBody(reqCtx *RequestContext, body []byte, logger logr.Logger) error {
+
 	logger.Info("Handling gRPC request body", "size", len(body))
+
+	var req *vllm.GenerateRequest
+
 	// Parse gRPC frames
+
 	msgs, _, err := s.unframeGrpc(body)
+
 	if err != nil {
+
 		logger.Error(err, "Failed to unframe gRPC request")
+
 		return err
+
 	}
+
 	logger.Info("Unframed gRPC request", "msgCount", len(msgs))
-	if len(msgs) == 0 {
-		// Could be empty body?
-		return nil
-	}
 
-	// Use the first message
-	req := &vllm.GenerateRequest{}
-	if err := proto.Unmarshal(msgs[0], req); err != nil {
-		logger.Error(err, "Failed to unmarshal gRPC request")
-		return errutil.Error{Code: errutil.BadRequest, Msg: "failed to unmarshal gRPC request"}
-	}
-	logger.Info("Successfully unmarshaled gRPC request", "requestID", req.RequestId, "stream", req.Stream)
-	reqCtx.GrpcRequest = req
+	if len(msgs) > 0 {
 
-	// Convert to map for Director
-	reqCtx.Request.Body = s.grpcToMap(req)
+		// Use the first message
+
+		req = &vllm.GenerateRequest{}
+
+		if err := proto.Unmarshal(msgs[0], req); err != nil {
+
+			logger.Error(err, "Failed to unmarshal gRPC request")
+
+			return errutil.Error{Code: errutil.BadRequest, Msg: "failed to unmarshal gRPC request"}
+
+		}
+
+		logger.Info("Successfully unmarshaled gRPC request", "requestID", req.RequestId, "stream", req.Stream)
+
+		reqCtx.GrpcRequest = req
+
+		// Convert to map for Director
+
+		reqCtx.Request.Body = s.grpcToMap(req)
+
+	}
 
 	// Inject model from header if available and not in map
+
 	if _, ok := reqCtx.Request.Body["model"]; !ok {
+
 		if val, ok := reqCtx.Request.Headers["model"]; ok {
+
 			reqCtx.Request.Body["model"] = val
+
 		} else if val, ok := reqCtx.Request.Headers["x-model-name"]; ok {
+
 			reqCtx.Request.Body["model"] = val
+
+		} else if reqCtx.IncomingModelName != "" {
+
+			reqCtx.Request.Body["model"] = reqCtx.IncomingModelName
+
+		} else {
+
+			// Default to "default" model to allow Director to proceed even if model is unspecified
+
+			reqCtx.Request.Body["model"] = "default"
+
 		}
+
+	}
+
+	// Bypass Director's body parsing by pre-populating SchedulingRequest
+
+	reqCtx.SchedulingRequest = &schedulingtypes.LLMRequest{
+
+		RequestId: reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
+
+		Headers: reqCtx.Request.Headers,
+
+		// TargetModel will be synced by Director from reqCtx.TargetModelName
+
+		Body: &schedulingtypes.LLMRequestBody{
+
+			// Construct a minimal Completions request if we have OriginalText
+
+			Completions: func() *schedulingtypes.CompletionsRequest {
+
+				if req != nil && req.Tokenized != nil && req.Tokenized.OriginalText != "" {
+
+					return &schedulingtypes.CompletionsRequest{
+
+						Prompt: req.Tokenized.OriginalText,
+					}
+
+				}
+
+				return nil
+
+			}(),
+		},
 	}
 
 	return nil
+
 }
 
 func (s *StreamingServer) marshalGrpcRequest(req *vllm.GenerateRequest) ([]byte, error) {
@@ -638,7 +720,7 @@ func (s *StreamingServer) handleGrpcResponseBody(ctx context.Context, reqCtx *Re
 			logger.Error(err, "Failed to unmarshal gRPC response message", "index", i)
 			continue
 		}
-		
+
 		// Extract usage
 		if chunk := resp.GetChunk(); chunk != nil {
 			logger.Info("Processed chunk", "index", i, "completionTokens", chunk.CompletionTokens, "promptTokens", chunk.PromptTokens)

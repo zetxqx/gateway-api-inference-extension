@@ -38,3 +38,11 @@ func ExtractHeaderValue(req *extProcPb.ProcessingRequest_RequestHeaders, headerK
 	}
 	return ""
 }
+
+func IsSystemPath(path string) bool {
+	// Check if the path corresponds to system-level gRPC methods that don't require model routing
+	// or body parsing in the same way as inference requests.
+	return strings.HasSuffix(path, "/GetModelInfo") ||
+		strings.HasSuffix(path, "/GetServerInfo") ||
+		strings.HasSuffix(path, "/HealthCheck")
+}
