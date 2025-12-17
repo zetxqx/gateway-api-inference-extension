@@ -125,7 +125,7 @@ data:
                               request_headers_to_add:
                                 - header:
                                     key: "x-gateway-destination-endpoint"
-                                    value: "10.0.0.5:50051" # Placeholder IP, replace with a real Pod IP for testing
+                                    value: "10.116.16.6:50051" # Placeholder IP, replace with a real Pod IP for testing
                               typed_per_filter_config:
                                 envoy.filters.http.ext_proc:
                                   "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute
@@ -475,6 +475,20 @@ metadata:
     helm.sh/chart: llm-d-modelservice-v0.3.8
     app.kubernetes.io/version: "v0.3.0"
     app.kubernetes.io/managed-by: Helm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-baseline
+  namespace: llmd-standalone
+spec:
+  selector:
+    llm-d.ai/inferenceServing: "true"
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+  type: LoadBalancer
 ---
 # Source: llm-d-modelservice/templates/decode-deployment.yaml
 apiVersion: apps/v1
