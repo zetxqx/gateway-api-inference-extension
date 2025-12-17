@@ -117,6 +117,16 @@ data:
                           domains: ["*"]
                           routes:
                             - match:
+                                path: "/vllm.grpc.engine.VllmEngine/GetModelInfo"
+                              route:
+                                cluster: original_destination_cluster
+                                timeout: 86400s
+                                idle_timeout: 86400s
+                              typed_per_filter_config:
+                                envoy.filters.http.ext_proc:
+                                  "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute
+                                  disabled: true
+                            - match:
                                 prefix: "/"
                               route:
                                 cluster: original_destination_cluster
@@ -209,14 +219,14 @@ data:
                 max_pending_requests: 40000
                 max_requests: 40000
                 max_retries: 1024
-          health_checks:
-            - timeout: 2s
-              interval: 10s
-              unhealthy_threshold: 3
-              healthy_threshold: 2
-              reuse_connection: true
-              grpc_health_check:
-                service_name: "envoy.service.ext_proc.v3.ExternalProcessor"
+          # health_checks:
+          #   - timeout: 2s
+          #     interval: 10s
+          #     unhealthy_threshold: 3
+          #     healthy_threshold: 2
+          #     reuse_connection: true
+          #     grpc_health_check:
+          #       service_name: "envoy.service.ext_proc.v3.ExternalProcessor"
           typed_extension_protocol_options:
             envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
               "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
