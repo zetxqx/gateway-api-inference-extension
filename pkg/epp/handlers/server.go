@@ -247,6 +247,8 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 					}
 				}
 
+				// Capture body for system path use before clearing
+				systemBody := body
 				// Body stream complete. Allocate empty slice for response to use.
 				body = []byte{}
 
@@ -261,7 +263,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				if reqCtx.IsGrpc {
 					path := reqCtx.Request.Headers[":path"]
 					if requtil.IsSystemPath(path) {
-						requestBodyBytes = body
+						requestBodyBytes = systemBody
 					} else {
 						requestBodyBytes, err = s.marshalGrpcRequest(reqCtx.GrpcRequest)
 					}
