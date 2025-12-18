@@ -387,7 +387,7 @@ spec:
         imagePullPolicy: Always
         args:
         - --target-ip
-        - 10.116.10.5:500051
+        - 10.116.10.5:50051
         ports:
         - name: grpc
           containerPort: 9002

@@ -11,7 +11,6 @@ import (
 
 	configPb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
-	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -26,7 +25,7 @@ import (
 
 // Helper: Parse gRPC 5-byte framing
 func parseGrpcPayload(data []byte) ([]byte, bool) {
-	if len(data) > 5 {
+	if len(data) >= 5 { // >= is very important, because grpc may contain nothing in the body
 		msgLen := binary.BigEndian.Uint32(data[1:5])
 		if uint32(len(data)) >= 5+msgLen {
 			return data[5 : 5+msgLen], true
@@ -49,6 +48,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 	// State variables per stream
 	var grpcMethod string
 	var requestBodyBuffer []byte
+	var responseBodyBuffer []byte
 
 	log.Println("[Stream Start] New processing stream started")
 
@@ -65,6 +65,10 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			log.Println("[Stream End] Client closed stream (EOF)")
 			return nil
 		}
+		if status.Code(err) == codes.Canceled {
+			log.Println("Stream cancelled by client")
+			return nil
+		}
 		if err != nil {
 			log.Printf("[Stream Error] Receive error: %v\n", err)
 			return status.Errorf(codes.Unknown, "cannot receive stream request: %v", err)
@@ -72,6 +76,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 
 		resp := &extProcPb.ProcessingResponse{}
 		phase := "Unknown"
+		log.Println("Back to swtich case")
 
 		switch v := req.Request.(type) {
 
@@ -90,26 +95,19 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			}
 
 			log.Printf("    Method Found: %s\n", grpcMethod)
-
-			// STOP_AND_BUFFER: Hold the headers! Do not send them upstream yet.
-			// resp = &extProcPb.ProcessingResponse{
-			// 	Response: &extProcPb.ProcessingResponse_RequestHeaders{
-			// 		RequestHeaders: &extProcPb.HeadersResponse{
-			// 			Response: &extProcPb.CommonResponse{
-			// 				Status: extProcPb.CommonResponse_STOP_AND_BUFFER,
-			// 			},
-			// 		},
-			// 	},
-			// }
-			resp = &extProcPb.ProcessingResponse{
-				Response: &extProcPb.ProcessingResponse_RequestHeaders{
-					RequestHeaders: &extProcPb.HeadersResponse{
-						Response: &extProcPb.CommonResponse{
-							// In a real scheduler, you might delay this if you need body for scheduling
-							// But for "simplest" demo, we just verify we got the headers
+			if grpcMethod == "/vllm.grpc.engine.VllmEngine/Generate" {
+				resp = &extProcPb.ProcessingResponse{
+					Response: &extProcPb.ProcessingResponse_RequestHeaders{
+						RequestHeaders: &extProcPb.HeadersResponse{
+							Response: &extProcPb.CommonResponse{
+								ClearRouteCache: true,
+							},
 						},
 					},
-				},
+				}
+				log.Printf(" Generate Method Special handle: %s\n", grpcMethod)
+			} else {
+				continue
 			}
 
 		// ----------------------------------------------------------------
@@ -126,15 +124,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 
 			if !v.RequestBody.EndOfStream {
 				// Continue buffering
-				resp = &extProcPb.ProcessingResponse{
-					Response: &extProcPb.ProcessingResponse_RequestBody{
-						RequestBody: &extProcPb.BodyResponse{
-							Response: &extProcPb.CommonResponse{
-								Status: extProcPb.CommonResponse_CONTINUE,
-							},
-						},
-					},
-				}
+				continue
 			} else {
 				// End of Stream: Process Logic
 				log.Println("    [Processing Logic] Full body received. Decoding...")
@@ -148,14 +138,16 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 					log.Printf("    [Decision] Using Configured Flag Target IP: %s\n", targetPodIP)
 				}
 
-				// 2. Dynamic Routing (if no flag)
 				switch grpcMethod {
 				case "/vllm.grpc.engine.VllmEngine/GetModelInfo":
+					log.Println("Parsing /vllm.grpc.engine.VllmEngine/GetModelInfo")
 					if payload, ok := parseGrpcPayload(requestBodyBuffer); ok {
 						req := &pb.GetModelInfoRequest{}
 						if err := proto.Unmarshal(payload, req); err == nil {
 							log.Println("    [Parser] Success: GetModelInfoRequest")
 						}
+					} else {
+						log.Println("Not valid /vllm.grpc.engine.VllmEngine/GetModelInfo")
 					}
 
 				case "/vllm.grpc.engine.VllmEngine/Generate":
@@ -188,8 +180,8 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 
 				// 4. Send Response
 				resp = &extProcPb.ProcessingResponse{
-					Response: &extProcPb.ProcessingResponse_RequestBody{
-						RequestBody: &extProcPb.BodyResponse{
+					Response: &extProcPb.ProcessingResponse_RequestHeaders{
+						RequestHeaders: &extProcPb.HeadersResponse{
 							Response: &extProcPb.CommonResponse{
 								Status: extProcPb.CommonResponse_CONTINUE,
 								HeaderMutation: &extProcPb.HeaderMutation{
@@ -206,7 +198,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 					log.Printf("❌ [Error] Failed to send response: %v\n", err)
 					return err
 				}
-				log.Println("    [Action] Sent Body Response")
+				log.Println("    [Action] Sent Body Response (Buffered for final send)")
 
 				resp = &extProcPb.ProcessingResponse{
 					Response: &extProcPb.ProcessingResponse_RequestBody{
@@ -237,11 +229,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			log.Println(">>> [Phase: ResponseHeaders] Passing through...")
 			resp = &extProcPb.ProcessingResponse{
 				Response: &extProcPb.ProcessingResponse_ResponseHeaders{
-					ResponseHeaders: &extProcPb.HeadersResponse{
-						Response: &extProcPb.CommonResponse{
-							Status: extProcPb.CommonResponse_CONTINUE,
-						},
-					},
+					ResponseHeaders: &extProcPb.HeadersResponse{},
 				},
 			}
 
@@ -249,24 +237,40 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 		// RESPONSE BODY PHASE
 		// ----------------------------------------------------------------
 		case *extProcPb.ProcessingRequest_ResponseBody:
+
 			phase = "ResponseBody"
+			log.Println(">>> [Phase: ResponseBody] Passing through...")
+			responseBodyBuffer = append(requestBodyBuffer, v.ResponseBody.Body...)
+
+			resps := generateResponseBodyResponses(responseBodyBuffer, false)
+			log.Println("Resps length", len(resps))
+			if len(resps) > 0 {
+				resp = resps[0]
+			}
+			if !v.ResponseBody.EndOfStream {
+				log.Println(" [Phase: ResponseBody] non end of stream")
+				// continue
+			} else {
+				log.Println(" [Phase: ResponseBody] End of stream")
+			}
+
+		// ----------------------------------------------------------------
+		// RESPONSE TRAILERS PHASE
+		// ----------------------------------------------------------------
+		case *extProcPb.ProcessingRequest_ResponseTrailers:
+			phase = "ResponseTrailers"
+			log.Println(">>> [Phase: ResponseTrailers] Passing through...")
 			resp = &extProcPb.ProcessingResponse{
-				Response: &extProcPb.ProcessingResponse_ResponseBody{
-					ResponseBody: &extProcPb.BodyResponse{
-						Response: &extProcPb.CommonResponse{
-							Status: extProcPb.CommonResponse_CONTINUE,
-						},
-					},
+				Response: &extProcPb.ProcessingResponse_ResponseTrailers{
+					ResponseTrailers: &extProcPb.TrailersResponse{},
 				},
 			}
 
 		default:
 			log.Printf(">>> [Phase: Unknown/Default] %T\n", req.Request)
 			resp = &extProcPb.ProcessingResponse{
-				Response: &extProcPb.ProcessingResponse_ImmediateResponse{
-					ImmediateResponse: &extProcPb.ImmediateResponse{
-						Status: &typev3.HttpStatus{Code: typev3.StatusCode_OK},
-					},
+				Response: &extProcPb.ProcessingResponse_ResponseTrailers{
+					ResponseTrailers: &extProcPb.TrailersResponse{},
 				},
 			}
 		}
@@ -276,6 +280,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			continue
 		}
 
+		log.Println("[Action] Sending resposne")
 		if err := stream.Send(resp); err != nil {
 			log.Printf("❌ [Error] Failed to send response: %v\n", err)
 			return err
@@ -370,4 +375,86 @@ func main() {
 	}()
 
 	wg.Wait()
+}
+
+const (
+	// Certain envoy implementations set a max limit of 64Kb per streamed chunk, intentionally setting this lower for a safe margin.
+	bodyByteLimit = 62000
+)
+
+func generateRequestBodyResponses(requestBodyBytes []byte) []*extProcPb.ProcessingResponse {
+	commonResponses := buildCommonResponses(requestBodyBytes, bodyByteLimit, true)
+	responses := []*extProcPb.ProcessingResponse{}
+	for _, commonResp := range commonResponses {
+		resp := &extProcPb.ProcessingResponse{
+			Response: &extProcPb.ProcessingResponse_RequestBody{
+				RequestBody: &extProcPb.BodyResponse{
+					Response: commonResp,
+				},
+			},
+		}
+		responses = append(responses, resp)
+	}
+	return responses
+}
+
+func generateResponseBodyResponses(responseBodyBytes []byte, setEoS bool) []*extProcPb.ProcessingResponse {
+	commonResponses := buildCommonResponses(responseBodyBytes, bodyByteLimit, setEoS)
+	responses := []*extProcPb.ProcessingResponse{}
+	for _, commonResp := range commonResponses {
+		resp := &extProcPb.ProcessingResponse{
+			Response: &extProcPb.ProcessingResponse_ResponseBody{
+				ResponseBody: &extProcPb.BodyResponse{
+					Response: commonResp,
+				},
+			},
+		}
+		responses = append(responses, resp)
+	}
+	return responses
+}
+
+func buildCommonResponses(bodyBytes []byte, byteLimit int, setEos bool) []*extProcPb.CommonResponse {
+	responses := []*extProcPb.CommonResponse{}
+	startingIndex := 0
+	bodyLen := len(bodyBytes)
+
+	if bodyLen == 0 {
+		return []*extProcPb.CommonResponse{
+			{
+				BodyMutation: &extProcPb.BodyMutation{
+					Mutation: &extProcPb.BodyMutation_StreamedResponse{
+						StreamedResponse: &extProcPb.StreamedBodyResponse{
+							Body:        bodyBytes,
+							EndOfStream: setEos,
+						},
+					},
+				},
+			},
+		}
+	}
+
+	for startingIndex < bodyLen {
+		eos := false
+		len := min(bodyLen-startingIndex, byteLimit)
+		chunk := bodyBytes[startingIndex : len+startingIndex]
+		if setEos && len+startingIndex >= bodyLen {
+			eos = true
+		}
+
+		commonResp := &extProcPb.CommonResponse{
+			BodyMutation: &extProcPb.BodyMutation{
+				Mutation: &extProcPb.BodyMutation_StreamedResponse{
+					StreamedResponse: &extProcPb.StreamedBodyResponse{
+						Body:        chunk,
+						EndOfStream: eos,
+					},
+				},
+			},
+		}
+		responses = append(responses, commonResp)
+		startingIndex += len
+	}
+
+	return responses
 }

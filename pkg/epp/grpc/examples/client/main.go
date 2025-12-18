@@ -17,11 +17,7 @@ import (
 )
 
 const (
-	// address = "35.212.230.187:443" // l7lb
-	// address = "34.82.30.251:443" // l4lb
-	// address = "35.212.202.130:443" // igw
-	// address = "35.212.234.191:80" // igw no tls
-	address = "34.169.180.33:8081" // standalone
+	address = "placeholder"
 )
 
 func secureConn() *grpc.ClientConn {
@@ -63,10 +59,10 @@ func main() {
 	getModelInfo(ctx, c)
 
 	// Initialize Tokenizer
-	// tokenizer := NewTokenizer()
+	tokenizer := NewTokenizer()
 
 	// 2. Call Generate (Non-Streaming)
-	// generateNonStreaming(ctx, c, tokenizer)
+	generateNonStreaming(ctx, c, tokenizer)
 
 	// 3. Call Generate (Streaming)
 	// generateStreaming(ctx, c, tokenizer)
