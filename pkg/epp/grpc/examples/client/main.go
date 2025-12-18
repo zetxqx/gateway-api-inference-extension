@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	vllm "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/grpc/gen"
 )
@@ -38,7 +39,11 @@ func secureConn() *grpc.ClientConn {
 }
 
 func insecureConn() *grpc.ClientConn {
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(unaryInterceptor),
+		grpc.WithStreamInterceptor(streamInterceptor),
+	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -51,20 +56,20 @@ func main() {
 	c := vllm.NewVllmEngineClient(conn)
 
 	// Use a longer timeout for generation
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	// 1. Call GetModelInfo
 	getModelInfo(ctx, c)
 
 	// Initialize Tokenizer
-	tokenizer := NewTokenizer()
+	// tokenizer := NewTokenizer()
 
 	// 2. Call Generate (Non-Streaming)
-	generateNonStreaming(ctx, c, tokenizer)
+	// generateNonStreaming(ctx, c, tokenizer)
 
 	// 3. Call Generate (Streaming)
-	generateStreaming(ctx, c, tokenizer)
+	// generateStreaming(ctx, c, tokenizer)
 }
 
 func getModelInfo(ctx context.Context, c vllm.VllmEngineClient) {
@@ -176,4 +181,31 @@ func generateStreaming(ctx context.Context, c vllm.VllmEngineClient, t *Tokenize
 		}
 	}
 	fmt.Println("Streaming finished.")
+}
+
+func unaryInterceptor(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	md, _ := metadata.FromOutgoingContext(ctx)
+	fmt.Printf("\n[Unary Request] Method: %s | Metadata: %v\n", method, md)
+
+	var header metadata.MD
+	opts = append(opts, grpc.Header(&header))
+
+	err := invoker(ctx, method, req, reply, cc, opts...)
+	fmt.Printf("[Unary Response] Metadata: %v\n", header)
+	return err
+}
+
+// Interceptor for Streaming calls (like Generate)
+func streamInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	md, _ := metadata.FromOutgoingContext(ctx)
+	fmt.Printf("\n[Stream Request] Method: %s | Metadata: %v\n", method, md)
+
+	s, err := streamer(ctx, desc, cc, method, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	header, _ := s.Header()
+	fmt.Printf("[Stream Response] Metadata: %v\n", header)
+	return s, nil
 }

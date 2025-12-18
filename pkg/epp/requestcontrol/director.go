@@ -121,18 +121,6 @@ func (d *Director) getInferenceObjective(ctx context.Context, reqCtx *handlers.R
 func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	// Check for System Requests
-	if path, ok := reqCtx.Request.Headers[":path"]; ok && requtil.IsSystemPath(path) {
-		logger.V(logutil.DEBUG).Info("Handling system request", "path", path)
-		pod := d.GetRandomPod()
-		if pod == nil {
-			return reqCtx, errutil.Error{Code: errutil.Internal, Msg: "no pods available in datastore"}
-		}
-		reqCtx.TargetPod = pod
-		reqCtx.TargetEndpoint = net.JoinHostPort(pod.GetIPAddress(), pod.GetPort())
-		return reqCtx, nil
-	}
-
 	// Parse Request, Resolve Target Models, and Determine Parameters
 	requestBodyMap := reqCtx.Request.Body
 	var ok bool
@@ -150,25 +138,20 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 
 	reqCtx.Request.Body["model"] = reqCtx.TargetModelName
 
+	requestBody, err := requtil.ExtractRequestBody(reqCtx.Request.Body)
+	if err != nil {
+		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
+	}
+
 	// Parse inference objective.
 	infObjective := d.getInferenceObjective(ctx, reqCtx)
 
-	if reqCtx.SchedulingRequest == nil {
-		requestBody, err := requtil.ExtractRequestBody(reqCtx.Request.Body)
-		if err != nil {
-			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
-		}
-
-		// Prepare LLMRequest (needed for both saturation detection and Scheduler)
-		reqCtx.SchedulingRequest = &schedulingtypes.LLMRequest{
-			RequestId:   reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
-			TargetModel: reqCtx.TargetModelName,
-			Body:        requestBody,
-			Headers:     reqCtx.Request.Headers,
-		}
-	} else {
-		// Ensure TargetModel is synced if it wasn't set correctly in the handler
-		reqCtx.SchedulingRequest.TargetModel = reqCtx.TargetModelName
+	// Prepare LLMRequest (needed for both saturation detection and Scheduler)
+	reqCtx.SchedulingRequest = &schedulingtypes.LLMRequest{
+		RequestId:   reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
+		TargetModel: reqCtx.TargetModelName,
+		Body:        requestBody,
+		Headers:     reqCtx.Request.Headers,
 	}
 
 	logger = logger.WithValues("objectiveKey", reqCtx.ObjectiveKey, "incomingModelName", reqCtx.IncomingModelName, "targetModelName", reqCtx.TargetModelName, "priority", infObjective.Spec.Priority)
@@ -190,7 +173,7 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	snapshotOfCandidatePods := d.toSchedulerPodMetrics(candidatePods)
 
 	// Prepare per request data by running PrepareData plugins.
-	if err := d.runPrepareDataPlugins(ctx, reqCtx.SchedulingRequest, snapshotOfCandidatePods); err != nil {
+	if d.runPrepareDataPlugins(ctx, reqCtx.SchedulingRequest, snapshotOfCandidatePods) != nil {
 		// Don't fail the request if PrepareData plugins fail.
 		logger.V(logutil.DEFAULT).Error(err, "failed to prepare per request data")
 	}

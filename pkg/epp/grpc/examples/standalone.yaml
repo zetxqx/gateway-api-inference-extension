@@ -116,20 +116,20 @@ data:
                         - name: vllm-default
                           domains: ["*"]
                           routes:
-                            - match:
-                                path: "/vllm.grpc.engine.VllmEngine/GetModelInfo"
-                              route:
-                                cluster: original_destination_cluster
-                                timeout: 86400s
-                                idle_timeout: 86400s
-                              request_headers_to_add:
-                                - header:
-                                    key: "x-gateway-destination-endpoint"
-                                    value: "10.116.16.6:50051" # Placeholder IP, replace with a real Pod IP for testing
-                              typed_per_filter_config:
-                                envoy.filters.http.ext_proc:
-                                  "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute
-                                  disabled: true
+                            # - match:
+                            #     path: "/vllm.grpc.engine.VllmEngine/GetModelInfo"
+                            #   route:
+                            #     cluster: original_destination_cluster
+                            #     timeout: 86400s
+                            #     idle_timeout: 86400s
+                            #   request_headers_to_add:
+                            #     - header:
+                            #         key: "x-gateway-destination-endpoint"
+                            #         value: "10.116.16.6:50051" # Placeholder IP, replace with a real Pod IP for testing
+                            #   typed_per_filter_config:
+                            #     envoy.filters.http.ext_proc:
+                            #       "@type": type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute
+                            #       disabled: true
                             - match:
                                 prefix: "/"
                               route:
@@ -383,27 +383,11 @@ spec:
             name: config
             readOnly: true
       - name: epp
-        image: us-central1-docker.pkg.dev/bobzetian-gke-dev/gateway-api-inference-extension/epp:grpc
+        image: us-central1-docker.pkg.dev/bobzetian-gke-dev/gateway-api-inference-extension/epp:mygrpc
         imagePullPolicy: Always
         args:
-        - --pool-name
-        - gaie-inference-scheduling
-        # The pool namespace is optional because EPP can default to the NAMESPACE env var.
-        # We still keep this here so that the template works with older versions of EPP, or other
-        # distros of EPP which may not have implemented the NAMESPACE env var defaulting behavior.
-        - --pool-namespace
-        - llmd-standalone
-        - --pool-group
-        - "inference.networking.k8s.io"
-        - --zap-encoder
-        - "json"
-        - --config-file
-        - "/config/default-plugins.yaml"
-        # Pass additional flags via the inferenceExtension.flags field in values.yaml.
-        - --v
-        - "1"
-        - --tracing=false
-        - --metrics-endpoint-auth=false
+        - --target-ip
+        - 10.116.10.5:500051
         ports:
         - name: grpc
           containerPort: 9002
