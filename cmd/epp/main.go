@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 
 	configPb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -34,7 +37,8 @@ func parseGrpcPayload(data []byte) ([]byte, bool) {
 }
 
 type extProcServer struct {
-	targetIP string
+	targetIP          string
+	enableHttpConvert bool
 }
 
 func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer) error {
@@ -42,8 +46,10 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 
 	// State variables per stream
 	var grpcMethod string
+	var contentType string
 	var requestBodyBuffer []byte
 	var responseBodyBuffer []byte
+	var contentTypeToSet string
 
 	log.Println("[Stream Start] New processing stream started")
 
@@ -65,6 +71,7 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			return status.Errorf(codes.Unknown, "cannot receive stream request: %v", err)
 		}
 
+		responseBodyResps := []*extProcPb.ProcessingResponse{} // For response body only.
 		resp := &extProcPb.ProcessingResponse{}
 		phase := "Unknown"
 		log.Println("[Info] Back to swtich case")
@@ -78,10 +85,19 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			phase = "RequestHeaders"
 			log.Println(">>> [Phase: RequestHeaders] <<<")
 			log.Printf(" Printing all %d headers:", len(v.RequestHeaders.Headers.Headers))
+			// gRPC header:
+			//   1. chat/completions, non-streaming: https://screenshot.googleplex.com/7LkqWXsXXgsBuGk
+			//.  2. streaming: https://screenshot.googleplex.com/4CCPj4RyETX82Eu
+			//.  3. GetModelINfo: https://screenshot.googleplex.com/6ejoBeBUQtrXc4t
+			// HTTP header:
+			//   1. chat/completions, non-streaming: https://screenshot.googleplex.com/5sXYJLGtuPgu6f8
 			for _, h := range v.RequestHeaders.Headers.Headers {
 				log.Printf("    - Key=%q Value=%q RawValue=%q", h.Key, h.Value, h.RawValue)
 				if h.Key == ":path" {
 					grpcMethod = string(h.RawValue)
+				}
+				if h.Key == "content-type" {
+					contentType = string(h.RawValue)
 				}
 			}
 
@@ -114,28 +130,67 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 					log.Printf("[Decision] Using Configured Flag Target IP: %s\n", targetPodIP)
 				}
 
-				switch grpcMethod {
-				case "/vllm.grpc.engine.VllmEngine/GetModelInfo":
-					log.Println("Parsing /vllm.grpc.engine.VllmEngine/GetModelInfo")
-					if payload, ok := parseGrpcPayload(requestBodyBuffer); ok {
-						req := &pb.GetModelInfoRequest{}
-						if err := proto.Unmarshal(payload, req); err == nil {
-							log.Println("    [Parser] Success: GetModelInfoRequest")
-						}
-					} else {
-						log.Println("Not valid /vllm.grpc.engine.VllmEngine/GetModelInfo")
-					}
-
-				case "/vllm.grpc.engine.VllmEngine/Generate":
-					if payload, ok := parseGrpcPayload(requestBodyBuffer); ok {
-						req := &pb.GenerateRequest{}
-						if err := proto.Unmarshal(payload, req); err == nil {
-							tokenCount := len(req.Tokenized.InputIds)
-							originalText := req.Tokenized.OriginalText
-							log.Printf("[Parser] Success: GenerateRequest (Tokens: %d) originalText: %s\n", tokenCount, originalText)
+				if contentType == "application/grpc" {
+					switch grpcMethod {
+					case "/vllm.grpc.engine.VllmEngine/GetModelInfo":
+						log.Println("Parsing /vllm.grpc.engine.VllmEngine/GetModelInfo")
+						if payload, ok := parseGrpcPayload(requestBodyBuffer); ok {
+							req := &pb.GetModelInfoRequest{}
+							if err := proto.Unmarshal(payload, req); err == nil {
+								log.Println("    [Parser] Success: GetModelInfoRequest")
+							}
 						} else {
-							log.Printf("[Parser] Error unmarshalling GenerateRequest: %v\n", err)
+							log.Println("Not valid /vllm.grpc.engine.VllmEngine/GetModelInfo")
 						}
+
+					case "/vllm.grpc.engine.VllmEngine/Generate":
+						log.Println("Parsing /vllm.grpc.engine.VllmEngine/Generate")
+						if payload, ok := parseGrpcPayload(requestBodyBuffer); ok {
+							req := &pb.GenerateRequest{}
+							if err := proto.Unmarshal(payload, req); err == nil {
+								tokenCount := len(req.Tokenized.InputIds)
+								originalText := req.Tokenized.OriginalText
+								log.Printf("[Parser] Success: GenerateRequest (Tokens: %d) originalText: %s\n", tokenCount, originalText)
+							} else {
+								log.Printf("[Parser] Error unmarshalling GenerateRequest: %v\n", err)
+							}
+						} else {
+							log.Println("Not valid /vllm.grpc.engine.VllmEngine/Generate")
+						}
+					}
+				} else if s.enableHttpConvert {
+					if contentType == "application/json" {
+						switch grpcMethod {
+						case "/v1/chat/completions":
+							log.Println("[JSON Parser] Parsing JSON request /v1/chat/completions")
+							jsonReq := &ChatCompletionRequest{}
+							if err := json.Unmarshal(requestBodyBuffer, jsonReq); err != nil {
+								log.Println("[JSON Parser] Error unmrshalling the JSON request", err)
+								return err
+							}
+							protoReq := convertToGenerateRequest(*jsonReq)
+							protoBytes, err := proto.Marshal(protoReq)
+							if err != nil {
+								log.Println("[Proto Parser] Error marshal the GenerateRequest proto message", err)
+								return err
+							}
+							// gRPC 5-byte Prefix (Compression Flag + 4-byte Length)
+							grpcFrame := make([]byte, 5)
+							grpcFrame[0] = 0 // No compression
+							binary.BigEndian.PutUint32(grpcFrame[1:], uint32(len(protoBytes)))
+							// Change the requestBody to proto format
+							requestBodyBuffer = append(grpcFrame, protoBytes...)
+							contentTypeToSet = "application/grpc" // Set the contentType to gRPC.
+						}
+					} else { // http get request does not have any contentType set.
+						// Assuming this is always the GetModelInfo
+						protoBytes := []byte{}
+						if err := proto.Unmarshal(protoBytes, &pb.GetModelInfoRequest{}); err != nil {
+							log.Println("[Proto Parser] Error unmarshalling the GetModelInfoRequest proto message", err)
+							return err
+						}
+						requestBodyBuffer = protoBytes
+						contentTypeToSet = "application/grpc"
 					}
 				}
 
@@ -152,6 +207,41 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 					}
 				} else {
 					log.Println("[Action] No Target IP determined.")
+				}
+
+				if s.enableHttpConvert && contentType == "application/json" {
+					log.Printf("[Action] Setting Header %s=%s\n", "content-type", contentTypeToSet)
+					additionalHeaders := []*configPb.HeaderValueOption{
+						{
+							Header: &configPb.HeaderValue{
+								Key:      "content-type",
+								RawValue: []byte(contentTypeToSet),
+							},
+							AppendAction: configPb.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						},
+						{
+							Header: &configPb.HeaderValue{
+								Key:      ":path",
+								RawValue: []byte("/vllm.grpc.engine.VllmEngine/Generate"),
+							},
+							AppendAction: configPb.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						},
+						{
+							Header: &configPb.HeaderValue{
+								Key:      "te",
+								RawValue: []byte("trailers"),
+							},
+							AppendAction: configPb.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						},
+						{
+							Header: &configPb.HeaderValue{
+								Key:      "grpc-timeout",
+								RawValue: []byte("119919m"),
+							},
+							AppendAction: configPb.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+						},
+					}
+					headersToSet = append(headersToSet, additionalHeaders...)
 				}
 
 				// Send HeaderMutation Response
@@ -200,10 +290,57 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 		case *extProcPb.ProcessingRequest_ResponseHeaders:
 			phase = "ResponseHeaders"
 			log.Println(">>> [Phase: ResponseHeaders] Passing through...")
-			resp = &extProcPb.ProcessingResponse{
-				Response: &extProcPb.ProcessingResponse_ResponseHeaders{
-					ResponseHeaders: &extProcPb.HeadersResponse{},
-				},
+			// http response header
+			//     1. non-streaming: https://screenshot.googleplex.com/7bdrLJGLYoVT3bQ
+			// grp response header
+			//    1.  non-streaming https://screenshot.googleplex.com/8h2ukbDz9mCRFpJ
+			//.   2.  streaming: https://screenshot.googleplex.com/3usDASi6mdcv9SB
+			//.   3.  getModelInfo: https://screenshot.googleplex.com/7RxmA8ResqVRLM9
+			for _, h := range v.ResponseHeaders.Headers.Headers {
+				log.Printf("    - Key=%q Value=%q RawValue=%q", h.Key, h.Value, h.RawValue)
+			}
+
+			var respHeadersToSet []*configPb.HeaderValueOption
+			if s.enableHttpConvert && contentType == "application/json" {
+				log.Printf("[Action] Setting Response Header %s=%s\n", "content-type", contentTypeToSet)
+				additionalHeaders := []*configPb.HeaderValueOption{
+					{
+						Header: &configPb.HeaderValue{
+							Key:      "content-type",
+							RawValue: []byte(contentTypeToSet),
+						},
+						AppendAction: configPb.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+					},
+					{
+						Header: &configPb.HeaderValue{
+							Key:      "content-length",
+							RawValue: []byte("656"),
+						},
+						AppendAction: configPb.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+					},
+				}
+				respHeadersToSet = append(respHeadersToSet, additionalHeaders...)
+
+				log.Println(">>> [Action] Preparing Response Header Mutation Response")
+				// Send HeaderMutation Response
+				resp = &extProcPb.ProcessingResponse{
+					Response: &extProcPb.ProcessingResponse_ResponseHeaders{
+						ResponseHeaders: &extProcPb.HeadersResponse{
+							Response: &extProcPb.CommonResponse{
+								Status: extProcPb.CommonResponse_CONTINUE,
+								HeaderMutation: &extProcPb.HeaderMutation{
+									SetHeaders: respHeadersToSet,
+								},
+							},
+						},
+					},
+				}
+			} else {
+				resp = &extProcPb.ProcessingResponse{
+					Response: &extProcPb.ProcessingResponse_ResponseHeaders{
+						ResponseHeaders: &extProcPb.HeadersResponse{},
+					},
+				}
 			}
 
 		// ----------------------------------------------------------------
@@ -213,13 +350,32 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 
 			phase = "ResponseBody"
 			log.Println(">>> [Phase: ResponseBody] Passing through...")
-			responseBodyBuffer = append(requestBodyBuffer, v.ResponseBody.Body...)
-
-			resps := generateResponseBodyResponses(responseBodyBuffer, false)
+			responseBodyBuffer = append(responseBodyBuffer, v.ResponseBody.Body...)
+			if s.enableHttpConvert {
+				// In response we need to convert proto back to json.
+				generateResp := &pb.GenerateResponse{}
+				if payload, ok := parseGrpcPayload(v.ResponseBody.Body); ok {
+					if err := proto.Unmarshal(payload, generateResp); err == nil {
+						log.Println(">>> [Parser] Success: GenerateResponse")
+					}
+					// Convert back to json.
+					responseBodyBuffer, err = json.Marshal(concevrtToGenerateResp(generateResp))
+					if err != nil {
+						log.Println(">>> [Parser] Fail: Convert GenerateResponse back to JSON")
+						return err
+					} else {
+						log.Println(">>> [Parser] Success: Convert GenerateResponse back to JSON")
+					}
+				} else {
+					log.Println("Not valid /vllm.grpc.engine.VllmEngine/Generate")
+				}
+			}
+			resps := generateResponseBodyResponses(responseBodyBuffer, v.ResponseBody.GetEndOfStream())
 			log.Println("Resps length", len(resps))
 			if len(resps) > 0 {
 				resp = resps[0]
 			}
+			responseBodyResps = append(responseBodyResps, resps...)
 			if !v.ResponseBody.EndOfStream {
 				log.Println(" [Phase: ResponseBody] non end of stream")
 				// continue
@@ -253,21 +409,30 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 			continue
 		}
 
-		log.Println("[Action] Sending resposne")
-		if err := stream.Send(resp); err != nil {
-			log.Printf("[Error] Failed to send response: %v\n", err)
-			return err
+		log.Println("[Action] Sending response")
+		if len(responseBodyResps) != 0 {
+			// responseBodyResps is only populated when processing ResponseBody
+			for i, resp := range responseBodyResps {
+				if err := stream.Send(resp); err != nil {
+					log.Printf("[Error] Failed to send response #%d: %v\n", i, err)
+					return err
+				}
+			}
+			// Clear (not sure if this is needed)
+			responseBodyResps = []*extProcPb.ProcessingResponse{}
+		} else {
+			if err := stream.Send(resp); err != nil {
+				log.Printf("[Error] Failed to send response: %v\n", err)
+				return err
+			}
 		}
 	}
 }
 
-// ==========================================
-// 2. Main Entry Point
-// ==========================================
-
 func main() {
 	// Parse Flags
 	targetIP := flag.String("target-ip", "", "The target Pod IP to route requests to (overrides dynamic logic if set)")
+	enableHttpConvert := flag.Bool("enable-http-convert", false, "if set, the http request will be converted to grpc and send to the model server.")
 	flag.Parse()
 
 	if *targetIP != "" {
@@ -275,6 +440,7 @@ func main() {
 	} else {
 		log.Println("Starting ExtProc with DYNAMIC Routing Logic")
 	}
+	log.Println("enableHttpConvert is set to", *enableHttpConvert)
 
 	var wg sync.WaitGroup
 
@@ -290,7 +456,8 @@ func main() {
 		}
 		s := grpc.NewServer()
 		extProcPb.RegisterExternalProcessorServer(s, &extProcServer{
-			targetIP: *targetIP,
+			targetIP:          *targetIP,
+			enableHttpConvert: *enableHttpConvert,
 		})
 
 		log.Println("ExtProc listening on :9002")
@@ -430,4 +597,118 @@ func buildCommonResponses(bodyBytes []byte, byteLimit int, setEos bool) []*extPr
 	}
 
 	return responses
+}
+
+type ChatCompletionRequest struct {
+	Model               string    `json:"model"`
+	Messages            []Message `json:"messages"`
+	MaxCompletionTokens int32     `json:"max_completion_tokens"`
+}
+
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func convertToGenerateRequest(request ChatCompletionRequest) *pb.GenerateRequest {
+	tokenizer := NewTokenizer()
+	maxToken := int32(50)
+	return &pb.GenerateRequest{
+		RequestId: "fake-request-id",
+		Tokenized: &pb.TokenizedInput{
+			OriginalText: request.Messages[0].Content,
+			InputIds:     tokenizer.Tokenize(request.Messages[0].Content),
+		},
+		SamplingParams: &pb.SamplingParams{
+			Temperature: 0.7,
+			MaxTokens:   &maxToken,
+		},
+		Stream: false,
+	}
+}
+
+type ChatCompletionResponse struct {
+	Message      string   `json:"message"`
+	OutputTokens []uint32 `json:"output_tokens"`
+	FinishReason string   `json:"finished_reason"`
+}
+
+func concevrtToGenerateResp(resp *pb.GenerateResponse) ChatCompletionResponse {
+	if resp != nil {
+		log.Printf("[Converting] response is %s\n", *resp)
+	} else {
+		log.Println("[Converting] response is nil")
+	}
+	var outputTokens []uint32
+	var finishedReason string
+	if resp.GetComplete() != nil {
+		log.Println("[Converting] resp.GetComplete() is not nil")
+		outputTokens = resp.GetComplete().GetOutputIds()
+		finishedReason = resp.GetComplete().FinishReason
+	} else if resp.GetChunk() != nil {
+		log.Println("[Converting] resp.GetChunk() is not nil")
+		outputTokens = resp.GetChunk().GetTokenIds()
+	}
+	chatResp := ChatCompletionResponse{
+		OutputTokens: outputTokens,
+		FinishReason: finishedReason,
+	}
+	return chatResp
+}
+
+type Tokenizer struct {
+	vocab        map[uint32]string
+	reverseVocab map[string]uint32
+}
+
+func NewTokenizer() *Tokenizer {
+	vocab := map[uint32]string{
+		1:  "Hello",
+		2:  ",",
+		3:  " ",
+		4:  "world",
+		5:  "!",
+		10: "Tell",
+		11: " ",
+		12: "me",
+		13: " ",
+		14: "a",
+		15: " ",
+		16: "story",
+		17: ".",
+	}
+	reverseVocab := map[string]uint32{}
+	for k, v := range vocab {
+		reverseVocab[v] = k
+	}
+	return &Tokenizer{
+		vocab:        vocab,
+		reverseVocab: reverseVocab,
+	}
+}
+
+func (t *Tokenizer) Tokenize(text string) []uint32 {
+	voca := strings.Split(text, " ")
+	tokens := make([]uint32, 0, len(voca))
+	for _, v := range voca {
+		if token, ok := t.reverseVocab[v]; ok {
+			tokens = append(tokens, token)
+		} else {
+			tokens = append(tokens, 0)
+		}
+	}
+	return tokens
+}
+
+func (t *Tokenizer) Detokenize(ids []uint32) string {
+	var sb strings.Builder
+	for _, id := range ids {
+		if val, ok := t.vocab[id]; ok {
+			sb.WriteString(val)
+		} else {
+			// Fallback for unknown tokens
+			sb.WriteString(fmt.Sprintf("<%d>", id))
+		}
+	}
+	return sb.String()
 }
