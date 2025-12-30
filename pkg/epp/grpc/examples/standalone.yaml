@@ -162,7 +162,7 @@ data:
                       - name: envoy.filters.http.router
                         typed_config:
                           "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-                          suppress_envoy_headers: true
+                          suppress_envoy_headers: false
                     http2_protocol_options:
                       max_concurrent_streams: 100
                       initial_stream_window_size: 65536

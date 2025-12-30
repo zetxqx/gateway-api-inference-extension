@@ -63,10 +63,10 @@ func main() {
 	getModelInfo(ctx, c)
 
 	// Initialize Tokenizer
-	tokenizer := NewTokenizer()
-	generateNonStreaming(ctx, c, tokenizer)
+	// tokenizer := NewTokenizer()
+	// generateNonStreaming(ctx, c, tokenizer)
 
-	generateStreaming(ctx, c, tokenizer)
+	// generateStreaming(ctx, c, tokenizer)
 }
 
 func getModelInfo(ctx context.Context, c vllm.VllmEngineClient) {
