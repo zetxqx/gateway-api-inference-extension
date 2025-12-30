@@ -784,6 +784,7 @@ type ChatCompletionRequest struct {
 	Model               string    `json:"model"`
 	Messages            []Message `json:"messages"`
 	MaxCompletionTokens int32     `json:"max_completion_tokens"`
+	Stream              bool      `json:"stream"`
 }
 
 type Message struct {
@@ -804,7 +805,7 @@ func convertToGenerateRequest(request ChatCompletionRequest) *pb.GenerateRequest
 			Temperature: 0.7,
 			MaxTokens:   &maxToken,
 		},
-		Stream: false,
+		Stream: request.Stream,
 	}
 }
 
@@ -820,7 +821,7 @@ type ModelInfoResponse struct {
 
 func concevrtToGenerateResp(resp *pb.GenerateResponse) ChatCompletionResponse {
 	if resp != nil {
-		log.Printf("[Converting] response is %s\n", *resp)
+		log.Printf("[Converting] response is %v\n", *resp)
 	} else {
 		log.Println("[Converting] response is nil")
 	}
