@@ -19,6 +19,7 @@ COPY cmd/bbr ./cmd/bbr
 COPY pkg ./pkg
 COPY internal ./internal
 COPY api ./api
+COPY version ./version
 WORKDIR /src/cmd/bbr
 RUN go build -o /bbr
 
