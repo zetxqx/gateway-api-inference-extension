@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/metrics"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/common"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/logging"
 )
 
@@ -134,17 +133,22 @@ func (s *Server) HandleRequestBody(ctx context.Context, requestBodyBytes []byte)
 }
 
 func addStreamedBodyResponse(responses []*eppb.ProcessingResponse, requestBodyBytes []byte) []*eppb.ProcessingResponse {
-	commonResponses := common.BuildChunkedBodyResponses(requestBodyBytes, true)
-	for _, commonResp := range commonResponses {
-		responses = append(responses, &eppb.ProcessingResponse{
-			Response: &eppb.ProcessingResponse_RequestBody{
-				RequestBody: &eppb.BodyResponse{
-					Response: commonResp,
+	return append(responses, &eppb.ProcessingResponse{
+		Response: &eppb.ProcessingResponse_RequestBody{
+			RequestBody: &eppb.BodyResponse{
+				Response: &eppb.CommonResponse{
+					BodyMutation: &eppb.BodyMutation{
+						Mutation: &eppb.BodyMutation_StreamedResponse{
+							StreamedResponse: &eppb.StreamedBodyResponse{
+								Body:        requestBodyBytes,
+								EndOfStream: true,
+							},
+						},
+					},
 				},
 			},
-		})
-	}
-	return responses
+		},
+	})
 }
 
 // HandleRequestHeaders handles request headers.
