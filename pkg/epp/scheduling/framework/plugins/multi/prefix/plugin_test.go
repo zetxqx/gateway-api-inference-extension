@@ -81,6 +81,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req1, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req1, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 
 	// Second request doesn't share any prefix with first one. It should be added to the cache but
@@ -113,6 +114,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req2, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req2, nil, endpoint2.GetMetadata())
 	plugin.wg.Wait()
 
 	// Third request shares partial prefix with first one.
@@ -144,6 +146,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req3, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req3, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 
 	// 4th request is same as req3 except the model is different, still no match.
@@ -174,6 +177,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req4, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req4, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 
 	// 5th request shares partial prefix with 3rd one.
@@ -204,6 +208,7 @@ func TestPrefixPluginCompletion(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req5, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req5, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 }
 
@@ -284,6 +289,7 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req1, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req1, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 
 	// Second request adds assistant response and new user message (conversation grows)
@@ -317,6 +323,7 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 
 	// Simulate pod1 was picked again
 	plugin.PreRequest(context.Background(), req2, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req2, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 
 	// Third request continues the conversation even further
@@ -528,6 +535,7 @@ func TestPrefixPluginAutoTune(t *testing.T) {
 			},
 		}
 		plugin.PreRequest(context.Background(), req, schedulingResult)
+		plugin.ResponseReceived(context.Background(), req, nil, endpoint.GetMetadata())
 		plugin.wg.Wait()
 
 		// Check indexer state
@@ -563,6 +571,7 @@ func TestPrefixPluginAutoTune(t *testing.T) {
 			},
 		}
 		plugin.PreRequest(context.Background(), req, schedulingResult)
+		plugin.ResponseReceived(context.Background(), req, nil, endpoint.GetMetadata())
 		plugin.wg.Wait()
 
 		assert.Contains(t, plugin.indexer.Pods(), ServerID(endpoint.GetMetadata().NamespacedName))
@@ -609,6 +618,7 @@ func TestPrepareRequestData(t *testing.T) {
 		},
 	}
 	plugin.PreRequest(context.Background(), req1, schedulingResult)
+	plugin.ResponseReceived(context.Background(), req1, nil, endpoint1.GetMetadata())
 	plugin.wg.Wait()
 
 	// Second request that shares a prefix.
