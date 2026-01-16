@@ -35,7 +35,7 @@ var (
 	v1Group       = v1.Group("my-group")
 	v1Kind        = v1.Kind("MyKind")
 	v1FailureMode = v1.EndpointPickerFailureMode("Deny")
-	v1Port        = v1.Port{Number: 9000}
+	v1Port        = v1.EndpointPickerPort{Number: 9000}
 )
 
 func TestInferencePoolConvertTo(t *testing.T) {

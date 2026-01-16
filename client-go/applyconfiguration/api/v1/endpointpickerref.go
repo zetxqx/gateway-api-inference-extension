@@ -25,11 +25,11 @@ import (
 // EndpointPickerRefApplyConfiguration represents a declarative configuration of the EndpointPickerRef type for use
 // with apply.
 type EndpointPickerRefApplyConfiguration struct {
-	Group       *apiv1.Group                     `json:"group,omitempty"`
-	Kind        *apiv1.Kind                      `json:"kind,omitempty"`
-	Name        *apiv1.ObjectName                `json:"name,omitempty"`
-	Port        *PortApplyConfiguration          `json:"port,omitempty"`
-	FailureMode *apiv1.EndpointPickerFailureMode `json:"failureMode,omitempty"`
+	Group       *apiv1.Group                          `json:"group,omitempty"`
+	Kind        *apiv1.Kind                           `json:"kind,omitempty"`
+	Name        *apiv1.ObjectName                     `json:"name,omitempty"`
+	Port        *EndpointPickerPortApplyConfiguration `json:"port,omitempty"`
+	FailureMode *apiv1.EndpointPickerFailureMode      `json:"failureMode,omitempty"`
 }
 
 // EndpointPickerRefApplyConfiguration constructs a declarative configuration of the EndpointPickerRef type for use with
@@ -65,7 +65,7 @@ func (b *EndpointPickerRefApplyConfiguration) WithName(value apiv1.ObjectName) *
 // WithPort sets the Port field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Port field is set to the value of the last call.
-func (b *EndpointPickerRefApplyConfiguration) WithPort(value *PortApplyConfiguration) *EndpointPickerRefApplyConfiguration {
+func (b *EndpointPickerRefApplyConfiguration) WithPort(value *EndpointPickerPortApplyConfiguration) *EndpointPickerRefApplyConfiguration {
 	b.Port = value
 	return b
 }

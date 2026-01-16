@@ -22,31 +22,22 @@ import (
 	apiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 )
 
-// PortApplyConfiguration represents a declarative configuration of the Port type for use
+// EndpointPickerPortApplyConfiguration represents a declarative configuration of the EndpointPickerPort type for use
 // with apply.
-type PortApplyConfiguration struct {
-	Number      *apiv1.PortNumber  `json:"number,omitempty"`
-	AppProtocol *apiv1.AppProtocol `json:"appProtocol,omitempty"`
+type EndpointPickerPortApplyConfiguration struct {
+	Number *apiv1.PortNumber `json:"number,omitempty"`
 }
 
-// PortApplyConfiguration constructs a declarative configuration of the Port type for use with
+// EndpointPickerPortApplyConfiguration constructs a declarative configuration of the EndpointPickerPort type for use with
 // apply.
-func Port() *PortApplyConfiguration {
-	return &PortApplyConfiguration{}
+func EndpointPickerPort() *EndpointPickerPortApplyConfiguration {
+	return &EndpointPickerPortApplyConfiguration{}
 }
 
 // WithNumber sets the Number field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the Number field is set to the value of the last call.
-func (b *PortApplyConfiguration) WithNumber(value apiv1.PortNumber) *PortApplyConfiguration {
+func (b *EndpointPickerPortApplyConfiguration) WithNumber(value apiv1.PortNumber) *EndpointPickerPortApplyConfiguration {
 	b.Number = &value
-	return b
-}
-
-// WithAppProtocol sets the AppProtocol field in the declarative configuration to the given value
-// and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the AppProtocol field is set to the value of the last call.
-func (b *PortApplyConfiguration) WithAppProtocol(value apiv1.AppProtocol) *PortApplyConfiguration {
-	b.AppProtocol = &value
 	return b
 }

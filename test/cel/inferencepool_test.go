@@ -47,7 +47,7 @@ func TestValidateInferencePool(t *testing.T) {
 			EndpointPickerRef: v1.EndpointPickerRef{
 				Name: "epp",
 				Kind: "Service",
-				Port: ptrTo(v1.Port{Number: 9002}),
+				Port: &v1.EndpointPickerPort{Number: 9002},
 			},
 		},
 	}
@@ -93,6 +93,21 @@ func TestValidateInferencePool(t *testing.T) {
 				ip.Spec.TargetPorts = []v1.Port{{Number: 8000}, {Number: 80}, {Number: 8000}, {Number: 443}}
 			},
 			wantErrors: []string{"port number must be unique"},
+		},
+		{
+			desc: "passes validation with port numbers containing same app protocol",
+			mutate: func(ip *v1.InferencePool) {
+				ip.Spec.TargetPorts = []v1.Port{{Number: 8000, AppProtocol: v1.AppProtocolH2C}, {Number: 80, AppProtocol: v1.AppProtocolH2C},
+					{Number: 8080, AppProtocol: v1.AppProtocolH2C}, {Number: 443, AppProtocol: v1.AppProtocolH2C}}
+			},
+			wantErrors: nil,
+		},
+		{
+			desc: "fails validation with port numbers containing different app protocol",
+			mutate: func(ip *v1.InferencePool) {
+				ip.Spec.TargetPorts = []v1.Port{{Number: 8000}, {Number: 80, AppProtocol: v1.AppProtocolH2C}, {Number: 8080}, {Number: 443}}
+			},
+			wantErrors: []string{"all ports must have the same AppProtocol"},
 		},
 	}
 

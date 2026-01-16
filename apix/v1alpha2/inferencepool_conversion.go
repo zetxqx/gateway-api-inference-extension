@@ -254,7 +254,7 @@ func convertExtensionRefToV1(src *Extension) (v1.EndpointPickerRef, error) {
 	}
 	endpointPickerRef.Name = v1.ObjectName(src.Name)
 	if src.PortNumber != nil {
-		endpointPickerRef.Port = ptr.To(v1.Port{Number: v1.PortNumber(*src.PortNumber)})
+		endpointPickerRef.Port = ptr.To(v1.EndpointPickerPort{Number: v1.PortNumber(*src.PortNumber)})
 	}
 	if src.FailureMode != nil {
 		endpointPickerRef.FailureMode = v1.EndpointPickerFailureMode(*src.FailureMode)
