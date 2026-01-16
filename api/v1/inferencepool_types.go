@@ -76,10 +76,21 @@ type InferencePoolSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=8
 	// +kubebuilder:validation:XValidation:message="port number must be unique",rule="self.all(p1, self.exists_one(p2, p1.number==p2.number))"
-	// +kubebuilder:validation:XValidation:message="all ports must have the same AppProtocol",rule="self.all(p, (has(p.appProtocol) ? p.appProtocol : 'Unset') == (has(self[0].appProtocol) ? self[0].appProtocol : 'Unset'))"
 	// +listType=atomic
 	// +required
 	TargetPorts []Port `json:"targetPorts,omitempty"`
+
+	// AppProtocol describes the application protocol for all the target ports.
+	//
+	// If unspecified, the protocol defaults to HTTP/1.1.
+	//
+	// Supported values include:
+	// * "http": HTTP/1.1. This is the default.
+	// * "kubernetes.io/h2c": HTTP/2 over cleartext.
+	//
+	// +kubebuilder:validation:Enum=http;"kubernetes.io/h2c"
+	// +optional
+	AppProtocol AppProtocol `json:"appProtocol,omitempty"`
 
 	// EndpointPickerRef is a reference to the Endpoint Picker extension and its
 	// associated configuration.
@@ -95,18 +106,6 @@ type Port struct {
 	//
 	// +required
 	Number PortNumber `json:"number,omitempty"`
-
-	// AppProtocol describes the application protocol for this port.
-	//
-	// If unspecified, the protocol defaults to HTTP/1.1.
-	//
-	// Supported values include:
-	// * "http": HTTP/1.1. This is the default.
-	// * "kubernetes.io/h2c": HTTP/2 over cleartext.
-	//
-	// +kubebuilder:validation:Enum=http;"kubernetes.io/h2c"
-	// +optional
-	AppProtocol AppProtocol `json:"appProtocol,omitempty"`
 }
 
 // AppProtocol describes the application protocol for a port.
@@ -163,7 +162,7 @@ type EndpointPickerRef struct {
 	// resource or this field.
 	//
 	// +optional
-	Port *EndpointPickerPort `json:"port,omitempty"`
+	Port *Port `json:"port,omitempty"`
 
 	// FailureMode configures how the parent handles the case when the Endpoint Picker extension
 	// is non-responsive. When unspecified, defaults to "FailClose".
@@ -171,15 +170,6 @@ type EndpointPickerRef struct {
 	// +optional
 	// +kubebuilder:default="FailClose"
 	FailureMode EndpointPickerFailureMode `json:"failureMode,omitempty"`
-}
-
-// EndpointPickerPort defines the network port for the Endpoint Picker extension.
-type EndpointPickerPort struct {
-	// Number defines the port number of the Endpoint Picker service.
-	// The number must be in the range 1 to 65535.
-	//
-	// +required
-	Number PortNumber `json:"number,omitempty"`
 }
 
 // EndpointPickerFailureMode defines the options for how the parent handles the case when the

@@ -42,6 +42,19 @@ spec:
           spec:
             description: Spec defines the desired state of the InferencePool.
             properties:
+              appProtocol:
+                description: |-
+                  AppProtocol describes the application protocol for all the target ports.
+
+                  If unspecified, the protocol defaults to HTTP/1.1.
+
+                  Supported values include:
+                  * "http": HTTP/1.1. This is the default.
+                  * "kubernetes.io/h2c": HTTP/2 over cleartext.
+                enum:
+                - http
+                - kubernetes.io/h2c
+                type: string
               endpointPickerRef:
                 description: |-
                   EndpointPickerRef is a reference to the Endpoint Picker extension and its
@@ -99,7 +112,7 @@ spec:
                     properties:
                       number:
                         description: |-
-                          Number defines the port number of the Endpoint Picker service.
+                          Number defines the port number to access the selected model server Pods.
                           The number must be in the range 1 to 65535.
                         format: int32
                         maximum: 65535
@@ -162,19 +175,6 @@ spec:
                   description: Port defines the network port that will be exposed
                     by this InferencePool.
                   properties:
-                    appProtocol:
-                      description: |-
-                        AppProtocol describes the application protocol for this port.
-
-                        If unspecified, the protocol defaults to HTTP/1.1.
-
-                        Supported values include:
-                        * "http": HTTP/1.1. This is the default.
-                        * "kubernetes.io/h2c": HTTP/2 over cleartext.
-                      enum:
-                      - http
-                      - kubernetes.io/h2c
-                      type: string
                     number:
                       description: |-
                         Number defines the port number to access the selected model server Pods.
@@ -193,9 +193,6 @@ spec:
                 x-kubernetes-validations:
                 - message: port number must be unique
                   rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
-                - message: all ports must have the same AppProtocol
-                  rule: 'self.all(p, (has(p.appProtocol) ? p.appProtocol : ''Unset'')
-                    == (has(self[0].appProtocol) ? self[0].appProtocol : ''Unset''))'
             required:
             - endpointPickerRef
             - selector

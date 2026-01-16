@@ -18,9 +18,7 @@ Model servers (like vLLM [gRPC](https://github.com/vllm-project/vllm/blob/main/v
 ## Proposed API Changes
 The current InferencePool implementation defaults to HTTP/1.1 communication. To support gRPC, which operates over HTTP/2, a field must be introduced for the gateway controller to identify the appropriate appProtocol for model server communication.
 
-This proposal introduces an `AppProtocol` (similar to k8s [servicePort](https://github.com/kubernetes/api/blob/82d2200b6363cca3aba07c043b95d88704c2ddb3/core/v1/types.go#L6204C1-L6220C92)) field to the existing `Port` struct within the `InferencePool`.
-
-Additionally, to avoid confusion, the port definition used in `EndpointPickerRef` is decoupled from `InferencePoolSpec`. `EndpointPickerPort` is introduced for the endpoint picker configuration, ensuring `AppProtocol` is only associated with the `InferencePool` target ports.
+This proposal introduces an `AppProtocol` (similar to k8s [servicePort](https://github.com/kubernetes/api/blob/82d2200b6363cca3aba07c043b95d88704c2ddb3/core/v1/types.go#L6204C1-L6220C92)) field to the `InferencePoolSpec` struct within the `InferencePool`. This field applies to all `TargetPorts`.
 
 ```go
 // InferencePoolSpec defines the desired state of the InferencePool.
@@ -28,26 +26,9 @@ type InferencePoolSpec struct {
     // ... other fields
 
     // ... omitted
-    // +kubebuilder:validation:XValidation:message="all ports must have the same AppProtocol",rule="self.all(p, (has(p.appProtocol) ? p.appProtocol : 'Unset') == (has(self[0].appProtocol) ? self[0].appProtocol : 'Unset'))"
-    // ... omitted
     TargetPorts []Port `json:"targetPorts,omitempty"`
 
-    // EndpointPickerRef is a reference to the Endpoint Picker extension and its
-    // associated configuration.
-    //
-    // +required
-    EndpointPickerRef EndpointPickerRef `json:"endpointPickerRef,omitzero"`
-}
-
-// Port defines the network port that will be exposed by this InferencePool.
-type Port struct {
-    // Number defines the port number to access the selected model server Pods.
-    // The number must be in the range 1 to 65535.
-    //
-    // +required
-    Number PortNumber `json:"number,omitempty"`
-
-    // AppProtocol describes the application protocol for this port.
+    // AppProtocol describes the application protocol for all the target ports.
     //
     // If unspecified, the protocol defaults to HTTP/1.1.
     //
@@ -58,46 +39,8 @@ type Port struct {
     // +kubebuilder:validation:Enum=http;"kubernetes.io/h2c"
     // +optional
     AppProtocol AppProtocol `json:"appProtocol,omitempty"`
-}
 
-// AppProtocol describes the application protocol for a port.
-type AppProtocol string
-
-const (
-    // AppProtocolHTTP represents the HTTP/1.1 protocol.
-    // This is the default protocol if AppProtocol is unspecified.
-    AppProtocolHTTP AppProtocol = "http"
-
-    // AppProtocolH2C represents HTTP/2 over cleartext (h2c).
-    // This protocol is typically used for gRPC workloads where TLS is terminated
-    // at the Gateway or not used within the cluster.
-    AppProtocolH2C AppProtocol = "kubernetes.io/h2c"
-)
-
-// EndpointPickerRef specifies a reference to an Endpoint Picker extension and its
-// associated configuration.
-type EndpointPickerRef struct {
-    // ... Omitted for simplicity
-
-    // Port is the port of the Endpoint Picker extension service.
-    //
-    // Port is required when the referent is a Kubernetes Service. In this
-    // case, the port number is the service port number, not the target port.
-    // For other resources, destination port might be derived from the referent
-    // resource or this field.
-    //
-    // +optional
-    Port *EndpointPickerPort `json:"port,omitempty"`
-    // ... Omitted for simplicity
-}
-
-// EndpointPickerPort defines the network port for the Endpoint Picker extension.
-type EndpointPickerPort struct {
-    // Number defines the port number of the Endpoint Picker service.
-    // The number must be in the range 1 to 65535.
-    //
-    // +required
-    Number PortNumber `json:"number,omitempty"`
+    // ... omitted
 }
 ```
 
@@ -121,7 +64,7 @@ Specifically, the key components within the EPP codebase necessitating modificat
 **More implementation details:**
 1. The EPP should determine when transcoding is required for http-in, gRPC-out scenarios. This can be achieved through one of the following methods:
     1. Implementing a configuration flag or environment variable within EPP to explicitly signal the need for transcoding.
-    2. **(Preferred)** EPP can inspect the observed InferencePool specification. If `Port.AppProtocol` is designated as `kubernetes.io/h2c`, transcoding should happen.
+    2. **(Preferred)** EPP can inspect the observed InferencePool specification. If `InferencePoolSpec.AppProtocol` is designated as `kubernetes.io/h2c`, transcoding should happen.
 2. EPP needs to know how to do protocol conversion. This will be mainly based on headers diff between HTTP/JSON and gRPC.
 3. A designated folder will be required to maintain copies of the vLLM and SGLang protocol buffers. To ensure production stability, a compatibility matrix will be needed for users, mapping supported GAIE versions to model server proto versions.
 
