@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
-	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
+	gwhttp "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 
@@ -65,7 +65,7 @@ var HTTPRouteMultipleRulesDifferentPools = suite.ConformanceTest{
 			gwAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewayNN)
 
 			t.Run("request to primary pool", func(t *testing.T) {
-				gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, s.RoundTripper,
+				gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, &RoundTripper,
 					s.TimeoutConfig, gwAddr, gwhttp.ExpectedResponse{
 						Request: gwhttp.Request{
 							Path: primaryPath,
@@ -76,7 +76,7 @@ var HTTPRouteMultipleRulesDifferentPools = suite.ConformanceTest{
 			})
 
 			t.Run("request to secondary pool", func(t *testing.T) {
-				gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, s.RoundTripper,
+				gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(t, &RoundTripper,
 					s.TimeoutConfig, gwAddr, gwhttp.ExpectedResponse{
 						Request: gwhttp.Request{
 							Path: secondaryPath,

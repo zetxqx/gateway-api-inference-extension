@@ -22,8 +22,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gwhttp "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/http"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
@@ -72,7 +72,7 @@ var InferencePoolInvalidEPPService = suite.ConformanceTest{
 		t.Run("Request to a route with an invalid backend reference receives a 500 response", func(t *testing.T) {
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwAddr,
 				gwhttp.ExpectedResponse{

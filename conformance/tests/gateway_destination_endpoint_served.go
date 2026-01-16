@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
-	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
+	gwhttp "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 
@@ -80,7 +80,7 @@ var GatewayDestinationEndpointServed = suite.ConformanceTest{
 			for i := 0; i < len(pods); i++ {
 				gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 					t,
-					s.RoundTripper,
+					&RoundTripper,
 					s.TimeoutConfig,
 					gwAddr,
 					gwhttp.ExpectedResponse{

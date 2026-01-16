@@ -25,8 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gwhttp "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/http"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 
@@ -78,7 +78,7 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwPrimaryAddr,
 				gwhttp.ExpectedResponse{
@@ -96,7 +96,7 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwSecondaryAddr,
 				gwhttp.ExpectedResponse{
@@ -128,7 +128,7 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwSecondaryAddr,
 				gwhttp.ExpectedResponse{
@@ -146,7 +146,7 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwPrimaryAddr,
 				gwhttp.ExpectedResponse{
@@ -176,7 +176,7 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwSecondaryAddr,
 				gwhttp.ExpectedResponse{

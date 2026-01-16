@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/types"
-	gwhttp "sigs.k8s.io/gateway-api/conformance/utils/http"
+	gwhttp "sigs.k8s.io/gateway-api-inference-extension/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 	"sigs.k8s.io/gateway-api/pkg/features"
 
@@ -87,7 +87,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 			// are functioning correctly before running the main test cases.
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				s.RoundTripper,
+				&RoundTripper,
 				s.TimeoutConfig,
 				gwAddr,
 				gwhttp.ExpectedResponse{
@@ -141,7 +141,7 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 				t.Logf("Sending request to %s with EPP header '%s: %s'", gwAddr, test.HeaderTestEppEndPointSelectionKey, eppHeaderValue)
 				t.Logf("Expecting traffic to be routed to pod: %v", tc.expectAllRequestsRoutedWithinPodNames)
 
-				assertTrafficOnlyReachesToExpectedPods(t, s, gwAddr, gwhttp.ExpectedResponse{
+				assertTrafficOnlyReachesToExpectedPods(t, gwAddr, gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
 						Host:    hostname,
 						Path:    path,
@@ -160,14 +160,14 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
 	},
 }
 
-func assertTrafficOnlyReachesToExpectedPods(t *testing.T, suite *suite.ConformanceTestSuite, gwAddr string, expected gwhttp.ExpectedResponse, expectedPodNames []string) {
+func assertTrafficOnlyReachesToExpectedPods(t *testing.T, gwAddr string, expected gwhttp.ExpectedResponse, expectedPodNames []string) {
 	t.Helper()
 	const (
 		concurrentRequests = 10
 		totalRequests      = 100
 	)
 	var (
-		roundTripper = suite.RoundTripper
+		roundTripper = RoundTripper
 		g            errgroup.Group
 		req          = gwhttp.MakeRequest(t, &expected, gwAddr, "HTTP", "http")
 	)
