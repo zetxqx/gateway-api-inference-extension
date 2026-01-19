@@ -43,6 +43,7 @@ spec:
             description: Spec defines the desired state of the InferencePool.
             properties:
               appProtocol:
+                default: http
                 description: |-
                   AppProtocol describes the application protocol for all the target ports.
 

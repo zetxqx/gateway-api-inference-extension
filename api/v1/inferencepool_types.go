@@ -89,6 +89,7 @@ type InferencePoolSpec struct {
 	// * "kubernetes.io/h2c": HTTP/2 over cleartext.
 	//
 	// +kubebuilder:validation:Enum=http;"kubernetes.io/h2c"
+	// +kubebuilder:default="http"
 	// +optional
 	AppProtocol AppProtocol `json:"appProtocol,omitempty"`
 
