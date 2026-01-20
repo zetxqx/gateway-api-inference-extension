@@ -188,7 +188,7 @@ func DefaultOptions(t *testing.T) confsuite.ConformanceOptions {
 func RunConformance(t *testing.T) {
 	opts := DefaultOptions(t)
 	tests.RoundTripper = roundtripper.DefaultRoundTripper{Debug: opts.Debug, TimeoutConfig: opts.TimeoutConfig}
-	RunConformanceWithOptions(t, DefaultOptions(t))
+	RunConformanceWithOptions(t, opts)
 }
 
 // RunConformanceWithOptions runs the Inference Extension conformance tests with specific options.

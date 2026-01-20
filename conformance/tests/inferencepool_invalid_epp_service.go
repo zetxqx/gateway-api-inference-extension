@@ -69,11 +69,12 @@ var InferencePoolInvalidEPPService = suite.ConformanceTest{
 			k8sutils.InferencePoolMustHaveCondition(t, s.Client, poolNN, gwNN, acceptedCondition)
 		})
 
+		rt := &RoundTripper
 		t.Run("Request to a route with an invalid backend reference receives a 500 response", func(t *testing.T) {
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{

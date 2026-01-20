@@ -54,6 +54,7 @@ var HTTPRouteMultipleGatewaysDifferentPools = suite.ConformanceTest{
 		primaryGatewayNN := resources.PrimaryGatewayNN
 		secondaryGatewayNN := resources.SecondaryGatewayNN
 
+		rt := &RoundTripper
 		t.Run("Primary HTTPRoute, InferencePool, and Gateway path: verify status and traffic", func(t *testing.T) {
 			k8sutils.HTTPRouteAndInferencePoolMustBeAcceptedAndRouteAccepted(
 				t,
@@ -67,8 +68,8 @@ var HTTPRouteMultipleGatewaysDifferentPools = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				primaryGwAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
@@ -97,8 +98,8 @@ var HTTPRouteMultipleGatewaysDifferentPools = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				secondaryGwAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{

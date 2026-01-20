@@ -82,13 +82,14 @@ var GatewayFollowingEPPRouting = suite.ConformanceTest{
             "prompt": "Write as if you were a critic: San Francisco"
         }`
 
+		rt := &RoundTripper
 		for i := 0; i < len(pods); i++ {
 			// Send an initial request targeting a single pod and wait for it to be successful to ensure the Gateway and EPP
 			// are functioning correctly before running the main test cases.
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{

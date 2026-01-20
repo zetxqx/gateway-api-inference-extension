@@ -91,12 +91,13 @@ var GatewayFollowingEPPRoutingWithDataParallelism = suite.ConformanceTest{
 			"prompt": "Write as if you were a critic: San Francisco"
 		}`
 
+		rt := &RoundTripper
 		// Single-pod pin to ensure header filter works before main test cases.
 		for _, backend := range backends {
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{

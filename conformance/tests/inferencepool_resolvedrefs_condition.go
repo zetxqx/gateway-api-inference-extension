@@ -71,6 +71,7 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 		gwPrimaryAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewayPrimaryNN)
 		gwSecondaryAddr := k8sutils.GetGatewayEndpoint(t, s.Client, s.TimeoutConfig, gatewaySecondaryNN)
 
+		rt := &RoundTripper
 		t.Run("InferencePool should show Accepted:True by parents and be routable via multiple HTTPRoutes", func(t *testing.T) {
 			k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN, gatewayPrimaryNN)
 			k8sutils.InferencePoolMustBeAcceptedByParent(t, s.Client, poolNN, gatewaySecondaryNN)
@@ -78,8 +79,8 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwPrimaryAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
@@ -96,8 +97,8 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwSecondaryAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
@@ -128,8 +129,8 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwSecondaryAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
@@ -146,8 +147,8 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwPrimaryAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
@@ -176,8 +177,8 @@ var InferencePoolResolvedRefsCondition = suite.ConformanceTest{
 
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwSecondaryAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{

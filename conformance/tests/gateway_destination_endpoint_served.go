@@ -76,12 +76,13 @@ var GatewayDestinationEndpointServed = suite.ConformanceTest{
             "model": "conformance-fake-model",
             "prompt": "Write as if you were a critic: San Francisco"
         }`
+		rt := &RoundTripper
 		t.Run("Request is served by the selected backend pod", func(t *testing.T) {
 			for i := 0; i < len(pods); i++ {
 				gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 					t,
-					&RoundTripper,
-					s.TimeoutConfig,
+					rt,
+					rt.TimeoutConfig,
 					gwAddr,
 					gwhttp.ExpectedResponse{
 						Request: gwhttp.Request{

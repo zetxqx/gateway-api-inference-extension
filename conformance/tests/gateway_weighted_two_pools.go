@@ -109,14 +109,15 @@ var GatewayWeightedAcrossTwoInferencePools = suite.ConformanceTest{
 			secondaryPodIPs = append(secondaryPodIPs, p.Status.PodIP)
 		}
 
+		rt := &RoundTripper
 		// Send one targeted request per backend Pod to ensure EPP readiness.
 		allIPs := append(append([]string{}, primaryPodIPs...), secondaryPodIPs...)
 		allNames := append(append([]string{}, primaryPodNames...), secondaryPodNames...)
 		for i := 0; i < len(allIPs); i++ {
 			gwhttp.MakeRequestAndExpectEventuallyConsistentResponse(
 				t,
-				&RoundTripper,
-				s.TimeoutConfig,
+				rt,
+				rt.TimeoutConfig,
 				gwAddr,
 				gwhttp.ExpectedResponse{
 					Request: gwhttp.Request{
