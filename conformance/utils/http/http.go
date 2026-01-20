@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// TODO(#1729): remove gateway-api dependency.
+// This package is a copy of https://github.com/kubernetes-sigs/gateway-api/blob/b29b9619d44a4c49574f9b265be1e34cacdd08a7/conformance/utils/http/http.go in the gateway API.
 package http
 
 import (
