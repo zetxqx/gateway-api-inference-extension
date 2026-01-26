@@ -28,6 +28,7 @@ import (
 
 	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metadata"
 	testutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/testing"
@@ -169,6 +170,9 @@ func TestServer(t *testing.T) {
 	})
 }
 
+// TestServerGRPC is test cases for gRPC-in-gRPC-out case.
+// TODO add a test case.
+
 type testDirector struct {
 	requestHeaders map[string]string
 }
@@ -190,6 +194,15 @@ func (ts *testDirector) HandleRequest(ctx context.Context, reqCtx *handlers.Requ
 	}
 	reqCtx.RequestSize = len(reqCtx.Request.UpdatedBody)
 	reqCtx.TargetEndpoint = fmt.Sprintf("%s:%d", podAddress, poolPort)
+
+	// Simulate Director populating SchedulingRequest
+	if reqCtx.SchedulingRequest == nil {
+		var body *schedulingtypes.LLMRequestBody
+		reqCtx.SchedulingRequest = &schedulingtypes.LLMRequest{
+			Body: body,
+		}
+	}
+
 	return reqCtx, nil
 }
 

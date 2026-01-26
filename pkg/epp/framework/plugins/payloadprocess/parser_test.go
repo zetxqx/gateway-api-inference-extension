@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 )
 
 func TestNewParserFromConfig(t *testing.T) {
@@ -27,13 +28,19 @@ func TestNewParserFromConfig(t *testing.T) {
 		name                  string
 		enablePluggableParser bool
 		customParserName      string
-		want                  *OpenAIParser
+		want                  payloadprocess.Parser
 	}{
 		{
-			name:                  "Enabled with correct name returns parser",
+			name:                  "Enabled with OpenAI parser name returns OpenAI parser",
 			enablePluggableParser: true,
 			customParserName:      OpenAIParserName,
 			want:                  NewOpenAIParser(),
+		},
+		{
+			name:                  "Enabled with vLLM gRPC parser name returns vLLM parser",
+			enablePluggableParser: true,
+			customParserName:      VllmGRPCParserName,
+			want:                  NewVllmGRPCParser(),
 		},
 		{
 			name:                  "Enabled with wrong name returns nil",
@@ -59,7 +66,7 @@ func TestNewParserFromConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewParserFromConfig(tt.enablePluggableParser, tt.customParserName)
 
-			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(OpenAIParser{})); diff != "" {
+			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(OpenAIParser{}, VllmGRPCParser{})); diff != "" {
 				t.Errorf("NewParserFromConfig() mismatch (-want +got):\n%s", diff)
 			}
 		})
