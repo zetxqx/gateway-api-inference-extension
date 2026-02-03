@@ -279,9 +279,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			}
 			if reqCtx.modelServerStreaming {
 				// Currently we punt on response parsing if the modelServer is streaming, and we just passthrough.
-
-				responseText := string(v.ResponseBody.Body)
-				s.HandleResponseBodyModelStreaming(ctx, reqCtx, responseText)
+				s.HandleResponseBodyModelStreaming(ctx, reqCtx, v.ResponseBody.Body)
 				if v.ResponseBody.EndOfStream {
 					loggerTrace.Info("stream completed")
 					if _, err := s.director.HandleResponseBodyComplete(ctx, reqCtx); err != nil {

@@ -22,6 +22,7 @@ import (
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/codec"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 )
 
 const (
@@ -35,12 +36,13 @@ func (s *StreamingServer) handleGRPCRequestBody(ctx context.Context, reqCtx *Req
 	logger.Info("gRPC request body", "path", reqCtx.ReqPath)
 
 	if reqCtx.ReqPath == VllmGeneratePath {
-		reqBody, err := codec.ConvertToLLMRequestBody(body)
+		reqBody, isStreaming, err := codec.ConvertToLLMRequestBody(body)
 		if err != nil {
 			logger.Error(err, "ConvertToLLMRequestBody error")
 			return err
 		}
 		reqCtx.SchedulingRequestBody = reqBody
+		reqCtx.modelServerStreaming = isStreaming
 	}
 	return nil
 }
@@ -50,12 +52,39 @@ func (s *StreamingServer) handleGRPCRequestBody(ctx context.Context, reqCtx *Req
 // Thus, we also set the reqCtx.respBodyResp here to send out the response.
 func (s *StreamingServer) handleGRPCResponseTrailers(reqCtx *RequestContext, body []byte) {
 	// Ensure the body response is generated if there was any buffered body.
-	reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
+	if len(body) > 0 {
+		// Unlike server sent event, gRPC does not need to send empty response with EoS to true.
+		// gRPC will use response trailer to determine whether the response is complete.
+		reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
+	}
 
 	// Send an empty trailers response to complete the stream.
 	reqCtx.respTrailerResp = &extProcPb.ProcessingResponse{
 		Response: &extProcPb.ProcessingResponse_ResponseTrailers{
 			ResponseTrailers: &extProcPb.TrailersResponse{},
 		},
+	}
+}
+
+func (s *StreamingServer) handleGRPCResponseBodyModelStreaming(ctx context.Context, reqCtx *RequestContext, responseBytest []byte) {
+	logger := log.FromContext(ctx)
+	_, err := s.director.HandleResponseBodyStreaming(ctx, reqCtx)
+	if err != nil {
+		logger.Error(err, "error in HandleResponseBodyStreaming")
+	}
+
+	usage, err := codec.ParseUsage(responseBytest)
+	if err != nil {
+		logger.Error(err, "error in codec.ParseUsage")
+	}
+	if usage != nil {
+		reqCtx.Usage = *usage
+		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
+		metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.CompletionTokens)
+		cachedToken := 0
+		if reqCtx.Usage.PromptTokenDetails != nil {
+			cachedToken = reqCtx.Usage.PromptTokenDetails.CachedTokens
+		}
+		metrics.RecordPromptCachedTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, cachedToken)
 	}
 }
