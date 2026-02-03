@@ -51,7 +51,6 @@ func (s *StreamingServer) handleGRPCRequestBody(ctx context.Context, reqCtx *Req
 func (s *StreamingServer) handleGRPCResponseTrailers(reqCtx *RequestContext, body []byte) {
 	// Ensure the body response is generated if there was any buffered body.
 	reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
-	reqCtx.ResponseComplete = true
 
 	// Send an empty trailers response to complete the stream.
 	reqCtx.respTrailerResp = &extProcPb.ProcessingResponse{
