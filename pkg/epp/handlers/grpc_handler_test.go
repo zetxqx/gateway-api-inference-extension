@@ -94,9 +94,6 @@ func TestHandleGRPCResponseTrailers(t *testing.T) {
 
 	server.handleGRPCResponseTrailers(reqCtx, body)
 
-	if !reqCtx.ResponseComplete {
-		t.Error("handleGRPCResponseTrailers() expected ResponseComplete to be true")
-	}
 	if reqCtx.respBodyResp == nil {
 		t.Error("handleGRPCResponseTrailers() expected respBodyResp to be set")
 	}

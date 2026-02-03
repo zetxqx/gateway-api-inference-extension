@@ -52,8 +52,9 @@ func (s *StreamingServer) handleGRPCRequestBody(ctx context.Context, reqCtx *Req
 // Thus, we also set the reqCtx.respBodyResp here to send out the response.
 func (s *StreamingServer) handleGRPCResponseTrailers(reqCtx *RequestContext, body []byte) {
 	// Ensure the body response is generated if there was any buffered body.
-	reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
-	reqCtx.ResponseComplete = true
+	if len(body) > 0 {
+		reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
+	}
 
 	// Send an empty trailers response to complete the stream.
 	reqCtx.respTrailerResp = &extProcPb.ProcessingResponse{
@@ -76,8 +77,6 @@ func (s *StreamingServer) handleGRPCResponseBodyModelStreaming(ctx context.Conte
 	}
 	if usage != nil {
 		reqCtx.Usage = *usage
-		// If usage can be parsed from gRPC, we should consider the resposne is complete.
-		reqCtx.ResponseComplete = true
 		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
 		metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.CompletionTokens)
 		cachedToken := 0
