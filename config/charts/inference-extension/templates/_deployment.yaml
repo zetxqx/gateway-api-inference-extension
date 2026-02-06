@@ -130,6 +130,10 @@ spec:
           {{- if not .Values.inferenceExtension.monitoring.prometheus.auth.enabled }}
               - --metrics-endpoint-auth=false
           {{- end }}
+          {{- with .Values.inferenceExtension.resources }}
+          resources:
+            {{ toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: grpc
               containerPort: 9002
