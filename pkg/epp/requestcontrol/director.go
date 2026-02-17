@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/contracts"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/parsers"
 	fwk "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
@@ -97,11 +98,17 @@ type Director struct {
 	scheduler             Scheduler
 	admissionController   AdmissionController
 	podLocator            contracts.PodLocator
+	parsers               []parsers.Parser
 	requestControlPlugins Config
 	// we just need a pointer to an int variable since priority is a pointer in InferenceObjective
 	// no need to set this in the constructor, since the value we want is the default int val
 	// and value types cannot be nil
 	defaultPriority int
+}
+
+func (d *Director) WithParsers(parsers []parsers.Parser) *Director {
+	d.parsers = parsers
+	return d
 }
 
 // getInferenceObjective fetches the inferenceObjective from the datastore otherwise creates a new one based on reqCtx.
@@ -121,59 +128,103 @@ func (d *Director) getInferenceObjective(ctx context.Context, reqCtx *handlers.R
 	return infObjective
 }
 
+// selectParser returns the appropriate parser for the request.
+func (d *Director) selectParser(headers map[string]string, body []byte) (parsers.Parser, error) {
+	var matched parsers.Parser
+	count := 0
+	for _, p := range d.parsers {
+		if matchResults := p.Matches(headers, body); matchResults != nil && matchResults.Matched {
+			matched = p
+			count++
+		}
+	}
+	if count > 1 {
+		return nil, fmt.Errorf("multiple parsers matched the request")
+	}
+	if count == 0 {
+		return nil, fmt.Errorf("no parser found for request with headers: %v", headers)
+	}
+	return matched, nil
+}
+
 // HandleRequest orchestrates the request lifecycle.
 // It always returns the requestContext even in the error case, as the request context is used in error handling.
 func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	bodyMap := make(map[string]any)
-	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
-		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
+	var err error
+	var llmReq *fwksched.LLMRequest
+	var parser parsers.Parser
+	var bodyMap map[string]any
+
+	if len(d.parsers) > 0 {
+		// --- Pluggable Parser Path --
+		parser, err = d.selectParser(reqCtx.Request.Headers, reqCtx.Request.RawBody)
+		if err != nil {
+			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("parser selection failed: %w", err).Error()}
+		}
+		llmReq, err = parser.ParseRequest(ctx, reqCtx.Request.Headers, reqCtx.Request.RawBody)
+		if err != nil {
+			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to parse request: %w", err).Error()}
+		}
+		// Resolve Target Models
+		reqCtx.IncomingModelName = llmReq.TargetModel
+	} else {
+		// --- Legacy Path ---
+		if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
+			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
+		}
+		var ok bool
+		reqCtx.IncomingModelName, ok = bodyMap["model"].(string)
+
+		if !ok {
+			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
+		}
 	}
 
-	var ok bool
-	reqCtx.IncomingModelName, ok = bodyMap["model"].(string)
-
-	if !ok {
-		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
-	}
 	if reqCtx.TargetModelName == "" {
 		// Default to incoming model name
 		reqCtx.TargetModelName = reqCtx.IncomingModelName
 	}
 
 	d.applyWeightedModelRewrite(reqCtx)
+	var updatedBody []byte
+	if len(d.parsers) > 0 {
+		_, updatedBody, err = parser.TranscodeRequest(ctx, llmReq, func(request *fwksched.LLMRequest) {
+			request.TargetModel = reqCtx.TargetModelName
+		})
+	} else {
+		bodyMap["model"] = reqCtx.TargetModelName
 
-	bodyMap["model"] = reqCtx.TargetModelName
-	requestBody, err := requtil.ExtractRequestBody(bodyMap, reqCtx.Request.Headers)
-	if err != nil {
-		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
+		llmReqeustBody, err := requtil.ExtractRequestBody(bodyMap, reqCtx.Request.Headers)
+		if err != nil {
+			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
+		}
+
+		llmReq = &fwksched.LLMRequest{
+			RequestId:   reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
+			TargetModel: reqCtx.TargetModelName,
+			Body:        llmReqeustBody,
+			Headers:     reqCtx.Request.Headers,
+		}
+
+		updatedBody, err = json.Marshal(bodyMap)
+		if err != nil {
+			logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
+			return reqCtx, errutil.Error{Code: errutil.Internal, Msg: "Error marshalling request body"}
+		}
 	}
 
-	// Marshal after HandleRequest to include modifications (e.g., model rewriting).
-	var requestBodyBytes []byte
-	requestBodyBytes, err = json.Marshal(bodyMap)
-	if err != nil {
-		logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
-		return reqCtx, errutil.Error{Code: errutil.Internal, Msg: "Error marshalling request body"}
-	}
 	// Update UpdatedBody in reqCtx to reflect the request body mutation.
-	reqCtx.Request.UpdatedBody = requestBodyBytes
+	reqCtx.Request.UpdatedBody = updatedBody
 	// Update RequestSize to match marshalled body for Content-Length header.
-	reqCtx.RequestSize = len(requestBodyBytes)
+	reqCtx.RequestSize = len(updatedBody)
 
 	// Parse inference objective.
 	infObjective := d.getInferenceObjective(ctx, reqCtx)
 	requestObjectives := fwksched.RequestObjectives{Priority: *infObjective.Spec.Priority}
-
-	// Prepare LLMRequest (needed for both saturation detection and Scheduler)
-	reqCtx.SchedulingRequest = &fwksched.LLMRequest{
-		RequestId:   reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
-		TargetModel: reqCtx.TargetModelName,
-		Body:        requestBody,
-		Headers:     reqCtx.Request.Headers,
-		Objectives:  requestObjectives,
-	}
+	llmReq.Objectives = requestObjectives
+	reqCtx.SchedulingRequest = llmReq
 
 	logger = logger.WithValues("objectiveKey", reqCtx.ObjectiveKey, "incomingModelName", reqCtx.IncomingModelName, "targetModelName", reqCtx.TargetModelName, "priority", infObjective.Spec.Priority)
 

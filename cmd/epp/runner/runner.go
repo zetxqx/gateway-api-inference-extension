@@ -60,6 +60,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/framework/plugins/fairness"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/framework/plugins/ordering"
 	fcregistry "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/registry"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/parsers"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	extractormetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/extractor/metrics"
 	sourcemetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/source/metrics"
@@ -316,6 +317,9 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 
 	director := requestcontrol.NewDirectorWithConfig(ds, scheduler, admissionController, locator, r.requestControlConfig)
+	if r.featureGates[parsers.RequestParsingFeatureGate] {
+		director = director.WithParsers([]parsers.Parser{})
+	}
 
 	// --- Setup ExtProc Server Runner ---
 	serverRunner := &runserver.ExtProcServerRunner{
