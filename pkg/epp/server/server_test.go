@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -175,7 +176,19 @@ type testDirector struct {
 func (ts *testDirector) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	ts.requestHeaders = reqCtx.Request.Headers
 
-	reqCtx.Request.Body["model"] = "v1"
+	// reqCtx.Request.Body["model"] = "v1"
+	bodyMap := make(map[string]any)
+	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
+		return reqCtx, err
+	}
+	bodyMap["model"] = "v1"
+
+	var marshalErr error
+	reqCtx.Request.UpdatedBody, marshalErr = json.Marshal(bodyMap)
+	if marshalErr != nil {
+		return reqCtx, marshalErr
+	}
+	reqCtx.RequestSize = len(reqCtx.Request.UpdatedBody)
 	reqCtx.TargetEndpoint = fmt.Sprintf("%s:%d", podAddress, poolPort)
 	return reqCtx, nil
 }

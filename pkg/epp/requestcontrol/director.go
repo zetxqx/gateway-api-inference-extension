@@ -20,6 +20,7 @@ package requestcontrol
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net"
@@ -125,10 +126,13 @@ func (d *Director) getInferenceObjective(ctx context.Context, reqCtx *handlers.R
 func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	// Parse Request, Resolve Target Models, and Determine Parameters
-	requestBodyMap := reqCtx.Request.Body
+	bodyMap := make(map[string]any)
+	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
+		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
+	}
+
 	var ok bool
-	reqCtx.IncomingModelName, ok = requestBodyMap["model"].(string)
+	reqCtx.IncomingModelName, ok = bodyMap["model"].(string)
 
 	if !ok {
 		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
@@ -140,12 +144,23 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 
 	d.applyWeightedModelRewrite(reqCtx)
 
-	reqCtx.Request.Body["model"] = reqCtx.TargetModelName
-
-	requestBody, err := requtil.ExtractRequestBody(reqCtx.Request.Body, reqCtx.Request.Headers)
+	bodyMap["model"] = reqCtx.TargetModelName
+	requestBody, err := requtil.ExtractRequestBody(bodyMap, reqCtx.Request.Headers)
 	if err != nil {
 		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
 	}
+
+	// Marshal after HandleRequest to include modifications (e.g., model rewriting).
+	var requestBodyBytes []byte
+	requestBodyBytes, err = json.Marshal(bodyMap)
+	if err != nil {
+		logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
+		return reqCtx, errutil.Error{Code: errutil.Internal, Msg: "Error marshalling request body"}
+	}
+	// Update UpdatedBody in reqCtx to reflect the request body mutation.
+	reqCtx.Request.UpdatedBody = requestBodyBytes
+	// Update RequestSize to match marshalled body for Content-Length header.
+	reqCtx.RequestSize = len(requestBodyBytes)
 
 	// Parse inference objective.
 	infObjective := d.getInferenceObjective(ctx, reqCtx)

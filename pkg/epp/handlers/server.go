@@ -109,9 +109,11 @@ type RequestContext struct {
 }
 
 type Request struct {
-	Headers  map[string]string
-	Body     map[string]any
-	Metadata map[string]any
+	Headers map[string]string
+	// Body     map[string]any
+	RawBody     []byte
+	UpdatedBody []byte // This is the request body mutated and will be sent to ext_proc.
+	Metadata    map[string]any
 }
 type Response struct {
 	Headers         map[string]string
@@ -147,8 +149,8 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 	reqCtx := &RequestContext{
 		RequestState: RequestReceived,
 		Request: &Request{
-			Headers:  make(map[string]string),
-			Body:     make(map[string]any),
+			Headers: make(map[string]string),
+			// Body:     make(map[string]any),
 			Metadata: make(map[string]any),
 		},
 		Response: &Response{
@@ -225,16 +227,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			// Message is buffered, we can read and decode.
 			if v.RequestBody.EndOfStream {
 				loggerTrace.Info("decoding")
-				if errUnmarshal := json.Unmarshal(body, &reqCtx.Request.Body); errUnmarshal != nil {
-					if logger.V(logutil.DEBUG).Enabled() {
-						logger.Info("Error unmarshaling request body", "body", string(body), "err", errUnmarshal)
-					}
-					err = errutil.Error{
-						Code: errutil.BadRequest,
-						Msg:  "Error unmarshaling request body",
-					}
-					break
-				}
+				reqCtx.Request.RawBody = body
 
 				// Body stream complete. Capture raw size for flow control.
 				reqCtx.RequestSize = len(body)
@@ -246,17 +239,8 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 					break
 				}
 
-				// Marshal after HandleRequest to include modifications (e.g., model rewriting).
-				var requestBodyBytes []byte
-				requestBodyBytes, err = json.Marshal(reqCtx.Request.Body)
-				if err != nil {
-					logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
-					break
-				}
-				// Update RequestSize to match marshalled body for Content-Length header.
-				reqCtx.RequestSize = len(requestBodyBytes)
 				reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
-				reqCtx.reqBodyResp = s.generateRequestBodyResponses(requestBodyBytes)
+				reqCtx.reqBodyResp = s.generateRequestBodyResponses(reqCtx.Request.UpdatedBody)
 
 				metrics.RecordRequestCounter(reqCtx.IncomingModelName, reqCtx.TargetModelName)
 				metrics.RecordRequestSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestSize)
