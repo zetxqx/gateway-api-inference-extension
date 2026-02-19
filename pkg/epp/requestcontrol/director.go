@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
@@ -163,7 +164,7 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 		if err != nil {
 			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("parser selection failed: %w", err).Error()}
 		}
-		llmReq, err = parser.ParseRequest(ctx, reqCtx.Request.Headers, reqCtx.Request.RawBody)
+		llmReq, err = parser.ExtractSchedulingContext(ctx, reqCtx.Request.Headers, reqCtx.Request.RawBody)
 		if err != nil {
 			return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to parse request: %w", err).Error()}
 		}
@@ -190,9 +191,15 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	d.applyWeightedModelRewrite(reqCtx)
 	var updatedBody []byte
 	if len(d.parsers) > 0 {
-		_, updatedBody, err = parser.TranscodeRequest(ctx, llmReq, func(request *fwksched.LLMRequest) {
-			request.TargetModel = reqCtx.TargetModelName
-		})
+		if mutator, ok := parser.(parsers.RequestMutator); ok {
+			// e.g., The target model was changed, ask the parser to update the raw bytes
+			if reqCtx.TargetModelName != reqCtx.IncomingModelName {
+				newBody, err := mutator.MutateRequest(reqCtx.TargetModelName, reqCtx.Request.RawBody)
+				if err == nil {
+					reqCtx.Request.UpdatedBody = newBody
+				}
+			}
+		}
 	} else {
 		bodyMap["model"] = reqCtx.TargetModelName
 
@@ -267,6 +274,35 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	reqCtx, err = d.prepareRequest(ctx, reqCtx, result)
 	if err != nil {
 		return reqCtx, err
+	}
+
+	if transcoder, ok := parser.(parsers.OpenAITranscoder); ok {
+		// This is a special case: HTTP -> Custom Proto
+		// Use UpdatedBody in case it was mutated in the previous step, fallback to RawBody
+		bodyToTranscode := reqCtx.Request.UpdatedBody
+		if len(bodyToTranscode) == 0 {
+			bodyToTranscode = reqCtx.Request.RawBody
+		}
+
+		headers, payload, err := transcoder.TranscodeRequest(bodyToTranscode)
+		if err != nil {
+			return reqCtx, err
+		}
+		reqCtx.Request.Headers = headers
+		switch msg := payload.(type) {
+		case proto.Message:
+			transcodedBytes, err := proto.Marshal(msg)
+			if err != nil {
+				return reqCtx, err
+			}
+			reqCtx.Request.UpdatedBody = transcodedBytes
+		case map[string]any:
+			transcodedBytes, err := json.Marshal(msg)
+			if err != nil {
+				return reqCtx, err
+			}
+			reqCtx.Request.UpdatedBody = transcodedBytes
+		}
 	}
 
 	return reqCtx, nil

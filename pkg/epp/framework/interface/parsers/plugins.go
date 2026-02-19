@@ -30,32 +30,44 @@ const (
 )
 
 // Parser defines the interface for a plugin that parses request and response bodies.
+// 1. THE MANDATORY BASE INTERFACE
+// Every plugin must implement this. It strictly handles routing, scheduling, and metrics.
 type Parser interface {
 	plugin.Plugin
 
-	// Matches returns non-nil MatchResult with matched true if this parser should handle the request based on request headers and request body.
+	// Matches determines if this parser should handle the incoming request.
 	Matches(reqHeaders map[string]string, reqBody []byte) *MatchResult
 
-	// ParseRequest converts the raw request body and headers to an internal LLMRequest.
-	// It returns the parsed LLMRequest.
-	ParseRequest(ctx context.Context, headers map[string]string, body []byte) (*scheduling.LLMRequest, error)
+	// ExtractSchedulingContext translates the raw body into the internal format.
+	// This is strictly for the scheduler (e.g., precise prefix cache scorers).
+	ExtractSchedulingContext(ctx context.Context, headers map[string]string, reqBody []byte) (*scheduling.LLMRequest, error)
 
-	// TranscodeRequest converts the internal LLMRequest back to the format expected by the backend.
-	// This allows for model rewriting and other modifications to be reflected in the downstream request.
-	// It returns the modified headers and body bytes.
-	TranscodeRequest(ctx context.Context, request *scheduling.LLMRequest, mutations ...RequestMutation) (map[string]string, []byte, error)
-
-	// ParseResponse converts the raw response body and headers to an internal Response representation.
-	// It parses the raw body into the Response struct, potentially updating headers.
-	ParseResponse(ctx context.Context, response *requestcontrol.Response, body []byte) (*requestcontrol.Response, error)
-
-	// TranscodeResponse converts the internal Response back to the format expected by the client.
-	// It returns the modified headers and body bytes.
-	TranscodeResponse(ctx context.Context, response *requestcontrol.Response) (map[string]string, []byte, error)
+	// ExtractUsage parses the raw response body to retrieve metrics (tokens, etc.).
+	ExtractUsage(ctx context.Context, headers map[string]string, respBody []byte) (*requestcontrol.Usage, error)
 }
 
-type RequestMutation func(request *scheduling.LLMRequest)
+// 2. THE OPTIONAL MUTATOR INTERFACE
+// Only implement this if the custom protocol supports Gateway-level body mutations
+// (like BBR or InferenceModelRewrite).
+type RequestMutator interface {
+	// MutateRequest applies changes to the request body (e.g., updating the model name).
+	// It returns the newly formatted bytes.
+	MutateRequest(targetModel string, reqBody []byte) ([]byte, error)
+}
 
+// 3. THE OPTIONAL TRANSCODER INTERFACE
+// Only implement this if the user wants to expose a standard OpenAI frontend
+// for a backend that uses a completely different custom protocol.
+type OpenAITranscoder interface {
+	// TranscodeRequest converts standard OpenAI JSON into the backend's custom format.
+	// Returns the custom payload (e.g., a proto.Message) and any required headers.
+	TranscodeRequest(openaiBody []byte) (map[string]string, any, error)
+
+	// TranscodeResponse converts the backend's custom response back into OpenAI JSON.
+	TranscodeResponse(customRespBody []byte) ([]byte, error)
+}
+
+// MatchResult encapsulate the parser match result, this is a struct for further extensibility.
 type MatchResult struct {
 	Matched bool
 }

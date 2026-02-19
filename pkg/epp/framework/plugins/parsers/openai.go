@@ -63,7 +63,7 @@ func (p *OpenAIParser) Matches(headers map[string]string, body []byte) *parsers.
 	}
 }
 
-func (p *OpenAIParser) ParseRequest(ctx context.Context, headers map[string]string, body []byte) (*scheduling.LLMRequest, error) {
+func (p *OpenAIParser) ExtractSchedulingContext(ctx context.Context, headers map[string]string, body []byte) (*scheduling.LLMRequest, error) {
 	var bodyMap map[string]interface{}
 	if err := json.Unmarshal(body, &bodyMap); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal request body: %w", err)
@@ -86,19 +86,6 @@ func (p *OpenAIParser) ParseRequest(ctx context.Context, headers map[string]stri
 	}, nil
 }
 
-func (p *OpenAIParser) TranscodeRequest(ctx context.Context, request *scheduling.LLMRequest, mutations ...parsers.RequestMutation) (map[string]string, []byte, error) {
-	// TODO: implement
-	return map[string]string{}, []byte{}, nil
-}
-
-func (p *OpenAIParser) ParseResponse(ctx context.Context, response *requestcontrol.Response, body []byte) (*requestcontrol.Response, error) {
-	// For now, OpenAI parser doesn't need deep inspection of response body for control flow,
-	// but we could unmarshal it if needed.
-	// Currently just pass through.
-	return response, nil
-}
-
-func (p *OpenAIParser) TranscodeResponse(ctx context.Context, response *requestcontrol.Response) (map[string]string, []byte, error) {
-	// No modification needed for OpenAI response currently.
-	return response.Headers, nil, nil
+func (p *OpenAIParser) ExtractUsage(ctx context.Context, headers map[string]string, respBody []byte) (*requestcontrol.Usage, error) {
+	return &requestcontrol.Usage{}, nil
 }
