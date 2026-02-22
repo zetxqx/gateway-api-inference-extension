@@ -88,9 +88,8 @@ type Options struct {
 	//
 	// Configuration.
 	//
-	BackendProtocol string // The protocol used by the backend model server (e.g., "openai", "vllm").
-	ConfigFile      string // The path to the configuration file.
-	ConfigText      string // The configuration specified as text, in lieu of a file.
+	ConfigFile string // The path to the configuration file.
+	ConfigText string // The configuration specified as text, in lieu of a file.
 
 	// internal
 	fs *pflag.FlagSet // FlagSet used in AddFlags() and consulted in Complete()
@@ -99,7 +98,6 @@ type Options struct {
 // NewOptions returns a new Options struct initialized with the default values.
 func NewOptions() *Options {
 	return &Options{ // "zero" values are no explicitly set
-		BackendProtocol:                  "openai",
 		GRPCPort:                         DefaultGrpcPort,
 		PoolGroup:                        "inference.networking.k8s.io",
 		EndpointTargetPorts:              []int{},
@@ -132,7 +130,6 @@ func (opts *Options) AddFlags(fs *pflag.FlagSet) {
 	}
 	opts.fs = fs
 
-	fs.StringVar(&opts.BackendProtocol, "backend-protocol", opts.BackendProtocol, "The protocol used by the backend model server. Supported values: 'openai', 'vllm'.")
 	fs.IntVar(&opts.GRPCPort, "grpc-port", opts.GRPCPort, "gRPC port used for communicating with Envoy proxy.")
 	fs.BoolVar(&opts.EnableLeaderElection, "ha-enable-leader-election", opts.EnableLeaderElection,
 		"Enables leader election for high availability. When enabled, readiness probes will only pass on the leader.")
@@ -233,10 +230,6 @@ func (opts *Options) Validate() error {
 
 	if opts.ConfigText != "" && opts.ConfigFile != "" {
 		return fmt.Errorf("both the %q and %q flags can not be set at the same time", "configText", "configFile")
-	}
-	if opts.BackendProtocol != "openai" && opts.BackendProtocol != "vllm" {
-		return fmt.Errorf("unexpected %q value for %q flag, it can only be set to 'openai' or 'vllm'",
-			opts.BackendProtocol, "backend-protocol")
 	}
 	if opts.ModelServerMetricsScheme != "http" && opts.ModelServerMetricsScheme != "https" {
 		return fmt.Errorf("unexpected %q value for %q flag, it can only be set to 'http' or 'https'",

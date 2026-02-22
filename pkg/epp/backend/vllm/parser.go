@@ -17,8 +17,10 @@ limitations under the License.
 package vllm
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	vllmpb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/gen"
@@ -76,8 +78,6 @@ func (p *Parser) ParseResponse(body []byte) (map[string]any, requestcontrol.Usag
 	}
 
 	usage := requestcontrol.Usage{}
-	respMap := map[string]any{}
-
 	if complete := resp.GetComplete(); complete != nil {
 		usage.PromptTokens = int(complete.PromptTokens)
 		usage.CompletionTokens = int(complete.CompletionTokens)
@@ -87,8 +87,18 @@ func (p *Parser) ParseResponse(body []byte) (map[string]any, requestcontrol.Usag
 				CachedTokens: int(complete.CachedTokens),
 			}
 		}
-		// Populate respMap if needed for logging
-		respMap["usage"] = usage
+	}
+
+	// Marshal to JSON then Unmarshal to map to provide the full response structure
+	// This ensures plugins and other components have access to all fields (e.g., output_ids).
+	jsonBytes, err := protojson.Marshal(&resp)
+	if err != nil {
+		return nil, requestcontrol.Usage{}, fmt.Errorf("error marshalling response to json: %w", err)
+	}
+
+	var respMap map[string]any
+	if err := json.Unmarshal(jsonBytes, &respMap); err != nil {
+		return nil, requestcontrol.Usage{}, fmt.Errorf("error unmarshalling json to map: %w", err)
 	}
 
 	return respMap, usage, nil

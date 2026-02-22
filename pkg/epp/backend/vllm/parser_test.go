@@ -79,7 +79,7 @@ func TestParseResponse(t *testing.T) {
 		},
 	}
 	body, _ := proto.Marshal(resp)
-	_, usage, err := parser.ParseResponse(body)
+	respMap, usage, err := parser.ParseResponse(body)
 	if err != nil {
 		t.Fatalf("ParseResponse failed: %v", err)
 	}
@@ -94,6 +94,16 @@ func TestParseResponse(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, usage); diff != "" {
 		t.Errorf("ParseResponse mismatch (-want +got):\n%s", diff)
+	}
+
+	// Verify that the map contains the response body
+	completeMap, ok := respMap["complete"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected 'complete' key in response map, got %v", respMap)
+	}
+	// json unmarshal converts numbers to float64
+	if pt, ok := completeMap["promptTokens"].(float64); !ok || pt != 10 {
+		t.Errorf("expected promptTokens 10, got %v", completeMap["promptTokens"])
 	}
 }
 
