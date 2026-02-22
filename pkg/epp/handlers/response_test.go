@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/openai"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metadata"
@@ -150,6 +151,7 @@ func TestHandleResponseBody(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			server := &StreamingServer{}
 			server.director = &mockDirector{}
+			server.parser = openai.NewParser()
 			reqCtx := test.reqCtx
 			if reqCtx == nil {
 				reqCtx = &RequestContext{}
@@ -159,7 +161,7 @@ func TestHandleResponseBody(t *testing.T) {
 			if marshalErr != nil {
 				t.Error(marshalErr, "Error unmarshaling request body")
 			}
-			_, err := server.HandleResponseBody(ctx, reqCtx, responseMap)
+			_, err := server.HandleResponseBody(ctx, reqCtx, responseMap, test.want)
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("HandleResponseBody returned unexpected error: %v, want %v", err, test.wantErr)
@@ -227,11 +229,12 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			server := &StreamingServer{}
 			server.director = &mockDirector{}
+			server.parser = openai.NewParser()
 			reqCtx := test.reqCtx
 			if reqCtx == nil {
 				reqCtx = &RequestContext{}
 			}
-			server.HandleResponseBodyModelStreaming(ctx, reqCtx, test.body)
+			server.HandleResponseBodyModelStreaming(ctx, reqCtx, []byte(test.body))
 
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
 				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
@@ -288,11 +291,12 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			server := &StreamingServer{
 				director: &mockDirector{},
+				parser:   openai.NewParser(),
 			}
 			reqCtx := &RequestContext{}
 
 			for _, chunk := range tc.chunks {
-				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, chunk)
+				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, []byte(chunk))
 			}
 
 			assert.Equal(t, tc.wantUsage, reqCtx.Usage, "Usage data should match expected accumulation")

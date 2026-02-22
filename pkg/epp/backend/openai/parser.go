@@ -78,21 +78,25 @@ func (p *Parser) ParseResponse(body []byte) (map[string]any, requestcontrol.Usag
 }
 
 // ParseStreamResponse parses a chunk of the streaming response and returns usage statistics and a boolean indicating if the stream is complete.
-func (p *Parser) ParseStreamResponse(chunk []byte) (requestcontrol.Usage, bool, error) {
+func (p *Parser) ParseStreamResponse(chunk []byte) (map[string]any, requestcontrol.Usage, bool, error) {
 	responseText := string(chunk)
 	var usage requestcontrol.Usage
 	var isComplete bool
+	var lastChunkMap map[string]any
 
 	// Parse usage on EVERY chunk to catch split streams (where usage and [DONE] are in different chunks).
-	resp := parseRespForUsage(responseText)
+	resp, chunkMap := parseRespForUsage(responseText)
 	if resp.Usage.TotalTokens > 0 {
 		usage = resp.Usage
+	}
+	if chunkMap != nil {
+		lastChunkMap = chunkMap
 	}
 
 	if strings.Contains(responseText, streamingEndMsg) {
 		isComplete = true
 	}
-	return usage, isComplete, nil
+	return lastChunkMap, usage, isComplete, nil
 }
 
 // extractUsageByAPIType extracts usage statistics using the appropriate field names
@@ -151,8 +155,9 @@ func extractUsageByAPIType(usg map[string]any, objectType string) requestcontrol
 //
 // If include_usage is not included in the request, `data: [DONE]` is returned separately, which
 // indicates end of streaming.
-func parseRespForUsage(responseText string) ResponseBody {
+func parseRespForUsage(responseText string) (ResponseBody, map[string]any) {
 	response := ResponseBody{}
+	var lastMap map[string]any
 
 	lines := strings.SplitSeq(responseText, "\n")
 	for line := range lines {
@@ -166,10 +171,12 @@ func parseRespForUsage(responseText string) ResponseBody {
 
 		byteSlice := []byte(content)
 		// Ignore errors here as we are parsing best effort
-		_ = json.Unmarshal(byteSlice, &response)
+		if err := json.Unmarshal(byteSlice, &response); err == nil {
+			_ = json.Unmarshal(byteSlice, &lastMap)
+		}
 	}
 
-	return response
+	return response, lastMap
 }
 
 type ResponseBody struct {

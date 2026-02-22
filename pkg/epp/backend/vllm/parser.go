@@ -105,10 +105,10 @@ func (p *Parser) ParseResponse(body []byte) (map[string]any, requestcontrol.Usag
 }
 
 // ParseStreamResponse parses a chunk of the streaming response and returns usage statistics and a boolean indicating if the stream is complete.
-func (p *Parser) ParseStreamResponse(chunk []byte) (requestcontrol.Usage, bool, error) {
+func (p *Parser) ParseStreamResponse(chunk []byte) (map[string]any, requestcontrol.Usage, bool, error) {
 	var resp vllmpb.GenerateResponse
 	if err := proto.Unmarshal(chunk, &resp); err != nil {
-		return requestcontrol.Usage{}, false, fmt.Errorf("error unmarshalling vllm stream chunk: %w", err)
+		return nil, requestcontrol.Usage{}, false, fmt.Errorf("error unmarshalling vllm stream chunk: %w", err)
 	}
 
 	usage := requestcontrol.Usage{}
@@ -137,5 +137,15 @@ func (p *Parser) ParseStreamResponse(chunk []byte) (requestcontrol.Usage, bool, 
 		}
 	}
 
-	return usage, isComplete, nil
+	jsonBytes, err := protojson.Marshal(&resp)
+	if err != nil {
+		return nil, requestcontrol.Usage{}, false, fmt.Errorf("error marshalling response to json: %w", err)
+	}
+
+	var respMap map[string]any
+	if err := json.Unmarshal(jsonBytes, &respMap); err != nil {
+		return nil, requestcontrol.Usage{}, false, fmt.Errorf("error unmarshalling json to map: %w", err)
+	}
+
+	return respMap, usage, isComplete, nil
 }

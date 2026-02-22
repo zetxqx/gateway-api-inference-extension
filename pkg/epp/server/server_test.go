@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/openai"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metadata"
@@ -54,7 +55,8 @@ func TestServer(t *testing.T) {
 		director := &testDirector{}
 		ctx, cancel, ds, _ := utils.PrepareForTestStreamingServer([]*v1alpha2.InferenceObjective{model},
 			[]*v1.Pod{{ObjectMeta: metav1.ObjectMeta{Name: podName}}}, "test-pool1", namespace, poolPort)
-		streamingServer := handlers.NewStreamingServer(ds, director)
+		parser := openai.NewParser()
+		streamingServer := handlers.NewStreamingServer(ds, director, parser)
 
 		testListener, errChan := utils.SetupTestStreamingServer(t, ctx, ds, streamingServer)
 		process, conn := utils.GetStreamingServerClient(ctx, t)

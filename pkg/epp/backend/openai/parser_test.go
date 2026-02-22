@@ -175,7 +175,7 @@ func TestParseStreamResponse(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			parser := NewParser()
-			usage, _, err := parser.ParseStreamResponse([]byte(test.body))
+			_, usage, _, err := parser.ParseStreamResponse([]byte(test.body))
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("ParseStreamResponse returned unexpected error: %v", err)
@@ -240,7 +240,7 @@ func TestParseStreamResponse_TokenAccumulation(t *testing.T) {
 			var isComplete bool
 
 			for _, chunk := range tc.chunks {
-				chunkUsage, complete, _ := parser.ParseStreamResponse([]byte(chunk))
+				_, chunkUsage, complete, _ := parser.ParseStreamResponse([]byte(chunk))
 				if chunkUsage.TotalTokens > 0 {
 					usage = chunkUsage
 				}

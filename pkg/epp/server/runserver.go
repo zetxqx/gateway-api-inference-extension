@@ -36,7 +36,10 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/internal/runnable"
 	tlsutil "sigs.k8s.io/gateway-api-inference-extension/internal/tls"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/common"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/openai"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/vllm"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/controller"
 	datalayerlogger "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer/logger"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
@@ -47,6 +50,7 @@ import (
 
 // ExtProcServerRunner provides methods to manage an external process server.
 type ExtProcServerRunner struct {
+	BackendProtocol                  string
 	GrpcPort                         int
 	GKNN                             common.GKNN
 	ControllerCfg                    ControllerConfig
@@ -78,6 +82,7 @@ func NewDefaultExtProcServerRunner() *ExtProcServerRunner {
 		},
 	}
 	return &ExtProcServerRunner{
+		BackendProtocol:                  opts.BackendProtocol,
 		GrpcPort:                         opts.GRPCPort,
 		GKNN:                             gknn,
 		ControllerCfg:                    ControllerConfig{true, true, true},
@@ -176,7 +181,19 @@ func (r *ExtProcServerRunner) AsRunnable(logger logr.Logger) manager.Runnable {
 			srv = grpc.NewServer()
 		}
 
-		extProcServer := handlers.NewStreamingServer(r.Datastore, r.Director)
+		var parser backend.Parser
+		switch r.BackendProtocol {
+		case "vllm":
+			parser = vllm.NewParser()
+		case "openai":
+			parser = openai.NewParser()
+		default:
+			// Should not happen if validation is done properly, but fallback to openai
+			logger.Info("Unknown backend protocol, defaulting to openai", "protocol", r.BackendProtocol)
+			parser = openai.NewParser()
+		}
+
+		extProcServer := handlers.NewStreamingServer(r.Datastore, r.Director, parser)
 		extProcPb.RegisterExternalProcessorServer(srv, extProcServer)
 
 		if r.HealthChecking {

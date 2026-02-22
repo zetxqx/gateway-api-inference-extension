@@ -27,5 +27,5 @@ type Parser interface {
 	ParseResponse(body []byte) (map[string]any, requestcontrol.Usage, error)
 
 	// ParseStreamResponse parses a chunk of the streaming response and returns usage statistics and a boolean indicating if the stream is complete.
-	ParseStreamResponse(chunk []byte) (requestcontrol.Usage, bool, error)
+	ParseStreamResponse(chunk []byte) (map[string]any, requestcontrol.Usage, bool, error)
 }

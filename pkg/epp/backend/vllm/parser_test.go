@@ -120,7 +120,7 @@ func TestParseStreamResponse(t *testing.T) {
 		},
 	}
 	chunkBody, _ := proto.Marshal(chunkResp)
-	usage, complete, err := parser.ParseStreamResponse(chunkBody)
+	chunkMap, usage, complete, err := parser.ParseStreamResponse(chunkBody)
 	if err != nil {
 		t.Fatalf("ParseStreamResponse chunk failed: %v", err)
 	}
@@ -129,6 +129,10 @@ func TestParseStreamResponse(t *testing.T) {
 	}
 	if usage.PromptTokens != 5 || usage.CompletionTokens != 5 {
 		t.Errorf("usage mismatch for chunk: %v", usage)
+	}
+	// Verify map content
+	if _, ok := chunkMap["chunk"]; !ok {
+		t.Errorf("expected 'chunk' key in response map, got %v", chunkMap)
 	}
 
 	// Complete
@@ -141,7 +145,7 @@ func TestParseStreamResponse(t *testing.T) {
 		},
 	}
 	completeBody, _ := proto.Marshal(completeResp)
-	usage, complete, err = parser.ParseStreamResponse(completeBody)
+	completeMap, usage, complete, err := parser.ParseStreamResponse(completeBody)
 	if err != nil {
 		t.Fatalf("ParseStreamResponse complete failed: %v", err)
 	}
@@ -150,5 +154,9 @@ func TestParseStreamResponse(t *testing.T) {
 	}
 	if usage.PromptTokens != 10 || usage.CompletionTokens != 20 {
 		t.Errorf("usage mismatch for complete: %v", usage)
+	}
+	// Verify map content
+	if _, ok := completeMap["complete"]; !ok {
+		t.Errorf("expected 'complete' key in response map, got %v", completeMap)
 	}
 }
