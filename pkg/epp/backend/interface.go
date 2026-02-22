@@ -20,8 +20,8 @@ import "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/
 
 // Parser defines the interface for parsing requests and responses.
 type Parser interface {
-	// ParseRequest parses the request body and returns a map representation.
-	ParseRequest(body []byte) (map[string]any, error)
+	// ParseRequest parses the request body and headers and returns a map representation.
+	ParseRequest(body []byte, headers map[string]string) (map[string]any, error)
 
 	// ParseResponse parses the response body and returns a map representation and usage statistics.
 	ParseResponse(body []byte) (map[string]any, requestcontrol.Usage, error)

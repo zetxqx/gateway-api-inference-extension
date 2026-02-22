@@ -356,6 +356,7 @@ func (r *Runner) setup(ctx context.Context, cfg *rest.Config, opts *runserver.Op
 
 	// --- Setup ExtProc Server Runner ---
 	serverRunner := &runserver.ExtProcServerRunner{
+		BackendProtocol:                  opts.BackendProtocol,
 		GrpcPort:                         opts.GRPCPort,
 		GKNN:                             *gknn,
 		Datastore:                        ds,

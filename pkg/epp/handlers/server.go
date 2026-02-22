@@ -229,7 +229,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			if v.RequestBody.EndOfStream {
 				loggerTrace.Info("decoding")
 				var errParse error
-				reqCtx.Request.Body, errParse = s.parser.ParseRequest(body)
+				reqCtx.Request.Body, errParse = s.parser.ParseRequest(body, reqCtx.Request.Headers)
 				if errParse != nil {
 					if logger.V(logutil.DEBUG).Enabled() {
 						logger.Info("Error parsing request body", "body", string(body), "err", errParse)

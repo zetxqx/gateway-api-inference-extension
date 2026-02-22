@@ -44,8 +44,8 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-// ParseRequest parses the request body and returns a map representation.
-func (p *Parser) ParseRequest(body []byte) (map[string]any, error) {
+// ParseRequest parses the request body and headers and returns a map representation.
+func (p *Parser) ParseRequest(body []byte, headers map[string]string) (map[string]any, error) {
 	var requestBody map[string]any
 	if err := json.Unmarshal(body, &requestBody); err != nil {
 		return nil, fmt.Errorf("error unmarshalling request body: %w", err)
