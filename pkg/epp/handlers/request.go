@@ -41,7 +41,7 @@ const (
 	defaultFairnessID = "default-flow"
 )
 
-func (s *StreamingServer) HandleRequestHeaders(ctx context.Context, reqCtx *RequestContext, req *extProcPb.ProcessingRequest_RequestHeaders) error {
+func (s *StreamingServer) HandleRequestHeaders(ctx context.Context, reqCtx *RequestContext, protoCtx *ProtocolContext, req *extProcPb.ProcessingRequest_RequestHeaders) error {
 	reqCtx.RequestReceivedTimestamp = time.Now()
 
 	// an EoS in the request headers means this request has no body or trailers.
@@ -56,7 +56,7 @@ func (s *StreamingServer) HandleRequestHeaders(ctx context.Context, reqCtx *Requ
 		}
 		reqCtx.TargetEndpoint = endpoint.GetIPAddress() + ":" + endpoint.GetPort()
 		reqCtx.RequestSize = 0
-		reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
+		protoCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
 		return nil
 	}
 
