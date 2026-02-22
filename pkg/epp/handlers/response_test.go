@@ -154,12 +154,13 @@ func TestHandleResponseBody(t *testing.T) {
 			if reqCtx == nil {
 				reqCtx = &RequestContext{}
 			}
+			protoCtx := &ProtocolContext{}
 			var responseMap map[string]any
 			marshalErr := json.Unmarshal(test.body, &responseMap)
 			if marshalErr != nil {
 				t.Error(marshalErr, "Error unmarshaling request body")
 			}
-			_, err := server.HandleResponseBody(ctx, reqCtx, responseMap)
+			_, err := server.HandleResponseBody(ctx, reqCtx, protoCtx, responseMap)
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("HandleResponseBody returned unexpected error: %v, want %v", err, test.wantErr)
@@ -177,25 +178,28 @@ func TestHandleResponseBody(t *testing.T) {
 func TestHandleStreamedResponseBody(t *testing.T) {
 	ctx := logutil.NewTestLoggerIntoContext(context.Background())
 	tests := []struct {
-		name    string
-		body    string
-		reqCtx  *RequestContext
-		want    fwkrq.Usage
-		wantErr bool
+		name     string
+		body     string
+		reqCtx   *RequestContext
+		protoCtx *ProtocolContext
+		want     fwkrq.Usage
+		wantErr  bool
 	}{
 		{
-			name: "streaming request without usage",
-			body: streamingBodyWithoutUsage,
-			reqCtx: &RequestContext{
+			name:   "streaming request without usage",
+			body:   streamingBodyWithoutUsage,
+			reqCtx: &RequestContext{},
+			protoCtx: &ProtocolContext{
 				modelServerStreaming: true,
 			},
 			wantErr: false,
 			// In the middle of streaming response, so request context response is not set yet.
 		},
 		{
-			name: "streaming request with usage",
-			body: streamingBodyWithUsage,
-			reqCtx: &RequestContext{
+			name:   "streaming request with usage",
+			body:   streamingBodyWithUsage,
+			reqCtx: &RequestContext{},
+			protoCtx: &ProtocolContext{
 				modelServerStreaming: true,
 			},
 			wantErr: false,
@@ -206,9 +210,10 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			},
 		},
 		{
-			name: "streaming request with usage and cached tokens",
-			body: streamingBodyWithUsageAndCachedTokens,
-			reqCtx: &RequestContext{
+			name:   "streaming request with usage and cached tokens",
+			body:   streamingBodyWithUsageAndCachedTokens,
+			reqCtx: &RequestContext{},
+			protoCtx: &ProtocolContext{
 				modelServerStreaming: true,
 			},
 			wantErr: false,
@@ -231,7 +236,11 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			if reqCtx == nil {
 				reqCtx = &RequestContext{}
 			}
-			server.HandleResponseBodyModelStreaming(ctx, reqCtx, test.body)
+			protoCtx := test.protoCtx
+			if protoCtx == nil {
+				protoCtx = &ProtocolContext{}
+			}
+			server.HandleResponseBodyModelStreaming(ctx, reqCtx, protoCtx, test.body)
 
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
 				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
@@ -290,9 +299,10 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 				director: &mockDirector{},
 			}
 			reqCtx := &RequestContext{}
+			protoCtx := &ProtocolContext{}
 
 			for _, chunk := range tc.chunks {
-				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, chunk)
+				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, protoCtx, chunk)
 			}
 
 			assert.Equal(t, tc.wantUsage, reqCtx.Usage, "Usage data should match expected accumulation")

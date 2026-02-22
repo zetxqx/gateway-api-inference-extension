@@ -91,7 +91,7 @@ func extractUsageByAPIType(usg map[string]any, objectType string) fwkrq.Usage {
 }
 
 // HandleResponseBody always returns the requestContext even in the error case, as the request context is used in error handling.
-func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, response map[string]any) (*RequestContext, error) {
+func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, protoCtx *ProtocolContext, response map[string]any) (*RequestContext, error) {
 	logger := log.FromContext(ctx)
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
@@ -120,13 +120,13 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	// will add the processing for streaming case.
 	reqCtx.ResponseComplete = true
 
-	reqCtx.respBodyResp = generateResponseBodyResponses(responseBytes, true)
+	protoCtx.respBodyResp = generateResponseBodyResponses(responseBytes, true)
 
 	return s.director.HandleResponseBodyComplete(ctx, reqCtx)
 }
 
 // The function is to handle streaming response if the modelServer is streaming.
-func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, reqCtx *RequestContext, responseText string) {
+func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, reqCtx *RequestContext, protoCtx *ProtocolContext, responseText string) {
 	logger := log.FromContext(ctx)
 	_, err := s.director.HandleResponseBodyStreaming(ctx, reqCtx)
 	if err != nil {
@@ -150,7 +150,7 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	}
 }
 
-func (s *StreamingServer) HandleResponseHeaders(ctx context.Context, reqCtx *RequestContext, resp *extProcPb.ProcessingRequest_ResponseHeaders) (*RequestContext, error) {
+func (s *StreamingServer) HandleResponseHeaders(ctx context.Context, reqCtx *RequestContext, protoCtx *ProtocolContext, resp *extProcPb.ProcessingRequest_ResponseHeaders) (*RequestContext, error) {
 	for _, header := range resp.ResponseHeaders.Headers.Headers {
 		reqCtx.Response.Headers[header.Key] = request.GetHeaderValue(header)
 	}
