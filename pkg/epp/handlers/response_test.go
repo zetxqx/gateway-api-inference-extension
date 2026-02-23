@@ -159,7 +159,8 @@ func TestHandleResponseBody(t *testing.T) {
 			if marshalErr != nil {
 				t.Error(marshalErr, "Error unmarshaling request body")
 			}
-			_, err := server.HandleResponseBody(ctx, reqCtx, responseMap)
+			protoCtx := &ProtocolContext{}
+			_, err := server.HandleResponseBody(ctx, reqCtx, protoCtx, responseMap)
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("HandleResponseBody returned unexpected error: %v, want %v", err, test.wantErr)
@@ -187,7 +188,7 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			name: "streaming request without usage",
 			body: streamingBodyWithoutUsage,
 			reqCtx: &RequestContext{
-				modelServerStreaming: true,
+				// modelServerStreaming moved to ProtocolContext, irrelevant here
 			},
 			wantErr: false,
 			// In the middle of streaming response, so request context response is not set yet.
@@ -196,7 +197,7 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			name: "streaming request with usage",
 			body: streamingBodyWithUsage,
 			reqCtx: &RequestContext{
-				modelServerStreaming: true,
+				// modelServerStreaming moved to ProtocolContext, irrelevant here
 			},
 			wantErr: false,
 			want: fwkrq.Usage{
@@ -209,7 +210,7 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			name: "streaming request with usage and cached tokens",
 			body: streamingBodyWithUsageAndCachedTokens,
 			reqCtx: &RequestContext{
-				modelServerStreaming: true,
+				// modelServerStreaming moved to ProtocolContext, irrelevant here
 			},
 			wantErr: false,
 			want: fwkrq.Usage{

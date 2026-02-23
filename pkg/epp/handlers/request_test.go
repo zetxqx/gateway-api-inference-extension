@@ -60,13 +60,14 @@ func TestHandleRequestHeaders(t *testing.T) {
 			reqCtx := &RequestContext{
 				Request: &Request{Headers: make(map[string]string)},
 			}
+			protoCtx := &ProtocolContext{}
 			req := &extProcPb.ProcessingRequest_RequestHeaders{
 				RequestHeaders: &extProcPb.HttpHeaders{
 					Headers: &configPb.HeaderMap{Headers: tc.headers},
 				},
 			}
 
-			err := server.HandleRequestHeaders(context.Background(), reqCtx, req)
+			err := server.HandleRequestHeaders(context.Background(), reqCtx, protoCtx, req)
 			assert.NoError(t, err, "HandleRequestHeaders should not return an error")
 
 			assert.Equal(t, tc.wantFairnessID, reqCtx.FairnessID, "FairnessID should match expected value")
