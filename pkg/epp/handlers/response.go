@@ -91,7 +91,7 @@ func extractUsageByAPIType(usg map[string]any, objectType string) fwkrq.Usage {
 }
 
 // HandleResponseBody always returns the requestContext even in the error case, as the request context is used in error handling.
-func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, response map[string]any) (*RequestContext, error) {
+func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, protoCtx *ProtocolContext, response map[string]any) (*RequestContext, error) {
 	logger := log.FromContext(ctx)
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	// will add the processing for streaming case.
 	reqCtx.ResponseComplete = true
 
-	reqCtx.respBodyResp = generateResponseBodyResponses(responseBytes, true)
+	protoCtx.respBodyResp = generateResponseBodyResponses(responseBytes, true)
 
 	return s.director.HandleResponseBodyComplete(ctx, reqCtx)
 }
