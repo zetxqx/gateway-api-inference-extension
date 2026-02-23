@@ -126,9 +126,8 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	logger := log.FromContext(ctx)
 
 	// Parse Request, Resolve Target Models, and Determine Parameters
-	requestBodyMap := reqCtx.Request.Body
-	var ok bool
-	reqCtx.IncomingModelName, ok = requestBodyMap["model"].(string)
+	modelVal, ok := reqCtx.Request.Body.Get("model")
+	reqCtx.IncomingModelName, ok = modelVal.(string)
 
 	if !ok {
 		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
@@ -140,9 +139,11 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 
 	d.applyWeightedModelRewrite(reqCtx)
 
-	reqCtx.Request.Body["model"] = reqCtx.TargetModelName
+	if err := reqCtx.Request.Body.Set("model", reqCtx.TargetModelName); err != nil {
+		return reqCtx, errutil.Error{Code: errutil.Internal, Msg: fmt.Errorf("failed to update model name: %w", err).Error()}
+	}
 
-	requestBody, err := requtil.ExtractRequestBody(reqCtx.Request.Body, reqCtx.Request.Headers)
+	requestBody, err := requtil.ExtractRequestBody(reqCtx.Request.Body.ToMap(), reqCtx.Request.Headers)
 	if err != nil {
 		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
 	}

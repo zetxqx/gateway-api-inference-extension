@@ -18,7 +18,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"strings"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
@@ -44,10 +44,11 @@ import (
 	requtil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
 )
 
-func NewStreamingServer(datastore Datastore, director Director) *StreamingServer {
+func NewStreamingServer(datastore Datastore, director Director, parser backend.Parser) *StreamingServer {
 	return &StreamingServer{
 		director:  director,
 		datastore: datastore,
+		parser:    parser,
 	}
 }
 
@@ -68,6 +69,7 @@ type Datastore interface {
 type StreamingServer struct {
 	datastore Datastore
 	director  Director
+	parser    backend.Parser
 }
 
 // RequestContext stores context information during the life time of an HTTP request.
@@ -110,7 +112,7 @@ type RequestContext struct {
 
 type Request struct {
 	Headers  map[string]string
-	Body     map[string]any
+	Body     backend.BackendRequest
 	Metadata map[string]any
 }
 type Response struct {
@@ -148,7 +150,6 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		RequestState: RequestReceived,
 		Request: &Request{
 			Headers:  make(map[string]string),
-			Body:     make(map[string]any),
 			Metadata: make(map[string]any),
 		},
 		Response: &Response{
@@ -225,13 +226,15 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			// Message is buffered, we can read and decode.
 			if v.RequestBody.EndOfStream {
 				loggerTrace.Info("decoding")
-				if errUnmarshal := json.Unmarshal(body, &reqCtx.Request.Body); errUnmarshal != nil {
+				var errParse error
+				reqCtx.Request.Body, errParse = s.parser.ParseRequest(body, reqCtx.Request.Headers)
+				if errParse != nil {
 					if logger.V(logutil.DEBUG).Enabled() {
-						logger.Info("Error unmarshaling request body", "body", string(body), "err", errUnmarshal)
+						logger.Info("Error parsing request body", "body", string(body), "err", errParse)
 					}
 					err = errutil.Error{
 						Code: errutil.BadRequest,
-						Msg:  "Error unmarshaling request body",
+						Msg:  "Error parsing request body",
 					}
 					break
 				}
@@ -248,7 +251,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 				// Marshal after HandleRequest to include modifications (e.g., model rewriting).
 				var requestBodyBytes []byte
-				requestBodyBytes, err = json.Marshal(reqCtx.Request.Body)
+				requestBodyBytes, err = reqCtx.Request.Body.Marshal()
 				if err != nil {
 					logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
 					break
@@ -292,8 +295,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			if reqCtx.modelServerStreaming {
 				// Currently we punt on response parsing if the modelServer is streaming, and we just passthrough.
 
-				responseText := string(v.ResponseBody.Body)
-				s.HandleResponseBodyModelStreaming(ctx, reqCtx, responseText)
+				s.HandleResponseBodyModelStreaming(ctx, reqCtx, v.ResponseBody.Body)
 				if v.ResponseBody.EndOfStream {
 					loggerTrace.Info("stream completed")
 					reqCtx.ResponseComplete = true
@@ -318,18 +320,19 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 					// We assume the body is valid JSON, err messages are not guaranteed to be json, and so capturing and sending a 500 obfuscates the response message.
 					// Using the standard 'err' var will send an immediate error response back to the caller.
 					var responseErr error
-					responseErr = json.Unmarshal(body, &responseBody)
+					var usage fwkrq.Usage
+					responseBody, usage, responseErr = s.parser.ParseResponse(body)
 					if responseErr != nil {
 						if logger.V(logutil.DEBUG).Enabled() {
-							logger.V(logutil.DEBUG).Error(responseErr, "Error unmarshalling request body", "body", string(body))
+							logger.V(logutil.DEBUG).Error(responseErr, "Error parsing response body", "body", string(body))
 						} else {
-							logger.V(logutil.DEFAULT).Error(responseErr, "Error unmarshalling request body", "body", string(body))
+							logger.V(logutil.DEFAULT).Error(responseErr, "Error parsing response body", "body", string(body))
 						}
 						reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
 						break
 					}
 
-					reqCtx, responseErr = s.HandleResponseBody(ctx, reqCtx, responseBody)
+					reqCtx, responseErr = s.HandleResponseBody(ctx, reqCtx, responseBody, usage)
 					if responseErr != nil {
 						if logger.V(logutil.DEBUG).Enabled() {
 							logger.V(logutil.DEBUG).Error(responseErr, "Failed to process response body", "request", req)

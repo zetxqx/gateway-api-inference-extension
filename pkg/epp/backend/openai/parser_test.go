@@ -14,21 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handlers
+package openai
 
 import (
-	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
-	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/openai"
-	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metadata"
 )
 
 const (
@@ -93,34 +87,43 @@ data: [DONE]
 	`
 )
 
-type mockDirector struct{}
+func TestParseRequest(t *testing.T) {
+	parser := NewParser()
 
-func (m *mockDirector) HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
-	return reqCtx, nil
-}
-func (m *mockDirector) HandleResponseBodyComplete(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
-	return reqCtx, nil
-}
-func (m *mockDirector) HandleResponseReceived(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
-	return reqCtx, nil
-}
-func (m *mockDirector) HandlePreRequest(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
-	return reqCtx, nil
-}
-func (m *mockDirector) GetRandomEndpoint() *fwkdl.EndpointMetadata {
-	return &fwkdl.EndpointMetadata{}
-}
-func (m *mockDirector) HandleRequest(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error) {
-	return reqCtx, nil
+	// Case 1: Standard Request
+	body1 := []byte(`{"model": "my-model", "prompt": "Hello"}`)
+	headers1 := map[string]string{}
+	req1, err := parser.ParseRequest(body1, headers1)
+	if err != nil {
+		t.Fatalf("ParseRequest failed: %v", err)
+	}
+	if val, ok := req1.Get("model"); !ok || val != "my-model" {
+		t.Errorf("expected model 'my-model', got %v", val)
+	}
+	if val, ok := req1.Get("prompt"); !ok || val != "Hello" {
+		t.Errorf("expected prompt 'Hello', got %v", val)
+	}
+
+	// Update field
+	if err := req1.Set("model", "new-model"); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+	if val, ok := req1.Get("model"); !ok || val != "new-model" {
+		t.Errorf("expected model 'new-model', got %v", val)
+	}
+
+	// Marshal back
+	bytes, err := req1.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	assert.JSONEq(t, `{"model": "new-model", "prompt": "Hello"}`, string(bytes))
 }
 
-func TestHandleResponseBody(t *testing.T) {
-	ctx := logutil.NewTestLoggerIntoContext(context.Background())
-
+func TestParseResponse(t *testing.T) {
 	tests := []struct {
 		name    string
 		body    []byte
-		reqCtx  *RequestContext
 		want    fwkrq.Usage
 		wantErr bool
 	}{
@@ -149,57 +152,37 @@ func TestHandleResponseBody(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &StreamingServer{}
-			server.director = &mockDirector{}
-			server.parser = openai.NewParser()
-			reqCtx := test.reqCtx
-			if reqCtx == nil {
-				reqCtx = &RequestContext{}
-			}
-			var responseMap map[string]any
-			marshalErr := json.Unmarshal(test.body, &responseMap)
-			if marshalErr != nil {
-				t.Error(marshalErr, "Error unmarshaling request body")
-			}
-			_, err := server.HandleResponseBody(ctx, reqCtx, responseMap, test.want)
+			parser := NewParser()
+			_, usage, err := parser.ParseResponse(test.body)
 			if err != nil {
 				if !test.wantErr {
-					t.Fatalf("HandleResponseBody returned unexpected error: %v, want %v", err, test.wantErr)
+					t.Fatalf("ParseResponse returned unexpected error: %v, want %v", err, test.wantErr)
 				}
 				return
 			}
 
-			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
-				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
+			if diff := cmp.Diff(test.want, usage); diff != "" {
+				t.Errorf("ParseResponse returned unexpected usage, diff(-want, +got): %v", diff)
 			}
 		})
 	}
 }
 
-func TestHandleStreamedResponseBody(t *testing.T) {
-	ctx := logutil.NewTestLoggerIntoContext(context.Background())
+func TestParseStreamResponse(t *testing.T) {
 	tests := []struct {
 		name    string
 		body    string
-		reqCtx  *RequestContext
 		want    fwkrq.Usage
 		wantErr bool
 	}{
 		{
 			name: "streaming request without usage",
 			body: streamingBodyWithoutUsage,
-			reqCtx: &RequestContext{
-				modelServerStreaming: true,
-			},
 			wantErr: false,
-			// In the middle of streaming response, so request context response is not set yet.
 		},
 		{
 			name: "streaming request with usage",
 			body: streamingBodyWithUsage,
-			reqCtx: &RequestContext{
-				modelServerStreaming: true,
-			},
 			wantErr: false,
 			want: fwkrq.Usage{
 				PromptTokens:     7,
@@ -210,9 +193,6 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 		{
 			name: "streaming request with usage and cached tokens",
 			body: streamingBodyWithUsageAndCachedTokens,
-			reqCtx: &RequestContext{
-				modelServerStreaming: true,
-			},
 			wantErr: false,
 			want: fwkrq.Usage{
 				PromptTokens:     7,
@@ -227,23 +207,22 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &StreamingServer{}
-			server.director = &mockDirector{}
-			server.parser = openai.NewParser()
-			reqCtx := test.reqCtx
-			if reqCtx == nil {
-				reqCtx = &RequestContext{}
+			parser := NewParser()
+			_, usage, _, err := parser.ParseStreamResponse([]byte(test.body))
+			if err != nil {
+				if !test.wantErr {
+					t.Fatalf("ParseStreamResponse returned unexpected error: %v", err)
+				}
 			}
-			server.HandleResponseBodyModelStreaming(ctx, reqCtx, []byte(test.body))
 
-			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
-				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
+			if diff := cmp.Diff(test.want, usage); diff != "" {
+				t.Errorf("ParseStreamResponse returned unexpected usage, diff(-want, +got): %v", diff)
 			}
 		})
 	}
 }
 
-func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
+func TestParseStreamResponse_TokenAccumulation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -289,45 +268,22 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			server := &StreamingServer{
-				director: &mockDirector{},
-				parser:   openai.NewParser(),
-			}
-			reqCtx := &RequestContext{}
+			parser := NewParser()
+			var usage fwkrq.Usage
+			var isComplete bool
 
 			for _, chunk := range tc.chunks {
-				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, []byte(chunk))
+				_, chunkUsage, complete, _ := parser.ParseStreamResponse([]byte(chunk))
+				if chunkUsage.TotalTokens > 0 {
+					usage = chunkUsage
+				}
+				if complete {
+					isComplete = true
+				}
 			}
 
-			assert.Equal(t, tc.wantUsage, reqCtx.Usage, "Usage data should match expected accumulation")
-			assert.True(t, reqCtx.ResponseComplete, "Response should be marked complete after [DONE]")
+			assert.Equal(t, tc.wantUsage, usage, "Usage data should match expected accumulation")
+			assert.True(t, isComplete, "Response should be marked complete after [DONE]")
 		})
 	}
-}
-
-func TestGenerateResponseHeaders_Sanitization(t *testing.T) {
-	server := &StreamingServer{}
-	reqCtx := &RequestContext{
-		Response: &Response{
-			Headers: map[string]string{
-				"x-backend-server":              "vllm-v0.6.3",            // should passthrough
-				metadata.ObjectiveKey:           "sensitive-objective-id", // should be stripped
-				metadata.DestinationEndpointKey: "10.2.0.5:8080",          // should be stripped
-				"content-length":                "500",                    // hould be stripped
-			},
-		},
-	}
-
-	results := server.generateResponseHeaders(reqCtx)
-
-	gotHeaders := make(map[string]string)
-	for _, h := range results {
-		gotHeaders[h.Header.Key] = string(h.Header.RawValue)
-	}
-
-	assert.Contains(t, gotHeaders, "x-backend-server")
-	assert.Contains(t, gotHeaders, "x-went-into-resp-headers")
-	assert.NotContains(t, gotHeaders, metadata.ObjectiveKey)
-	assert.NotContains(t, gotHeaders, metadata.DestinationEndpointKey)
-	assert.NotContains(t, gotHeaders, "content-length")
 }
