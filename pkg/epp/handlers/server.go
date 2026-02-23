@@ -289,6 +289,10 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			reqCtx.respHeaderResp = s.generateResponseHeaderResponse(reqCtx)
 
 		case *extProcPb.ProcessingRequest_ResponseBody:
+			reqCtx.ResponseComplete = v.ResponseBody.EndOfStream
+			if reqCtx.ResponseComplete {
+				reqCtx.ResponseCompleteTimestamp = time.Now()
+			}
 			if reqCtx.modelServerStreaming {
 				// Currently we punt on response parsing if the modelServer is streaming, and we just passthrough.
 
@@ -300,8 +304,6 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 					if _, err := s.director.HandleResponseBodyComplete(ctx, reqCtx); err != nil {
 						logger.Error(err, "error in HandleResponseBodyComplete")
 					}
-
-					reqCtx.ResponseCompleteTimestamp = time.Now()
 					metrics.RecordRequestLatencies(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp)
 					metrics.RecordResponseSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.ResponseSize)
 					metrics.RecordNormalizedTimePerOutputToken(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp, reqCtx.Usage.CompletionTokens)
@@ -419,7 +421,8 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 		}
 		r.RequestState = HeaderResponseResponseComplete
 	}
-	if r.RequestState == HeaderResponseResponseComplete && r.respBodyResp != nil && len(r.respBodyResp) > 0 {
+	if r.RequestState == HeaderResponseResponseComplete {
+		loggerTrace.Info("Sending response body response(s)")
 		for _, response := range r.respBodyResp {
 			if err := srv.Send(response); err != nil {
 				return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
@@ -430,6 +433,9 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 				logger.V(1).Info("EPP sent response body back to proxy")
 				r.RequestState = BodyResponseResponsesComplete
 			}
+		}
+		if r.ResponseComplete {
+			r.RequestState = BodyResponseResponsesComplete
 		}
 		// Dump the response so a new stream message can begin
 		r.respBodyResp = nil
