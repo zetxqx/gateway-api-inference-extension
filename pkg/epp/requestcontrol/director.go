@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/contracts"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwk "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
@@ -121,62 +122,27 @@ func (d *Director) getInferenceObjective(ctx context.Context, reqCtx *handlers.R
 	return infObjective
 }
 
-// HandleRequest orchestrates the request lifecycle.
-// It always returns the requestContext even in the error case, as the request context is used in error handling.
 func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	bodyMap := make(map[string]any)
-	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
-		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
-	}
-
-	var ok bool
-	reqCtx.IncomingModelName, ok = bodyMap["model"].(string)
-
-	if !ok {
-		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
-	}
-	if reqCtx.TargetModelName == "" {
-		// Default to incoming model name
-		reqCtx.TargetModelName = reqCtx.IncomingModelName
-	}
-
-	d.applyWeightedModelRewrite(reqCtx)
-
-	bodyMap["model"] = reqCtx.TargetModelName
-	requestBody, err := requtil.ExtractRequestBody(bodyMap, reqCtx.Request.Headers)
+	// Parse, mutate, and extract the request body
+	llmRequestBody, err := d.processRequestBody(ctx, reqCtx)
 	if err != nil {
-		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
+		return reqCtx, err
 	}
 
-	// Marshal after HandleRequest to include modifications (e.g., model rewriting).
-	var requestBodyBytes []byte
-	requestBodyBytes, err = json.Marshal(bodyMap)
-	if err != nil {
-		logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
-		return reqCtx, errutil.Error{Code: errutil.Internal, Msg: "Error marshalling request body"}
-	}
-	// Update UpdatedBody in reqCtx to reflect the request body mutation.
-	reqCtx.Request.UpdatedBody = requestBodyBytes
-	// Update RequestSize to match marshalled body for Content-Length header.
-	reqCtx.RequestSize = len(requestBodyBytes)
-
-	// Parse inference objective.
 	infObjective := d.getInferenceObjective(ctx, reqCtx)
 	requestObjectives := fwksched.RequestObjectives{Priority: *infObjective.Spec.Priority}
 
-	// Prepare LLMRequest (needed for both saturation detection and Scheduler)
 	reqCtx.SchedulingRequest = &fwksched.LLMRequest{
 		RequestId:   reqCtx.Request.Headers[requtil.RequestIdHeaderKey],
 		TargetModel: reqCtx.TargetModelName,
-		Body:        requestBody,
+		Body:        llmRequestBody,
 		Headers:     reqCtx.Request.Headers,
 		Objectives:  requestObjectives,
 	}
 
 	logger = logger.WithValues("objectiveKey", reqCtx.ObjectiveKey, "incomingModelName", reqCtx.IncomingModelName, "targetModelName", reqCtx.TargetModelName, "priority", infObjective.Spec.Priority)
-
 	ctx = log.IntoContext(ctx, logger)
 	logger.V(logutil.DEBUG).Info("LLM request assembled")
 
@@ -218,6 +184,62 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 		return reqCtx, err
 	}
 
+	return reqCtx, nil
+}
+
+func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext) (*scheduling.LLMRequestBody, error) {
+	bodyMap := make(map[string]any)
+	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
+		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
+	}
+
+	if err := d.mutateAndRepackage(ctx, reqCtx, bodyMap); err != nil {
+		return nil, err
+	}
+
+	extractedBody, err := requtil.ExtractRequestBody(bodyMap, reqCtx.Request.Headers)
+	if err != nil {
+		return nil, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
+	}
+	return extractedBody, nil
+}
+
+func (d *Director) mutateAndRepackage(ctx context.Context, reqCtx *handlers.RequestContext, bodyMap map[string]any) error {
+	logger := log.FromContext(ctx)
+
+	// Mutate the model name inside the map
+	_, err := d.mutateModel(reqCtx, bodyMap)
+	if err != nil {
+		return err
+	}
+
+	// Marshal back to bytes so downstream ExtProc filters see the updated model
+	requestBodyBytes, err := json.Marshal(bodyMap)
+	if err != nil {
+		logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
+		return errutil.Error{Code: errutil.Internal, Msg: "Error marshalling request body"}
+	}
+
+	reqCtx.Request.UpdatedBody = requestBodyBytes
+	reqCtx.RequestSize = len(requestBodyBytes)
+
+	return nil
+}
+
+func (d *Director) mutateModel(reqCtx *handlers.RequestContext, bodyMap map[string]any) (*handlers.RequestContext, error) {
+	var ok bool
+	reqCtx.IncomingModelName, ok = bodyMap["model"].(string)
+	if !ok {
+
+		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
+
+	}
+	if reqCtx.TargetModelName == "" {
+		// Default to incoming model name
+		reqCtx.TargetModelName = reqCtx.IncomingModelName
+	}
+	d.applyWeightedModelRewrite(reqCtx)
+	bodyMap["model"] = reqCtx.TargetModelName
 	return reqCtx, nil
 }
 
