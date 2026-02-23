@@ -18,7 +18,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"strings"
 	"time"
@@ -113,7 +112,7 @@ type RequestContext struct {
 
 type Request struct {
 	Headers  map[string]string
-	Body     map[string]any
+	Body     backend.BackendRequest
 	Metadata map[string]any
 }
 type Response struct {
@@ -151,7 +150,6 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		RequestState: RequestReceived,
 		Request: &Request{
 			Headers:  make(map[string]string),
-			Body:     make(map[string]any),
 			Metadata: make(map[string]any),
 		},
 		Response: &Response{
@@ -253,7 +251,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 				// Marshal after HandleRequest to include modifications (e.g., model rewriting).
 				var requestBodyBytes []byte
-				requestBodyBytes, err = json.Marshal(reqCtx.Request.Body)
+				requestBodyBytes, err = reqCtx.Request.Body.Marshal()
 				if err != nil {
 					logger.V(logutil.DEFAULT).Error(err, "Error marshalling request body")
 					break

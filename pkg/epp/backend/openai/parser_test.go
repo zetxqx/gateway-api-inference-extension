@@ -87,6 +87,39 @@ data: [DONE]
 	`
 )
 
+func TestParseRequest(t *testing.T) {
+	parser := NewParser()
+
+	// Case 1: Standard Request
+	body1 := []byte(`{"model": "my-model", "prompt": "Hello"}`)
+	headers1 := map[string]string{}
+	req1, err := parser.ParseRequest(body1, headers1)
+	if err != nil {
+		t.Fatalf("ParseRequest failed: %v", err)
+	}
+	if val, ok := req1.Get("model"); !ok || val != "my-model" {
+		t.Errorf("expected model 'my-model', got %v", val)
+	}
+	if val, ok := req1.Get("prompt"); !ok || val != "Hello" {
+		t.Errorf("expected prompt 'Hello', got %v", val)
+	}
+
+	// Update field
+	if err := req1.Set("model", "new-model"); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+	if val, ok := req1.Get("model"); !ok || val != "new-model" {
+		t.Errorf("expected model 'new-model', got %v", val)
+	}
+
+	// Marshal back
+	bytes, err := req1.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	assert.JSONEq(t, `{"model": "new-model", "prompt": "Hello"}`, string(bytes))
+}
+
 func TestParseResponse(t *testing.T) {
 	tests := []struct {
 		name    string

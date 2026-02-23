@@ -177,7 +177,7 @@ type testDirector struct {
 func (ts *testDirector) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	ts.requestHeaders = reqCtx.Request.Headers
 
-	reqCtx.Request.Body["model"] = "v1"
+	_ = reqCtx.Request.Body.Set("model", "v1")
 	reqCtx.TargetEndpoint = fmt.Sprintf("%s:%d", podAddress, poolPort)
 	return reqCtx, nil
 }

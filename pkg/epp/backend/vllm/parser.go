@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	vllmpb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/gen"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 )
 
@@ -35,38 +36,90 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-// ParseRequest parses the request body and returns a map representation.
-func (p *Parser) ParseRequest(body []byte, headers map[string]string) (map[string]any, error) {
+// VLLMRequest implements BackendRequest for vLLM.
+type VLLMRequest struct {
+	req     *vllmpb.GenerateRequest
+	headers map[string]string
+}
+
+func (r *VLLMRequest) Get(key string) (any, bool) {
+	if key == "model" {
+		if model, ok := r.headers["x-model-name"]; ok {
+			return model, true
+		}
+		if model, ok := r.headers["model"]; ok {
+			return model, true
+		}
+		return nil, false
+	}
+	if key == "prompt" {
+		switch v := r.req.Input.(type) {
+		case *vllmpb.GenerateRequest_Text:
+			return v.Text, true
+		case *vllmpb.GenerateRequest_Tokenized:
+			return v.Tokenized.OriginalText, true
+		}
+		return nil, false
+	}
+	if key == "stream" {
+		return r.req.Stream, true
+	}
+	return nil, false
+}
+
+func (r *VLLMRequest) Set(key string, value any) error {
+	if key == "model" {
+		// Update header for model
+		if strVal, ok := value.(string); ok {
+			r.headers["x-model-name"] = strVal
+			return nil
+		}
+		return fmt.Errorf("invalid value type for model: %T", value)
+	}
+	if key == "prompt" {
+		if strVal, ok := value.(string); ok {
+			r.req.Input = &vllmpb.GenerateRequest_Text{Text: strVal}
+			return nil
+		}
+		return fmt.Errorf("invalid value type for prompt: %T", value)
+	}
+	return nil
+}
+
+func (r *VLLMRequest) Marshal() ([]byte, error) {
+	return proto.Marshal(r.req)
+}
+
+func (r *VLLMRequest) ToMap() map[string]any {
+	// Construct a map representation
+	requestMap := make(map[string]any)
+
+	// Populate model
+	if val, ok := r.Get("model"); ok {
+		requestMap["model"] = val
+	}
+
+	// Populate prompt
+	if val, ok := r.Get("prompt"); ok {
+		requestMap["prompt"] = val
+	}
+
+	// Populate stream
+	requestMap["stream"] = r.req.Stream
+
+	return requestMap
+}
+
+// ParseRequest parses the request body and headers and returns a BackendRequest object.
+func (p *Parser) ParseRequest(body []byte, headers map[string]string) (backend.BackendRequest, error) {
 	var req vllmpb.GenerateRequest
 	if err := proto.Unmarshal(body, &req); err != nil {
 		return nil, fmt.Errorf("error unmarshalling vllm request body: %w", err)
 	}
 
-	// The Director expects a map[string]any representation of the request.
-	// We construct a map that mimics the OpenAI format where possible,
-	// or at least provides the necessary fields for the Director.
-	requestMap := make(map[string]any)
-
-	// Populate model from headers if available, as it's not in the GenerateRequest body.
-	// We check for common header names or x-model-name.
-	if model, ok := headers["x-model-name"]; ok {
-		requestMap["model"] = model
-	} else if model, ok := headers["model"]; ok {
-		requestMap["model"] = model
-	}
-
-	// Populate prompt
-	switch v := req.Input.(type) {
-	case *vllmpb.GenerateRequest_Text:
-		requestMap["prompt"] = v.Text
-	case *vllmpb.GenerateRequest_Tokenized:
-		requestMap["prompt"] = v.Tokenized.OriginalText
-	}
-
-	// Populate other fields if necessary for Director/Plugins.
-	requestMap["stream"] = req.Stream
-
-	return requestMap, nil
+	// We use the passed headers map directly so that modifications (like Set("model", ...))
+	// are reflected in the map held by the caller (StreamingServer), ensuring they propagate upstream.
+	return &VLLMRequest{req: &req, headers: headers}, nil
 }
 
 // ParseResponse parses the response body and returns a map representation and usage statistics.

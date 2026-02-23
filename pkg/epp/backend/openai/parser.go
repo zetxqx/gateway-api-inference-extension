@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 )
 
@@ -44,13 +45,36 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-// ParseRequest parses the request body and headers and returns a map representation.
-func (p *Parser) ParseRequest(body []byte, headers map[string]string) (map[string]any, error) {
+// OpenAIRequest implements BackendRequest for OpenAI.
+type OpenAIRequest struct {
+	data map[string]any
+}
+
+func (r *OpenAIRequest) Get(key string) (any, bool) {
+	val, ok := r.data[key]
+	return val, ok
+}
+
+func (r *OpenAIRequest) Set(key string, value any) error {
+	r.data[key] = value
+	return nil
+}
+
+func (r *OpenAIRequest) Marshal() ([]byte, error) {
+	return json.Marshal(r.data)
+}
+
+func (r *OpenAIRequest) ToMap() map[string]any {
+	return r.data
+}
+
+// ParseRequest parses the request body and headers and returns a BackendRequest object.
+func (p *Parser) ParseRequest(body []byte, headers map[string]string) (backend.BackendRequest, error) {
 	var requestBody map[string]any
 	if err := json.Unmarshal(body, &requestBody); err != nil {
 		return nil, fmt.Errorf("error unmarshalling request body: %w", err)
 	}
-	return requestBody, nil
+	return &OpenAIRequest{data: requestBody}, nil
 }
 
 // ParseResponse parses the response body and returns a map representation and usage statistics.

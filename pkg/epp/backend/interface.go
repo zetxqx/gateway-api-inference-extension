@@ -18,10 +18,22 @@ package backend
 
 import "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 
+// BackendRequest defines the interface for a parsed request that can be inspected, modified, and re-marshaled.
+type BackendRequest interface {
+	// Get returns the value of a specific field.
+	Get(key string) (any, bool)
+	// Set updates a field in the request.
+	Set(key string, value any) error
+	// Marshal serializes the request back to bytes (JSON or Proto).
+	Marshal() ([]byte, error)
+	// ToMap returns a map representation of the request.
+	ToMap() map[string]any
+}
+
 // Parser defines the interface for parsing requests and responses.
 type Parser interface {
-	// ParseRequest parses the request body and headers and returns a map representation.
-	ParseRequest(body []byte, headers map[string]string) (map[string]any, error)
+	// ParseRequest parses the request body and headers and returns a BackendRequest object.
+	ParseRequest(body []byte, headers map[string]string) (BackendRequest, error)
 
 	// ParseResponse parses the response body and returns a map representation and usage statistics.
 	ParseResponse(body []byte) (map[string]any, requestcontrol.Usage, error)

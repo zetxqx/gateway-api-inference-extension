@@ -35,15 +35,15 @@ func TestParseRequest(t *testing.T) {
 	}
 	body1, _ := proto.Marshal(req1)
 	headers1 := map[string]string{}
-	map1, err := parser.ParseRequest(body1, headers1)
+	req1Obj, err := parser.ParseRequest(body1, headers1)
 	if err != nil {
 		t.Fatalf("ParseRequest failed: %v", err)
 	}
-	if map1["prompt"] != "Hello" {
-		t.Errorf("expected prompt 'Hello', got %v", map1["prompt"])
+	if val, ok := req1Obj.Get("prompt"); !ok || val != "Hello" {
+		t.Errorf("expected prompt 'Hello', got %v", val)
 	}
-	if map1["model"] != nil {
-		t.Errorf("expected model to be nil, got %v", map1["model"])
+	if val, ok := req1Obj.Get("model"); ok {
+		t.Errorf("expected model to be missing, got %v", val)
 	}
 
 	// Case 2: Tokenized input, model in headers
@@ -54,15 +54,15 @@ func TestParseRequest(t *testing.T) {
 	}
 	body2, _ := proto.Marshal(req2)
 	headers2 := map[string]string{"x-model-name": "my-model"}
-	map2, err := parser.ParseRequest(body2, headers2)
+	req2Obj, err := parser.ParseRequest(body2, headers2)
 	if err != nil {
 		t.Fatalf("ParseRequest failed: %v", err)
 	}
-	if map2["prompt"] != "Original" {
-		t.Errorf("expected prompt 'Original', got %v", map2["prompt"])
+	if val, ok := req2Obj.Get("prompt"); !ok || val != "Original" {
+		t.Errorf("expected prompt 'Original', got %v", val)
 	}
-	if map2["model"] != "my-model" {
-		t.Errorf("expected model 'my-model', got %v", map2["model"])
+	if val, ok := req2Obj.Get("model"); !ok || val != "my-model" {
+		t.Errorf("expected model 'my-model', got %v", val)
 	}
 }
 
