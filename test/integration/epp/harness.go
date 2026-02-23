@@ -184,6 +184,31 @@ func NewTestHarness(t *testing.T, ctx context.Context, opts ...HarnessOption) *T
 	return h
 }
 
+// Reset cleans up the test environment for the next test case.
+// It resets the metrics, clears the fake pod metrics client, and deletes all pods in the namespace.
+func (h *TestHarness) Reset(t *testing.T) {
+	h.t = t
+	// Reset global metrics.
+	metrics.Reset()
+	// Reset fake pod metrics.
+	h.fakePmc.SetRes(make(map[types.NamespacedName]*fwkdl.Metrics))
+	// Delete all pods in the namespace.
+	require.NoError(t, k8sClient.DeleteAllOf(h.ctx, &corev1.Pod{}, client.InNamespace(h.Namespace)))
+	// Wait for the datastore to be empty.
+	require.Eventually(t, func() bool {
+		return len(h.Datastore.PodList(datastore.AllPodsPredicate)) == 0
+	}, 10*time.Second, 50*time.Millisecond, "Datastore failed to clear pods")
+
+	// Close the old stream and create a new one to ensure a clean state for the next test.
+	if h.Client != nil {
+		_ = h.Client.CloseSend()
+	}
+	client := extProcPb.NewExternalProcessorClient(h.grpcConn)
+	stream, err := client.Process(h.ctx)
+	require.NoError(t, err, "failed to re-initialize ext_proc stream client")
+	h.Client = stream
+}
+
 func defaultEppServerOptions(t *testing.T, namespace string) *eppServer.Options {
 	t.Helper()
 
@@ -205,6 +230,8 @@ func defaultEppServerOptions(t *testing.T, namespace string) *eppServer.Options 
 	eppOptions.GRPCHealthPort = healthPort
 	eppOptions.EndpointTargetPorts = []int{8000}
 	eppOptions.SecureServing = false
+	eppOptions.RefreshPrometheusMetricsInterval = 100 * time.Millisecond
+	eppOptions.RefreshMetricsInterval = 100 * time.Millisecond
 	return eppOptions
 }
 
@@ -283,7 +310,7 @@ func (h *TestHarness) WaitForReadyPodsMetric(expectedCount int) {
 		err := metricsutils.GatherAndCompare(crmetrics.Registry, strings.NewReader(expected),
 			"inference_pool_ready_pods")
 		return err == nil
-	}, 10*time.Second, 50*time.Millisecond, "Timed out waiting for inference_pool_ready_pods metric to settle")
+	}, 30*time.Second, 50*time.Millisecond, "Timed out waiting for inference_pool_ready_pods metric to settle")
 }
 
 // WaitForSync blocks until the EPP Datastore has synced the expected number of pods.

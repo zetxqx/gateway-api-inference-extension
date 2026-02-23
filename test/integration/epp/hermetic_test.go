@@ -386,21 +386,23 @@ func TestFullDuplexStreamed_KubeInferenceObjectiveRequest(t *testing.T) {
 
 	for _, mode := range executionModes {
 		t.Run(mode.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var h *TestHarness
+			if mode.standalone {
+				h = NewTestHarness(t, ctx, WithStandaloneMode())
+			} else {
+				h = NewTestHarness(t, ctx).WithBaseResources()
+			}
+
 			for _, tc := range tests {
 				t.Run(tc.name, func(t *testing.T) {
 					if mode.standalone && tc.requiresCRDs {
 						t.Skipf("Skipping test %q: requires CRDs, but running in Standalone mode", tc.name)
 					}
 
-					ctx, cancel := context.WithCancel(context.Background())
-					defer cancel()
-
-					var h *TestHarness
-					if mode.standalone {
-						h = NewTestHarness(t, ctx, WithStandaloneMode())
-					} else {
-						h = NewTestHarness(t, ctx).WithBaseResources()
-					}
+					h.Reset(t)
 
 					// In Standalone mode, we cannot wait for an Objective CRD to sync as it doesn't exist.
 					// We only wait for Pod discovery.
