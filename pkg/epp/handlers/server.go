@@ -36,6 +36,7 @@ import (
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkpp "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
@@ -43,10 +44,11 @@ import (
 	requtil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
 )
 
-func NewStreamingServer(datastore Datastore, director Director) *StreamingServer {
+func NewStreamingServer(datastore Datastore, director Director, parser Parser) *StreamingServer {
 	return &StreamingServer{
 		director:  director,
 		datastore: datastore,
+		parser:    parser,
 	}
 }
 
@@ -62,11 +64,17 @@ type Datastore interface {
 	PoolGet() (*datalayer.EndpointPool, error)
 }
 
+type Parser interface {
+	ParseResponse(body []byte) (*fwkpp.ParsedResponse, error)
+	ParseStreamResponse(chunk []byte) (*fwkpp.ParsedResponse, error)
+}
+
 // Server implements the Envoy external processing server.
 // https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/ext_proc/v3/external_processor.proto
 type StreamingServer struct {
 	datastore Datastore
 	director  Director
+	parser    Parser
 }
 
 // RequestContext stores context information during the life time of an HTTP request.
