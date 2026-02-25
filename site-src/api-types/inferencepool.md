@@ -39,7 +39,7 @@ spec:
   extensionRef:
     name: vllm-qwen3-32b-epp
     port: 9002
-    failureMode: FailClose
+    failureMode: FailOpen
 ```
 
 In this example: 
