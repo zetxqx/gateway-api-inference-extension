@@ -109,11 +109,9 @@ type RequestContext struct {
 }
 
 type Request struct {
-	Headers map[string]string
-	// Body     map[string]any
-	RawBody     []byte
-	UpdatedBody []byte // This is the request body mutated and will be sent to ext_proc.
-	Metadata    map[string]any
+	Headers  map[string]string
+	RawBody  []byte // This field will be updated when request body is modified (e.g. model mutation in requestBody)
+	Metadata map[string]any
 }
 type Response struct {
 	Headers         map[string]string
@@ -149,8 +147,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 	reqCtx := &RequestContext{
 		RequestState: RequestReceived,
 		Request: &Request{
-			Headers: make(map[string]string),
-			// Body:     make(map[string]any),
+			Headers:  make(map[string]string),
 			Metadata: make(map[string]any),
 		},
 		Response: &Response{
@@ -240,7 +237,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				}
 
 				reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
-				reqCtx.reqBodyResp = s.generateRequestBodyResponses(reqCtx.Request.UpdatedBody)
+				reqCtx.reqBodyResp = s.generateRequestBodyResponses(reqCtx.Request.RawBody)
 
 				metrics.RecordRequestCounter(reqCtx.IncomingModelName, reqCtx.TargetModelName)
 				metrics.RecordRequestSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestSize)

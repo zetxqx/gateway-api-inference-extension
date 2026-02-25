@@ -709,15 +709,15 @@ func TestDirector_HandleRequest(t *testing.T) {
 				}
 
 				if test.wantMutatedBodyModel != "" {
-					assert.NotEmpty(t, returnedReqCtx.Request.UpdatedBody, "Expected mutated body, but reqCtx.Request.Body is nil")
+					assert.NotEmpty(t, returnedReqCtx.Request.RawBody, "Expected mutated body, but reqCtx.Request.Body is nil")
 					updatedBodyMap := make(map[string]any)
-					if err := json.Unmarshal(reqCtx.Request.UpdatedBody, &updatedBodyMap); err != nil {
+					if err := json.Unmarshal(reqCtx.Request.RawBody, &updatedBodyMap); err != nil {
 						t.Errorf("Error to Unmarshal reqCtx.Request.UpdatedBody, err is %v", err)
 					}
 					assert.Equal(t, test.wantMutatedBodyModel, updatedBodyMap["model"],
 						"Mutated reqCtx.Request.Body model mismatch")
 				}
-				assert.Equal(t, len(reqCtx.Request.UpdatedBody), reqCtx.RequestSize)
+				assert.Equal(t, len(reqCtx.Request.RawBody), reqCtx.RequestSize)
 			})
 		}
 	}

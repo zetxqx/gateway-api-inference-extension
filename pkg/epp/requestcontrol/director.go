@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/contracts"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwk "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
@@ -122,6 +121,8 @@ func (d *Director) getInferenceObjective(ctx context.Context, reqCtx *handlers.R
 	return infObjective
 }
 
+// HandleRequest orchestrates the request lifecycle.
+// It always returns the requestContext even in the error case, as the request context is used in error handling.
 func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx)
 
@@ -187,7 +188,7 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	return reqCtx, nil
 }
 
-func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext) (*scheduling.LLMRequestBody, error) {
+func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext) (*fwksched.LLMRequestBody, error) {
 	bodyMap := make(map[string]any)
 	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
 		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
@@ -220,7 +221,7 @@ func (d *Director) mutateAndRepackage(ctx context.Context, reqCtx *handlers.Requ
 		return errutil.Error{Code: errutil.Internal, Msg: "Error marshalling request body"}
 	}
 
-	reqCtx.Request.UpdatedBody = requestBodyBytes
+	reqCtx.Request.RawBody = requestBodyBytes
 	reqCtx.RequestSize = len(requestBodyBytes)
 
 	return nil
