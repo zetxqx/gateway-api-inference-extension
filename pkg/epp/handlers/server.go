@@ -317,17 +317,16 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 					reqCtx, responseErr = s.HandleResponseBody(ctx, reqCtx, body)
 					if responseErr != nil {
 						break
-					} else if reqCtx.ResponseComplete {
-						metrics.RecordRequestLatencies(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp)
-						metrics.RecordResponseSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.ResponseSize)
-						metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
-						metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.CompletionTokens)
-						cachedToken := 0
-						if reqCtx.Usage.PromptTokenDetails != nil {
-							cachedToken = reqCtx.Usage.PromptTokenDetails.CachedTokens
-						}
-						metrics.RecordPromptCachedTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, cachedToken)
 					}
+					metrics.RecordRequestLatencies(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp)
+					metrics.RecordResponseSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.ResponseSize)
+					metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
+					metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.CompletionTokens)
+					cachedToken := 0
+					if reqCtx.Usage.PromptTokenDetails != nil {
+						cachedToken = reqCtx.Usage.PromptTokenDetails.CachedTokens
+					}
+					metrics.RecordPromptCachedTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, cachedToken)
 				}
 			}
 		case *extProcPb.ProcessingRequest_ResponseTrailers:
@@ -405,14 +404,9 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 			if err := srv.Send(response); err != nil {
 				return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
 			}
-
-			body := response.Response.(*extProcPb.ProcessingResponse_ResponseBody)
-			if body.ResponseBody.Response.GetBodyMutation().GetStreamedResponse().GetEndOfStream() {
-				logger.V(1).Info("EPP sent response body back to proxy")
-				r.RequestState = BodyResponseResponsesComplete
-			}
 		}
 		if r.ResponseComplete {
+			logger.V(1).Info("EPP sent response body back to proxy")
 			r.RequestState = BodyResponseResponsesComplete
 		}
 		// Dump the response so a new stream message can begin
