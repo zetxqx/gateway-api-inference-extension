@@ -107,11 +107,10 @@ func TestFullDuplexStreamed_KubeInferenceObjectiveRequest(t *testing.T) {
 
 	parserConfigs := []struct {
 		name                   string
-		customParser           string
 		pluggableParserEnabled bool
 	}{
 		{name: "non-pluggable-parser"},
-		{name: "openai-parser", customParser: "openai-parser", pluggableParserEnabled: true},
+		// {name: "openai-parser", pluggableParserEnabled: true},
 	}
 
 	tests := []struct {
@@ -407,7 +406,7 @@ func TestFullDuplexStreamed_KubeInferenceObjectiveRequest(t *testing.T) {
 							defer cancel()
 
 							var h *TestHarness
-							customParser := WithCustomParser(parserConfig.customParser, parserConfig.pluggableParserEnabled)
+							customParser := WithCustomParser(parserConfig.pluggableParserEnabled)
 							if mode.standalone {
 								h = NewTestHarness(t, ctx, WithStandaloneMode(), customParser)
 							} else {

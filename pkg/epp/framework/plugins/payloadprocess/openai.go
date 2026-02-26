@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	requtil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
@@ -41,7 +42,7 @@ const (
 )
 
 const (
-	OpenAIParserName = "openai-parser"
+	OpenAIParserType = "openai-parser"
 )
 
 // compile-time type validation
@@ -56,8 +57,8 @@ type OpenAIParser struct {
 func NewOpenAIParser() *OpenAIParser {
 	return &OpenAIParser{
 		typedName: fwkplugin.TypedName{
-			Type: payloadprocess.ParserType,
-			Name: OpenAIParserName,
+			Type: OpenAIParserType,
+			Name: OpenAIParserType,
 		},
 	}
 }
@@ -65,6 +66,15 @@ func NewOpenAIParser() *OpenAIParser {
 // TypedName returns the type and name tuple of this plugin instance.
 func (p *OpenAIParser) TypedName() fwkplugin.TypedName {
 	return p.typedName
+}
+
+func OpenAIParserPluginFactory(name string, rawParameters json.RawMessage, handle plugin.Handle) (plugin.Plugin, error) {
+	return NewOpenAIParser(), nil
+}
+
+func (p *OpenAIParser) WithName(name string) *OpenAIParser {
+	p.typedName.Name = name
+	return p
 }
 
 // ParseRequest parses the request body and headers and returns a map representation.
