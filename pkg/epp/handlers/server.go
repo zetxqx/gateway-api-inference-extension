@@ -44,7 +44,7 @@ import (
 	requtil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
 )
 
-func NewStreamingServer(datastore Datastore, director Director, parser Parser) *StreamingServer {
+func NewStreamingServer(datastore Datastore, director Director, parser fwkpp.Parser) *StreamingServer {
 	return &StreamingServer{
 		director:  director,
 		datastore: datastore,
@@ -64,17 +64,12 @@ type Datastore interface {
 	PoolGet() (*datalayer.EndpointPool, error)
 }
 
-type Parser interface {
-	ParseResponse(body []byte) (*fwkpp.ParsedResponse, error)
-	ParseStreamResponse(chunk []byte) (*fwkpp.ParsedResponse, error)
-}
-
 // Server implements the Envoy external processing server.
 // https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/ext_proc/v3/external_processor.proto
 type StreamingServer struct {
 	datastore Datastore
 	director  Director
-	parser    Parser
+	parser    fwkpp.Parser
 }
 
 // RequestContext stores context information during the life time of an HTTP request.

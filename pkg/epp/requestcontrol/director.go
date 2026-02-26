@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/contracts"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkpp "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 	fwk "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
@@ -66,17 +67,12 @@ type Scheduler interface {
 	Schedule(ctx context.Context, request *fwksched.LLMRequest, candidatePods []fwksched.Endpoint) (result *fwksched.SchedulingResult, err error)
 }
 
-// Scheduler defines the interface required by the Director for parser payload.
-type Parser interface {
-	ParseRequest(headers map[string]string, body []byte) (*fwksched.LLMRequestBody, error)
-}
-
 // NewDirectorWithConfig creates a new Director instance with all dependencies.
 func NewDirectorWithConfig(
 	datastore Datastore,
 	scheduler Scheduler,
 	admissionController AdmissionController,
-	parser Parser,
+	parser fwkpp.Parser,
 	podLocator contracts.PodLocator,
 	config *Config,
 ) *Director {
@@ -109,7 +105,7 @@ type Director struct {
 	// no need to set this in the constructor, since the value we want is the default int val
 	// and value types cannot be nil
 	defaultPriority int
-	parser          Parser
+	parser          fwkpp.Parser
 }
 
 // getInferenceObjective fetches the inferenceObjective from the datastore otherwise creates a new one based on reqCtx.
@@ -196,14 +192,14 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	return reqCtx, nil
 }
 
-func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser Parser) (*fwksched.LLMRequestBody, error) {
+func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkpp.Parser) (*fwksched.LLMRequestBody, error) {
 	if parser != nil {
 		return d.parseWithParser(ctx, reqCtx, parser)
 	}
 	return d.parseLegacy(ctx, reqCtx)
 }
 
-func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.RequestContext, parser Parser) (*fwksched.LLMRequestBody, error) {
+func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkpp.Parser) (*fwksched.LLMRequestBody, error) {
 	llmRequestBody, err := parser.ParseRequest(reqCtx.Request.Headers, reqCtx.Request.RawBody)
 	if err != nil {
 		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "failed to parse the request"}
