@@ -212,7 +212,6 @@ func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.Request
 	switch v := llmRequestBody.ParsedBody.(type) {
 	case proto.Message:
 		// Protos are not currently mutated, return as-is.
-		reqCtx.Request.RawBody = reqCtx.Request.RawBody
 		reqCtx.RequestSize = len(reqCtx.Request.RawBody)
 	case map[string]any:
 		if err := d.mutateAndRepackage(ctx, reqCtx, v); err != nil {
@@ -225,7 +224,7 @@ func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.Request
 }
 
 // parseLegacy handles the original JSON unmarshaling flow.
-func (d *Director) parseLegacy(ctx context.Context, reqCtx *handlers.RequestContext) (*scheduling.LLMRequestBody, error) {
+func (d *Director) parseLegacy(ctx context.Context, reqCtx *handlers.RequestContext) (*fwksched.LLMRequestBody, error) {
 	bodyMap := make(map[string]any)
 	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
 		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}

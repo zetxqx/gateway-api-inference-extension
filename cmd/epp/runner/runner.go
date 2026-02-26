@@ -65,7 +65,7 @@ import (
 	extractormetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/extractor/metrics"
 	sourcemetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/source/metrics"
 	sourcenotifications "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/source/notifications"
-	parser "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/payloadprocess"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/payloadprocess"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requestcontrol/requestattributereporter"
 	testresponsereceived "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requestcontrol/test/responsereceived"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/picker"
@@ -76,6 +76,7 @@ import (
 	testfilter "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/test/filter"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics/collectors"
+	pp "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/payloadprocess"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/saturationdetector/framework/plugins/utilizationdetector"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling"
@@ -120,6 +121,7 @@ type Runner struct {
 	requestControlConfig *requestcontrol.Config
 	schedulerConfig      *scheduling.SchedulerConfig
 	customCollectors     []prometheus.Collector
+	parser               fwkpp.Parser
 
 	testOverrideSkipNameValidation bool
 }
@@ -354,11 +356,10 @@ func (r *Runner) setup(ctx context.Context, cfg *rest.Config, opts *runserver.Op
 		admissionController = requestcontrol.NewLegacyAdmissionController(saturationDetector, locator)
 	}
 
-	var payloadParser fwkpp.Parser
-	if r.featureGates[fwkpp.PluggableParserFeatureGate] {
-		payloadParser = parser.NewParserFromConfig(true, opts.CustomParser)
+	if r.parser != nil {
+		setupLog.Info("Initializing the parser layer.")
 	}
-	director := requestcontrol.NewDirectorWithConfig(ds, scheduler, admissionController, payloadParser, locator, r.requestControlConfig)
+	director := requestcontrol.NewDirectorWithConfig(ds, scheduler, admissionController, r.parser, locator, r.requestControlConfig)
 
 	// --- Setup ExtProc Server Runner ---
 	serverRunner := &runserver.ExtProcServerRunner{
@@ -373,7 +374,7 @@ func (r *Runner) setup(ctx context.Context, cfg *rest.Config, opts *runserver.Op
 		RefreshPrometheusMetricsInterval: opts.RefreshPrometheusMetricsInterval,
 		MetricsStalenessThreshold:        opts.MetricsStalenessThreshold,
 		Director:                         director,
-		Parser:                           payloadParser,
+		Parser:                           r.parser,
 		SaturationDetector:               saturationDetector,
 		UseExperimentalDatalayerV2:       r.featureGates[datalayer.ExperimentalDatalayerFeatureGate], // pluggable data layer feature flag
 	}
@@ -475,6 +476,7 @@ func (r *Runner) registerInTreePlugins() {
 	fwkplugin.Register(sourcenotifications.NotificationSourceType, sourcenotifications.NotificationSourceFactory)
 	// register request control pluigns
 	fwkplugin.Register(requestattributereporter.RequestAttributeReporterType, requestattributereporter.RequestAttributeReporterPluginFactory)
+	fwkplugin.Register(payloadprocess.OpenAIParserType, payloadprocess.OpenAIParserPluginFactory)
 }
 
 func (r *Runner) parseConfigurationPhaseOne(ctx context.Context, opts *runserver.Options) (*configapi.EndpointPickerConfig, error) {
@@ -494,7 +496,6 @@ func (r *Runner) parseConfigurationPhaseOne(ctx context.Context, opts *runserver
 	loader.RegisterFeatureGate(datalayer.ExperimentalDatalayerFeatureGate)
 	loader.RegisterFeatureGate(flowcontrol.FeatureGate)
 	loader.RegisterFeatureGate(datalayer.PrepareDataPluginsFeatureGate)
-	loader.RegisterFeatureGate(fwkpp.PluggableParserFeatureGate)
 
 	r.registerInTreePlugins()
 
@@ -555,6 +556,10 @@ func (r *Runner) parseConfigurationPhaseTwo(ctx context.Context, rawConfig *conf
 
 	r.applyDeprecatedSaturationConfig(cfg)
 
+	r.parser, err = pp.NewParser(handle.GetAllPlugins())
+	if err != nil {
+		return nil, fmt.Errorf("failed to load the configuration - %w", err)
+	}
 	logger.Info("loaded configuration from file/text successfully")
 
 	return cfg, nil

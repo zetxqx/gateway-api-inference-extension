@@ -77,7 +77,6 @@ schedulingProfiles:
       - pluginRef: kv-cache-utilization-scorer
       - pluginRef: prefix-cache-scorer
       - pluginRef: lora-affinity-scorer
-featureGates:
 `
 	testConifgWithPluggableParserEnabled = `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -87,6 +86,7 @@ plugins:
   - type: kv-cache-utilization-scorer
   - type: prefix-cache-scorer
   - type: lora-affinity-scorer
+  - type: openai-parser
 schedulingProfiles:
   - name: default
     plugins:
@@ -94,8 +94,6 @@ schedulingProfiles:
       - pluginRef: kv-cache-utilization-scorer
       - pluginRef: prefix-cache-scorer
       - pluginRef: lora-affinity-scorer
-featureGates:
-  - pluggableParser
 `
 )
 
@@ -118,10 +116,11 @@ func WithStandaloneMode() HarnessOption {
 	}
 }
 
-func WithCustomParser(customParser string, flagEnabled bool) HarnessOption {
+func WithCustomParser(flagEnabled bool) HarnessOption {
 	return func(c *HarnessConfig) {
-		c.CustomParser = customParser
-		c.ConfigOverride = testConifgWithPluggableParserEnabled
+		if flagEnabled {
+			c.ConfigOverride = testConifgWithPluggableParserEnabled
+		}
 	}
 }
 
@@ -166,7 +165,7 @@ func NewTestHarness(t *testing.T, ctx context.Context, opts ...HarnessOption) *T
 		// Only standalone EPP need to set the EndpointSelector.
 		eppOptions.EndpointSelector = "app=" + testPoolName
 	}
-	eppOptions.CustomParser = config.CustomParser
+	eppOptions.ConfigText = config.ConfigOverride
 
 	fakePmc := &backendmetrics.FakePodMetricsClient{}
 	mgr, dataStore, err := eppRunner.NewTestRunnerSetup(ctx, testEnv.Config, eppOptions, fakePmc)

@@ -24,8 +24,6 @@ import (
 )
 
 const (
-	// PluggableParserFeatureGate is the feature gate of the whole pluggable parser layer.
-	PluggableParserFeatureGate = "pluggableParser"
 	// ParserType is the type of parser plugin.
 	ParserType = "parser-type"
 )

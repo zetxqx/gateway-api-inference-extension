@@ -29,8 +29,8 @@ func TestNewOpenAIParser(t *testing.T) {
 	parser := NewOpenAIParser()
 
 	expectedName := fwkplugin.TypedName{
-		Type: payloadprocess.ParserType,
-		Name: OpenAIParserName,
+		Type: OpenAIParserType,
+		Name: OpenAIParserType,
 	}
 
 	if diff := cmp.Diff(expectedName, parser.TypedName()); diff != "" {
