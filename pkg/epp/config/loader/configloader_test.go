@@ -41,7 +41,7 @@ import (
 	flowcontrolmocks "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/flowcontrol/mocks"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	framework "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/payloadprocess"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandle/parsers/openai"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/picker"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/profile"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/scorer"
@@ -362,7 +362,7 @@ func TestInstantiateAndConfigure(t *testing.T) {
 			validate: func(t *testing.T, handle fwkplugin.Handle, rawCfg *configapi.EndpointPickerConfig, cfg *config.Config) {
 				require.NotNil(t, cfg.ParserConfig, "Parser config should be loaded")
 				require.Equal(t, "openai-parser", cfg.ParserConfig.Parser.TypedName().Name, "Should have openai parser name")
-				require.Equal(t, payloadprocess.OpenAIParserType, cfg.ParserConfig.Parser.TypedName().Type, "Should contain openai parser type")
+				require.Equal(t, openai.OpenAIParserType, cfg.ParserConfig.Parser.TypedName().Type, "Should contain openai parser type")
 			},
 		},
 		{
@@ -372,7 +372,7 @@ func TestInstantiateAndConfigure(t *testing.T) {
 			validate: func(t *testing.T, handle fwkplugin.Handle, rawCfg *configapi.EndpointPickerConfig, cfg *config.Config) {
 				require.NotNil(t, cfg.ParserConfig, "Parser config should be loaded")
 				require.Equal(t, "openaiParser", cfg.ParserConfig.Parser.TypedName().Name, "Should have openai parser name")
-				require.Equal(t, payloadprocess.OpenAIParserType, cfg.ParserConfig.Parser.TypedName().Type, "Should contain openai parser type")
+				require.Equal(t, openai.OpenAIParserType, cfg.ParserConfig.Parser.TypedName().Type, "Should contain openai parser type")
 			},
 		},
 
@@ -721,5 +721,5 @@ func registerTestPlugins(t *testing.T) {
 	// Ensure system defaults are registered too.
 	fwkplugin.Register(picker.MaxScorePickerType, picker.MaxScorePickerFactory)
 	fwkplugin.Register(profile.SingleProfileHandlerType, profile.SingleProfileHandlerFactory)
-	fwkplugin.Register(payloadprocess.OpenAIParserType, payloadprocess.OpenAIParserPluginFactory)
+	fwkplugin.Register(openai.OpenAIParserType, openai.OpenAIParserPluginFactory)
 }

@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package payloadprocess
+package handlers
 
 import (
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandle"
 )
 
 // Config holds the configuration for the SaturationDetector.
 type Config struct {
-	Parser payloadprocess.Parser
+	Parser fwkrh.Parser
 }
 
-func NewParser(config *Config) payloadprocess.Parser {
+func NewParser(config *Config) fwkrh.Parser {
 	if config == nil || config.Parser == nil {
 		return nil
 	}

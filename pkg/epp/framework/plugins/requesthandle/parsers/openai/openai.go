@@ -14,31 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package payloadprocess
+package openai
 
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandle"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	requtil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
 	resputil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/response"
-)
-
-const (
-	streamingRespPrefix = "data: "
-	streamingEndMsg     = "data: [DONE]"
-
-	// OpenAI API object types
-	objectTypeResponse            = "response"
-	objectTypeConversation        = "conversation"
-	objectTypeChatCompletion      = "chat.completion"
-	objectTypeChatCompletionChunk = "chat.completion.chunk"
-	objectTypeTextCompletion      = "text_completion"
 )
 
 const (
@@ -46,7 +32,7 @@ const (
 )
 
 // compile-time type validation
-var _ payloadprocess.Parser = &OpenAIParser{}
+var _ fwkrh.Parser = &OpenAIParser{}
 
 // OpenAIParser implements the backend.OpenAIParser interface for OpenAI API.
 type OpenAIParser struct {
@@ -68,7 +54,7 @@ func (p *OpenAIParser) TypedName() fwkplugin.TypedName {
 	return p.typedName
 }
 
-func OpenAIParserPluginFactory(name string, _ json.RawMessage, _ plugin.Handle) (plugin.Plugin, error) {
+func OpenAIParserPluginFactory(name string, _ json.RawMessage, _ fwkplugin.Handle) (fwkplugin.Plugin, error) {
 	return NewOpenAIParser().WithName(name), nil
 }
 
@@ -81,7 +67,7 @@ func (p *OpenAIParser) WithName(name string) *OpenAIParser {
 func (p *OpenAIParser) ParseRequest(headers map[string]string, body []byte) (*scheduling.LLMRequestBody, error) {
 	bodyMap := make(map[string]any)
 	if err := json.Unmarshal(body, &bodyMap); err != nil {
-		return nil, fmt.Errorf("Error unmarshal the bodyMap")
+		return nil, errors.New("error unmarshaling request bodyMap")
 	}
 	extractedBody, err := requtil.ExtractRequestBody(body, headers)
 	if err != nil {
@@ -92,21 +78,21 @@ func (p *OpenAIParser) ParseRequest(headers map[string]string, body []byte) (*sc
 }
 
 // // ParseResponse parses the response body and returns a ParsedResponse
-func (p *OpenAIParser) ParseResponse(body []byte) (*payloadprocess.ParsedResponse, error) {
+func (p *OpenAIParser) ParseResponse(body []byte) (*fwkrh.ParsedResponse, error) {
 	usage, err := resputil.ExtractUsage(body)
 	if err != nil || usage == nil {
 		return nil, err
 	}
-	return &payloadprocess.ParsedResponse{Usage: usage}, nil
+	return &fwkrh.ParsedResponse{Usage: usage}, nil
 }
 
 // ParseStreamResponse parses a chunk of the streaming response and returns a ParsedResponse
-func (p *OpenAIParser) ParseStreamResponse(chunk []byte) (*payloadprocess.ParsedResponse, error) {
+func (p *OpenAIParser) ParseStreamResponse(chunk []byte) (*fwkrh.ParsedResponse, error) {
 	responseBody := resputil.ExtractUsageStreaming(string(chunk))
 	if responseBody.Usage == nil {
 		return nil, errors.New("unable to parse usage from stream response")
 	}
-	return &payloadprocess.ParsedResponse{
+	return &fwkrh.ParsedResponse{
 		Usage: responseBody.Usage,
 	}, nil
 }

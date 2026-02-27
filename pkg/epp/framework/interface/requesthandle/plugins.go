@@ -14,18 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package payloadprocess
+package requesthandle
 
 import (
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
-)
-
-const (
-	// ParserType is the type of parser plugin.
-	ParserType = "parser-type"
 )
 
 // Parser defines the interface for parsing payload(requests and responses).

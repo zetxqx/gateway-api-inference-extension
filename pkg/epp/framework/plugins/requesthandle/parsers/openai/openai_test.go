@@ -13,15 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package payloadprocess
+package openai
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkrc "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandle"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 )
 
@@ -153,7 +153,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 	tests := []struct {
 		name    string
 		body    []byte
-		want    *payloadprocess.ParsedResponse
+		want    *fwkrh.ParsedResponse
 		wantErr bool
 	}{
 		{
@@ -165,7 +165,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 					"total_tokens": 30
 				}
 			}`),
-			want: &payloadprocess.ParsedResponse{
+			want: &fwkrh.ParsedResponse{
 				Usage: &fwkrc.Usage{
 					PromptTokens:     10,
 					CompletionTokens: 20,
@@ -184,7 +184,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 					"prompt_token_details": { "cached_tokens": 10 }
 				}
 			}`),
-			want: &payloadprocess.ParsedResponse{
+			want: &fwkrh.ParsedResponse{
 				Usage: &fwkrc.Usage{
 					PromptTokens:     15,
 					CompletionTokens: 5,
@@ -229,13 +229,13 @@ func TestOpenAIParser_ParseStreamResponse(t *testing.T) {
 	tests := []struct {
 		name    string
 		chunk   []byte
-		want    *payloadprocess.ParsedResponse
+		want    *fwkrh.ParsedResponse
 		wantErr bool
 	}{
 		{
 			name:  "Stream chunk with usage",
 			chunk: []byte(`data: {"usage":{"prompt_tokens":7,"completion_tokens":10,"total_tokens":17}}`),
-			want: &payloadprocess.ParsedResponse{
+			want: &fwkrh.ParsedResponse{
 				Usage: &fwkrc.Usage{
 					PromptTokens:     7,
 					CompletionTokens: 10,
@@ -247,7 +247,7 @@ func TestOpenAIParser_ParseStreamResponse(t *testing.T) {
 		{
 			name:  "Stream chunk with cached tokens",
 			chunk: []byte(`data: {"usage":{"prompt_tokens":10,"prompt_token_details":{"cached_tokens":5}}}`),
-			want: &payloadprocess.ParsedResponse{
+			want: &fwkrh.ParsedResponse{
 				Usage: &fwkrc.Usage{
 					PromptTokens: 10,
 					PromptTokenDetails: &fwkrc.PromptTokenDetails{
