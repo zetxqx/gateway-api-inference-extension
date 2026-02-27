@@ -94,6 +94,8 @@ schedulingProfiles:
       - pluginRef: kv-cache-utilization-scorer
       - pluginRef: prefix-cache-scorer
       - pluginRef: lora-affinity-scorer
+parser:
+  pluginRef: openai-parser
 `
 )
 
@@ -165,7 +167,9 @@ func NewTestHarness(t *testing.T, ctx context.Context, opts ...HarnessOption) *T
 		// Only standalone EPP need to set the EndpointSelector.
 		eppOptions.EndpointSelector = "app=" + testPoolName
 	}
-	eppOptions.ConfigText = config.ConfigOverride
+	if config.ConfigOverride != "" {
+		eppOptions.ConfigText = config.ConfigOverride
+	}
 
 	fakePmc := &backendmetrics.FakePodMetricsClient{}
 	mgr, dataStore, err := eppRunner.NewTestRunnerSetup(ctx, testEnv.Config, eppOptions, fakePmc)

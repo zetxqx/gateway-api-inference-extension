@@ -356,9 +356,6 @@ func (r *Runner) setup(ctx context.Context, cfg *rest.Config, opts *runserver.Op
 		admissionController = requestcontrol.NewLegacyAdmissionController(saturationDetector, locator)
 	}
 
-	if r.parser != nil {
-		setupLog.Info("Initializing the parser layer.")
-	}
 	director := requestcontrol.NewDirectorWithConfig(ds, scheduler, admissionController, r.parser, locator, r.requestControlConfig)
 
 	// --- Setup ExtProc Server Runner ---
@@ -556,9 +553,9 @@ func (r *Runner) parseConfigurationPhaseTwo(ctx context.Context, rawConfig *conf
 
 	r.applyDeprecatedSaturationConfig(cfg)
 
-	r.parser, err = pp.NewParser(handle.GetAllPlugins())
-	if err != nil {
-		return nil, fmt.Errorf("failed to load the configuration - %w", err)
+	r.parser = pp.NewParser(cfg.ParserConfig)
+	if r.parser != nil {
+		logger.Info("Pluggable parser is used", "parser name", r.parser.TypedName().Name)
 	}
 	logger.Info("loaded configuration from file/text successfully")
 

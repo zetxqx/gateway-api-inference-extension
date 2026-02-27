@@ -110,7 +110,7 @@ func TestFullDuplexStreamed_KubeInferenceObjectiveRequest(t *testing.T) {
 		pluggableParserEnabled bool
 	}{
 		{name: "non-pluggable-parser"},
-		// {name: "openai-parser", pluggableParserEnabled: true},
+		{name: "openai-parser", pluggableParserEnabled: true},
 	}
 
 	tests := []struct {

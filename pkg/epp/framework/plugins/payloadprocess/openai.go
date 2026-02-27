@@ -68,8 +68,8 @@ func (p *OpenAIParser) TypedName() fwkplugin.TypedName {
 	return p.typedName
 }
 
-func OpenAIParserPluginFactory(name string, rawParameters json.RawMessage, handle plugin.Handle) (plugin.Plugin, error) {
-	return NewOpenAIParser(), nil
+func OpenAIParserPluginFactory(name string, _ json.RawMessage, _ plugin.Handle) (plugin.Plugin, error) {
+	return NewOpenAIParser().WithName(name), nil
 }
 
 func (p *OpenAIParser) WithName(name string) *OpenAIParser {
