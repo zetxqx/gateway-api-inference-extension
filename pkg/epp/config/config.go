@@ -19,6 +19,7 @@ package config
 import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/payloadprocess"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/saturationdetector/framework/plugins/utilizationdetector"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling"
 )
@@ -29,4 +30,5 @@ type Config struct {
 	SaturationDetectorConfig *utilizationdetector.Config
 	DataConfig               *datalayer.Config
 	FlowControlConfig        *flowcontrol.Config
+	ParserConfig             *payloadprocess.Config
 }

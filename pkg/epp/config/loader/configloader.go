@@ -31,9 +31,11 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkpp "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	framework "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/profile"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/payloadprocess"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/saturationdetector/framework/plugins/utilizationdetector"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling"
 )
@@ -121,12 +123,20 @@ func InstantiateAndConfigure(
 		}
 	}
 
-	return &config.Config{
+	config := &config.Config{
 		SchedulerConfig:          schedulerConfig,
 		SaturationDetectorConfig: buildSaturationConfig(rawConfig.SaturationDetector),
 		DataConfig:               dataConfig,
 		FlowControlConfig:        flowControlConfig,
-	}, nil
+	}
+	if rawConfig.Parser != nil {
+		parserConfig, err := buildParserConfig(rawConfig.Parser, handle)
+		if err != nil {
+			return nil, fmt.Errorf("parse config build failed: %w", err)
+		}
+		config.ParserConfig = parserConfig
+	}
+	return config, nil
 }
 
 func decodeRawConfig(configBytes []byte) (*configapi.EndpointPickerConfig, error) {
@@ -251,6 +261,23 @@ func buildSaturationConfig(apiConfig *configapi.SaturationDetector) *utilization
 	}
 
 	return cfg
+}
+
+func buildParserConfig(rawParserConfig *configapi.ParserConfig, handle fwkplugin.Handle) (*payloadprocess.Config, error) {
+	if rawParserConfig == nil {
+		return nil, errors.New("parserConfig is not configured")
+	}
+	plugin, ok := handle.GetAllPluginsWithNames()[rawParserConfig.PluginRef]
+	if !ok {
+		return nil, errors.New("the configured parser is not loaded")
+	}
+	v, ok := plugin.(fwkpp.Parser)
+	if !ok {
+		return nil, errors.New("the specified plugin is not a parser plugin in the config")
+	}
+	return &payloadprocess.Config{
+		Parser: v,
+	}, nil
 }
 
 func buildDataLayerConfig(rawDataConfig *configapi.DataLayerConfig, dataLayerEnabled bool, handle fwkplugin.Handle) (*datalayer.Config, error) {

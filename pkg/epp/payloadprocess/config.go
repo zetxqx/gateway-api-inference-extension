@@ -17,31 +17,17 @@ limitations under the License.
 package payloadprocess
 
 import (
-	"errors"
-
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
-
-	fwk "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 )
 
 // Config holds the configuration for the SaturationDetector.
 type Config struct {
-	parser payloadprocess.Parser
+	Parser payloadprocess.Parser
 }
 
-func NewParser(pluginObjects []plugin.Plugin) (payloadprocess.Parser, error) {
-	parserPlugins := []fwk.Parser{}
-	for _, plugin := range pluginObjects {
-		if parser, ok := plugin.(fwk.Parser); ok {
-			parserPlugins = append(parserPlugins, parser)
-		}
+func NewParser(config *Config) payloadprocess.Parser {
+	if config == nil || config.Parser == nil {
+		return nil
 	}
-	if len(parserPlugins) > 1 {
-		return nil, errors.New("Error more than one parser plugin")
-	}
-	if len(parserPlugins) == 1 {
-		return parserPlugins[0], nil
-	}
-	return nil, nil
+	return config.Parser
 }
