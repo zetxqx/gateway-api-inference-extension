@@ -26,6 +26,7 @@ import (
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandle/parsers/openai"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metadata"
 )
 
@@ -147,7 +148,9 @@ func TestHandleResponseBody(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &StreamingServer{}
+			server := &StreamingServer{
+				parser: openai.NewOpenAIParser(),
+			}
 			server.director = &mockDirector{}
 			reqCtx := test.reqCtx
 			if reqCtx == nil {
@@ -219,7 +222,9 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			server := &StreamingServer{}
+			server := &StreamingServer{
+				parser: openai.NewOpenAIParser(),
+			}
 			server.director = &mockDirector{}
 			reqCtx := test.reqCtx
 			if reqCtx == nil {
@@ -281,6 +286,7 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			server := &StreamingServer{
+				parser:   openai.NewOpenAIParser(),
 				director: &mockDirector{},
 			}
 			reqCtx := &RequestContext{}

@@ -29,7 +29,6 @@ import (
 	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
-	resputil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/response"
 )
 
 const (
@@ -40,26 +39,11 @@ const (
 func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, responseBytes []byte) (*RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	var usage fwkrq.Usage
-	if s.parser != nil {
-		parsedResponse, parseErr := s.parser.ParseResponse(responseBytes)
-		if parseErr != nil || parsedResponse == nil || parsedResponse.Usage == nil {
-			return reqCtx, parseErr
-		}
-		usage = *parsedResponse.Usage
-	} else {
-		extractedUsage, err := resputil.ExtractUsage(responseBytes)
-		if err != nil || extractedUsage == nil {
-			if logger.V(logutil.DEBUG).Enabled() {
-				logger.V(logutil.DEBUG).Error(err, "Error unmarshalling response body", "body", string(responseBytes))
-			} else {
-				logger.V(logutil.DEFAULT).Error(err, "Error unmarshalling response body", "body", string(responseBytes))
-			}
-			return reqCtx, err
-		}
-		usage = *extractedUsage
+	parsedResponse, parseErr := s.parser.ParseResponse(responseBytes)
+	if parseErr != nil || parsedResponse == nil || parsedResponse.Usage == nil {
+		return reqCtx, parseErr
 	}
-	reqCtx.Usage = usage
+	reqCtx.Usage = *parsedResponse.Usage
 	logger.V(logutil.VERBOSE).Info("Response generated", "usage", reqCtx.Usage)
 	return s.director.HandleResponseBodyComplete(ctx, reqCtx)
 }
@@ -72,18 +56,11 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 		logger.Error(err, "error in HandleResponseBodyStreaming")
 	}
 	responseText := string(responseBytes)
-	if s.parser != nil {
-		parsedResp, err := s.parser.ParseStreamResponse(responseBytes)
-		if err != nil || parsedResp.Usage == nil {
-			logger.Error(err, "error in HandleResponseBodyStreaming using parser")
-		} else {
-			reqCtx.Usage = *parsedResp.Usage
-		}
+	parsedResp, err := s.parser.ParseStreamResponse(responseBytes)
+	if err != nil || parsedResp.Usage == nil {
+		logger.Error(err, "error in HandleResponseBodyStreaming using parser")
 	} else {
-		// Parse usage on EVERY chunk to catch split streams (where usage and [DONE] are in different chunks).
-		if resp := resputil.ExtractUsageStreaming(responseText); resp.Usage != nil && resp.Usage.TotalTokens > 0 {
-			reqCtx.Usage = *resp.Usage
-		}
+		reqCtx.Usage = *parsedResp.Usage
 	}
 	if strings.Contains(responseText, streamingEndMsg) {
 		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)

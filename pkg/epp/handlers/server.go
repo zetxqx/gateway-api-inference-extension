@@ -392,9 +392,6 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 			logger.V(1).Info("EPP sent response body back to proxy")
 			r.RequestState = BodyResponseResponsesComplete
 		}
-		if r.ResponseComplete {
-			r.RequestState = BodyResponseResponsesComplete
-		}
 		// Dump the response so a new stream message can begin
 		r.respBodyResp = nil
 	}

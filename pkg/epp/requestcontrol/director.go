@@ -194,13 +194,6 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 }
 
 func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkrh.Parser) (*fwksched.LLMRequestBody, error) {
-	if parser != nil {
-		return d.parseWithParser(ctx, reqCtx, parser)
-	}
-	return d.parseLegacy(ctx, reqCtx)
-}
-
-func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkrh.Parser) (*fwksched.LLMRequestBody, error) {
 	llmRequestBody, err := parser.ParseRequest(reqCtx.Request.Headers, reqCtx.Request.RawBody)
 	if err != nil {
 		return nil, errutil.Error{Code: errutil.BadRequest, Msg: err.Error()}
@@ -218,28 +211,6 @@ func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.Request
 		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "Unsupported llmRequest parsedBody"}
 	}
 	return llmRequestBody, nil
-}
-
-// parseLegacy handles the original JSON unmarshaling flow.
-func (d *Director) parseLegacy(ctx context.Context, reqCtx *handlers.RequestContext) (*fwksched.LLMRequestBody, error) {
-	bodyMap := make(map[string]any)
-	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
-		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "error unmarshaling request bodyMap"}
-	}
-
-	if err := d.mutateAndRepackage(ctx, reqCtx, bodyMap); err != nil {
-		return nil, err
-	}
-
-	jsonBytes, err := json.Marshal(bodyMap)
-	if err != nil {
-		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "invalid request body"}
-	}
-	extractedBody, err := requtil.ExtractRequestBody(jsonBytes, reqCtx.Request.Headers)
-	if err != nil {
-		return nil, errutil.Error{Code: errutil.BadRequest, Msg: fmt.Errorf("failed to extract request data: %w", err).Error()}
-	}
-	return extractedBody, nil
 }
 
 func (d *Director) mutateAndRepackage(ctx context.Context, reqCtx *handlers.RequestContext, bodyMap map[string]any) error {

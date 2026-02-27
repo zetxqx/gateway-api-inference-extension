@@ -294,14 +294,6 @@ func TestDirector_HandleRequest(t *testing.T) {
 		PrimaryProfileName: "testProfile",
 	}
 
-	parserDims := []struct {
-		name   string
-		parser fwkrh.Parser
-	}{
-		{"OpenAIParser", openai.NewOpenAIParser()},
-		{"LegacyNoParser", nil},
-	}
-
 	tests := []struct {
 		name                    string
 		reqBodyMap              map[string]any
@@ -651,91 +643,86 @@ func TestDirector_HandleRequest(t *testing.T) {
 			ds.PodUpdateOrAddIfNotExist(testPod)
 		}
 
-		for _, parserDim := range parserDims {
-			t.Run("Parsers="+parserDim.name, func(t *testing.T) {
-				for _, test := range tests {
-					t.Run(test.name, func(t *testing.T) {
-						mockSched := &mockScheduler{}
-						if test.schedulerMockSetup != nil {
-							test.schedulerMockSetup(mockSched)
-						}
-						config := NewConfig()
-						if test.prepareDataPlugin != nil {
-							config = config.WithPrepareDataPlugins(test.prepareDataPlugin)
-						}
-						config = config.WithAdmissionPlugins(newMockAdmissionPlugin("test-admit-plugin", test.admitRequestDenialError))
-
-						locator := NewCachedPodLocator(context.Background(), NewDatastorePodLocator(ds), time.Minute)
-						director := NewDirectorWithConfig(ds, mockSched, test.mockAdmissionController, parserDim.parser, locator, config)
-						if test.name == "successful request with model rewrite" {
-							mockDs := &mockDatastore{
-								pods:     ds.PodList(datastore.AllPodsPredicate),
-								rewrites: []*v1alpha2.InferenceModelRewrite{rewrite},
-							}
-							director.datastore = mockDs
-							director.podLocator = NewCachedPodLocator(context.Background(), NewDatastorePodLocator(mockDs), time.Minute)
-						}
-
-						reqCtx := &handlers.RequestContext{
-							Request: &handlers.Request{
-								Headers: map[string]string{
-									requtil.RequestIdHeaderKey: "test-req-id-" + test.name, // Ensure a default request ID
-								},
-							},
-							ObjectiveKey:    test.inferenceObjectiveName,
-							TargetModelName: test.initialTargetModelName,
-						}
-						var err error
-						reqCtx.Request.RawBody, err = json.Marshal(test.reqBodyMap)
-						if err != nil {
-							t.Fatalf("Error parsing the reqBodyMap, err is %v", err)
-						}
-
-						// Add appropriate path header based on request body content for path-based API detection
-						if _, hasPrompt := test.reqBodyMap["prompt"]; hasPrompt {
-							reqCtx.Request.Headers[":path"] = "/v1/completions"
-						} else if _, hasMessages := test.reqBodyMap["messages"]; hasMessages {
-							reqCtx.Request.Headers[":path"] = "/v1/chat/completions"
-						}
-
-						returnedReqCtx, err := director.HandleRequest(ctx, reqCtx)
-
-						if test.wantErrCode != "" {
-							assert.Error(t, err, "HandleRequest() should have returned an error")
-							var e errutil.Error
-							if assert.ErrorAs(t, err, &e, "Error should be of type errutil.Error") {
-								assert.Equal(t, test.wantErrCode, e.Code, "Error code mismatch")
-							}
-							return
-						}
-
-						assert.NoError(t, err, "HandleRequest() returned unexpected error")
-
-						if test.wantReqCtx != nil {
-							assert.Equal(t, test.wantReqCtx.ObjectiveKey, returnedReqCtx.ObjectiveKey, "reqCtx.Model mismatch")
-							assert.Equal(t, test.wantReqCtx.TargetModelName, returnedReqCtx.TargetModelName,
-								"reqCtx.ResolvedTargetModel mismatch")
-							if diff := cmp.Diff(test.wantReqCtx.TargetPod, returnedReqCtx.TargetPod, cmpopts.EquateEmpty()); diff != "" {
-								t.Errorf("reqCtx.TargetPod mismatch (-want +got):\n%s", diff)
-							}
-							assert.Equal(t, test.wantReqCtx.TargetEndpoint, returnedReqCtx.TargetEndpoint, "reqCtx.TargetEndpoint mismatch")
-						}
-
-						if test.wantMutatedBodyModel != "" {
-							assert.NotEmpty(t, returnedReqCtx.Request.RawBody, "Expected mutated body, but reqCtx.Request.Body is nil")
-							updatedBodyMap := make(map[string]any)
-							if err := json.Unmarshal(reqCtx.Request.RawBody, &updatedBodyMap); err != nil {
-								t.Errorf("Error to Unmarshal reqCtx.Request.UpdatedBody, err is %v", err)
-							}
-							assert.Equal(t, test.wantMutatedBodyModel, updatedBodyMap["model"],
-								"Mutated reqCtx.Request.Body model mismatch")
-						}
-						assert.Equal(t, len(reqCtx.Request.RawBody), reqCtx.RequestSize)
-					})
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				mockSched := &mockScheduler{}
+				if test.schedulerMockSetup != nil {
+					test.schedulerMockSetup(mockSched)
 				}
+				config := NewConfig()
+				if test.prepareDataPlugin != nil {
+					config = config.WithPrepareDataPlugins(test.prepareDataPlugin)
+				}
+				config = config.WithAdmissionPlugins(newMockAdmissionPlugin("test-admit-plugin", test.admitRequestDenialError))
+
+				locator := NewCachedPodLocator(context.Background(), NewDatastorePodLocator(ds), time.Minute)
+				director := NewDirectorWithConfig(ds, mockSched, test.mockAdmissionController, openai.NewOpenAIParser(), locator, config)
+				if test.name == "successful request with model rewrite" {
+					mockDs := &mockDatastore{
+						pods:     ds.PodList(datastore.AllPodsPredicate),
+						rewrites: []*v1alpha2.InferenceModelRewrite{rewrite},
+					}
+					director.datastore = mockDs
+					director.podLocator = NewCachedPodLocator(context.Background(), NewDatastorePodLocator(mockDs), time.Minute)
+				}
+
+				reqCtx := &handlers.RequestContext{
+					Request: &handlers.Request{
+						Headers: map[string]string{
+							requtil.RequestIdHeaderKey: "test-req-id-" + test.name, // Ensure a default request ID
+						},
+					},
+					ObjectiveKey:    test.inferenceObjectiveName,
+					TargetModelName: test.initialTargetModelName,
+				}
+				var err error
+				reqCtx.Request.RawBody, err = json.Marshal(test.reqBodyMap)
+				if err != nil {
+					t.Fatalf("Error parsing the reqBodyMap, err is %v", err)
+				}
+
+				// Add appropriate path header based on request body content for path-based API detection
+				if _, hasPrompt := test.reqBodyMap["prompt"]; hasPrompt {
+					reqCtx.Request.Headers[":path"] = "/v1/completions"
+				} else if _, hasMessages := test.reqBodyMap["messages"]; hasMessages {
+					reqCtx.Request.Headers[":path"] = "/v1/chat/completions"
+				}
+
+				returnedReqCtx, err := director.HandleRequest(ctx, reqCtx)
+
+				if test.wantErrCode != "" {
+					assert.Error(t, err, "HandleRequest() should have returned an error")
+					var e errutil.Error
+					if assert.ErrorAs(t, err, &e, "Error should be of type errutil.Error") {
+						assert.Equal(t, test.wantErrCode, e.Code, "Error code mismatch")
+					}
+					return
+				}
+
+				assert.NoError(t, err, "HandleRequest() returned unexpected error")
+
+				if test.wantReqCtx != nil {
+					assert.Equal(t, test.wantReqCtx.ObjectiveKey, returnedReqCtx.ObjectiveKey, "reqCtx.Model mismatch")
+					assert.Equal(t, test.wantReqCtx.TargetModelName, returnedReqCtx.TargetModelName,
+						"reqCtx.ResolvedTargetModel mismatch")
+					if diff := cmp.Diff(test.wantReqCtx.TargetPod, returnedReqCtx.TargetPod, cmpopts.EquateEmpty()); diff != "" {
+						t.Errorf("reqCtx.TargetPod mismatch (-want +got):\n%s", diff)
+					}
+					assert.Equal(t, test.wantReqCtx.TargetEndpoint, returnedReqCtx.TargetEndpoint, "reqCtx.TargetEndpoint mismatch")
+				}
+
+				if test.wantMutatedBodyModel != "" {
+					assert.NotEmpty(t, returnedReqCtx.Request.RawBody, "Expected mutated body, but reqCtx.Request.Body is nil")
+					updatedBodyMap := make(map[string]any)
+					if err := json.Unmarshal(reqCtx.Request.RawBody, &updatedBodyMap); err != nil {
+						t.Errorf("Error to Unmarshal reqCtx.Request.UpdatedBody, err is %v", err)
+					}
+					assert.Equal(t, test.wantMutatedBodyModel, updatedBodyMap["model"],
+						"Mutated reqCtx.Request.Body model mismatch")
+				}
+				assert.Equal(t, len(reqCtx.Request.RawBody), reqCtx.RequestSize)
 			})
 		}
-
 	}
 }
 
