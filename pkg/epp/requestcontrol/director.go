@@ -37,8 +37,8 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol/contracts"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
-	fwkpp "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 	fwk "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandle"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
@@ -72,7 +72,7 @@ func NewDirectorWithConfig(
 	datastore Datastore,
 	scheduler Scheduler,
 	admissionController AdmissionController,
-	parser fwkpp.Parser,
+	parser fwkrh.Parser,
 	podLocator contracts.PodLocator,
 	config *Config,
 ) *Director {
@@ -82,6 +82,7 @@ func NewDirectorWithConfig(
 		admissionController:   admissionController,
 		podLocator:            podLocator,
 		requestControlPlugins: *config,
+		parser:                parser,
 		defaultPriority:       0, // define default priority explicitly
 	}
 }
@@ -105,7 +106,7 @@ type Director struct {
 	// no need to set this in the constructor, since the value we want is the default int val
 	// and value types cannot be nil
 	defaultPriority int
-	parser          fwkpp.Parser
+	parser          fwkrh.Parser
 }
 
 // getInferenceObjective fetches the inferenceObjective from the datastore otherwise creates a new one based on reqCtx.
@@ -192,17 +193,17 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	return reqCtx, nil
 }
 
-func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkpp.Parser) (*fwksched.LLMRequestBody, error) {
+func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkrh.Parser) (*fwksched.LLMRequestBody, error) {
 	if parser != nil {
 		return d.parseWithParser(ctx, reqCtx, parser)
 	}
 	return d.parseLegacy(ctx, reqCtx)
 }
 
-func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkpp.Parser) (*fwksched.LLMRequestBody, error) {
+func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkrh.Parser) (*fwksched.LLMRequestBody, error) {
 	llmRequestBody, err := parser.ParseRequest(reqCtx.Request.Headers, reqCtx.Request.RawBody)
 	if err != nil {
-		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "failed to parse the request"}
+		return nil, errutil.Error{Code: errutil.BadRequest, Msg: err.Error()}
 	}
 
 	switch v := llmRequestBody.ParsedBody.(type) {
@@ -223,7 +224,7 @@ func (d *Director) parseWithParser(ctx context.Context, reqCtx *handlers.Request
 func (d *Director) parseLegacy(ctx context.Context, reqCtx *handlers.RequestContext) (*fwksched.LLMRequestBody, error) {
 	bodyMap := make(map[string]any)
 	if err := json.Unmarshal(reqCtx.Request.RawBody, &bodyMap); err != nil {
-		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "Error unmarshaling request body"}
+		return nil, errutil.Error{Code: errutil.BadRequest, Msg: "error unmarshaling request bodyMap"}
 	}
 
 	if err := d.mutateAndRepackage(ctx, reqCtx, bodyMap); err != nil {
@@ -267,9 +268,7 @@ func (d *Director) mutateModel(reqCtx *handlers.RequestContext, bodyMap map[stri
 	var ok bool
 	reqCtx.IncomingModelName, ok = bodyMap["model"].(string)
 	if !ok {
-
 		return reqCtx, errutil.Error{Code: errutil.BadRequest, Msg: "model not found in request body"}
-
 	}
 	if reqCtx.TargetModelName == "" {
 		// Default to incoming model name

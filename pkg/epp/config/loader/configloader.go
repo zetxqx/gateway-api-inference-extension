@@ -31,11 +31,11 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/flowcontrol"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
-	fwkpp "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/payloadprocess"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandle"
 	framework "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/profile"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/payloadprocess"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/saturationdetector/framework/plugins/utilizationdetector"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/scheduling"
 )
@@ -263,7 +263,7 @@ func buildSaturationConfig(apiConfig *configapi.SaturationDetector) *utilization
 	return cfg
 }
 
-func buildParserConfig(rawParserConfig *configapi.ParserConfig, handle fwkplugin.Handle) (*payloadprocess.Config, error) {
+func buildParserConfig(rawParserConfig *configapi.ParserConfig, handle fwkplugin.Handle) (*handlers.Config, error) {
 	if rawParserConfig == nil {
 		return nil, errors.New("parserConfig is not configured")
 	}
@@ -271,11 +271,11 @@ func buildParserConfig(rawParserConfig *configapi.ParserConfig, handle fwkplugin
 	if !ok {
 		return nil, errors.New("the configured parser is not loaded")
 	}
-	v, ok := plugin.(fwkpp.Parser)
+	v, ok := plugin.(fwkrh.Parser)
 	if !ok {
 		return nil, errors.New("the specified plugin is not a parser plugin in the config")
 	}
-	return &payloadprocess.Config{
+	return &handlers.Config{
 		Parser: v,
 	}, nil
 }

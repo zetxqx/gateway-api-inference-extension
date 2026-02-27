@@ -33,15 +33,7 @@ import (
 )
 
 const (
-	streamingRespPrefix = "data: "
-	streamingEndMsg     = "data: [DONE]"
-
-	// OpenAI API object types
-	objectTypeResponse            = "response"
-	objectTypeConversation        = "conversation"
-	objectTypeChatCompletion      = "chat.completion"
-	objectTypeChatCompletionChunk = "chat.completion.chunk"
-	objectTypeTextCompletion      = "text_completion"
+	streamingEndMsg = "data: [DONE]"
 )
 
 // HandleResponseBody always returns the requestContext even in the error case, as the request context is used in error handling.
