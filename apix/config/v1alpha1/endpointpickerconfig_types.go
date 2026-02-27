@@ -264,6 +264,7 @@ type ParserConfig struct {
 	// PluginRef specifies a particular Plugin instance to be associated with
 	// this Parser. The reference is to the name of an entry of the Plugins
 	// defined in the configuration's Plugins section
+	// Default: openai-parser
 	PluginRef string `json:"pluginRef"`
 }
 

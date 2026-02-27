@@ -18,6 +18,7 @@ package handlers
 
 import (
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandle"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandle/parsers/openai"
 )
 
 // Config holds the configuration for the SaturationDetector.
@@ -27,7 +28,7 @@ type Config struct {
 
 func NewParser(config *Config) fwkrh.Parser {
 	if config == nil || config.Parser == nil {
-		return nil
+		return openai.NewOpenAIParser()
 	}
 	return config.Parser
 }
