@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -714,9 +714,11 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 			},
 		},
 		{
-			name:    "Missing usage field returns error",
-			body:    []byte(`{"object": "chat.completion"}`),
-			wantErr: true,
+			name: "Missing usage field returns error",
+			body: []byte(`{"object": "chat.completion"}`),
+			want: &fwkrh.ParsedResponse{
+				Usage: nil,
+			},
 		},
 		{
 			name:    "Invalid JSON returns error",
@@ -742,10 +744,9 @@ func TestOpenAIParser_ParseStreamResponse(t *testing.T) {
 	parser := NewOpenAIParser()
 
 	tests := []struct {
-		name    string
-		chunk   []byte
-		want    *fwkrh.ParsedResponse
-		wantErr bool
+		name  string
+		chunk []byte
+		want  *fwkrh.ParsedResponse
 	}{
 		{
 			name:  "Single data chunk with usage",
@@ -757,7 +758,6 @@ func TestOpenAIParser_ParseStreamResponse(t *testing.T) {
 					TotalTokens:      17,
 				},
 			},
-			wantErr: false,
 		},
 		{
 			name:  "Usage and DONE in the same multi-line response",
@@ -770,33 +770,35 @@ func TestOpenAIParser_ParseStreamResponse(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
 		},
 		{
-			name:    "Chunk without usage returns error",
-			chunk:   []byte(`data: {"choices":[{"text":"hello"}]}`),
-			want:    nil,
-			wantErr: true,
+			name:  "Chunk without usage returns ParsedResponse with nil usage",
+			chunk: []byte(`data: {"choices":[{"text":"hello"}]}`),
+			want: &fwkrh.ParsedResponse{
+				Usage: nil,
+			},
 		},
 		{
-			name:    "DONE message returns error",
-			chunk:   []byte(`data: [DONE]`),
-			want:    nil,
-			wantErr: true,
+			name:  "DONE message returns error",
+			chunk: []byte(`data: [DONE]`),
+			want: &fwkrh.ParsedResponse{
+				Usage: nil,
+			},
 		},
 		{
-			name:    "Malformed JSON in stream (skipped)",
-			chunk:   []byte(`data: {bad-json}\ndata: {\"usage\":{\"total_tokens\":5}}`),
-			want:    nil,
-			wantErr: true,
+			name:  "Malformed JSON in stream (skipped)",
+			chunk: []byte(`data: {bad-json}\ndata: {\"usage\":{\"total_tokens\":5}}`),
+			want: &fwkrh.ParsedResponse{
+				Usage: nil,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := parser.ParseStreamResponse(tt.chunk)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ParseStreamResponse() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				t.Fatalf("ParseStreamResponse() error = %v", err)
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ParseStreamResponse() mismatch (-want +got):\n%s", diff)

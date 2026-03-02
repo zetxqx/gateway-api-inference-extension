@@ -95,7 +95,7 @@ func (p *OpenAIParser) ParseRequest(headers map[string]string, body []byte) (*sc
 // // ParseResponse parses the response body and returns a ParsedResponse
 func (p *OpenAIParser) ParseResponse(body []byte) (*fwkrh.ParsedResponse, error) {
 	usage, err := extractUsage(body)
-	if err != nil || usage == nil {
+	if err != nil {
 		return nil, err
 	}
 	return &fwkrh.ParsedResponse{Usage: usage}, nil
@@ -103,12 +103,9 @@ func (p *OpenAIParser) ParseResponse(body []byte) (*fwkrh.ParsedResponse, error)
 
 // ParseStreamResponse parses a chunk of the streaming response and returns a ParsedResponse
 func (p *OpenAIParser) ParseStreamResponse(chunk []byte) (*fwkrh.ParsedResponse, error) {
-	responseBody := extractUsageStreaming(string(chunk))
-	if responseBody.Usage == nil {
-		return nil, errors.New("unable to parse usage from stream response")
-	}
+	usage := extractUsageStreaming(string(chunk))
 	return &fwkrh.ParsedResponse{
-		Usage: responseBody.Usage,
+		Usage: usage,
 	}, nil
 }
 
@@ -224,7 +221,7 @@ func extractUsage(responseBytes []byte) (*fwkrc.Usage, error) {
 		}
 		return &usage, nil
 	}
-	return nil, errors.New("unable to extract usage")
+	return nil, nil
 }
 
 // extractUsageByAPIType extracts usage statistics using the appropriate field names
@@ -283,8 +280,10 @@ func extractUsageByAPIType(usg map[string]any, objectType string) fwkrc.Usage {
 //
 // If include_usage is not included in the request, `data: [DONE]` is returned separately, which
 // indicates end of streaming.
-func extractUsageStreaming(responseText string) ResponseBody {
-	response := ResponseBody{}
+func extractUsageStreaming(responseText string) *fwkrc.Usage {
+	var response struct {
+		Usage *fwkrc.Usage `json:"usage"`
+	}
 
 	lines := strings.SplitSeq(responseText, "\n")
 	for line := range lines {
@@ -301,9 +300,5 @@ func extractUsageStreaming(responseText string) ResponseBody {
 			continue
 		}
 	}
-	return response
-}
-
-type ResponseBody struct {
-	Usage *fwkrc.Usage `json:"usage"`
+	return response.Usage
 }

@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/common"
 	reqenvoy "sigs.k8s.io/gateway-api-inference-extension/pkg/common/envoy/request"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
-	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
 )
@@ -41,10 +40,12 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	logger := log.FromContext(ctx)
 
 	parsedResponse, parseErr := s.parser.ParseResponse(responseBytes)
-	if parseErr != nil || parsedResponse == nil || parsedResponse.Usage == nil {
+	if parseErr != nil || parsedResponse == nil {
 		return reqCtx, parseErr
 	}
-	reqCtx.Usage = *parsedResponse.Usage
+	if parsedResponse.Usage != nil {
+		reqCtx.Usage = *parsedResponse.Usage
+	}
 	logger.V(logutil.VERBOSE).Info("Response generated", "usage", reqCtx.Usage)
 	return s.director.HandleResponseBodyComplete(ctx, reqCtx)
 }
@@ -58,9 +59,9 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	}
 	responseText := string(responseBytes)
 	parsedResp, err := s.parser.ParseStreamResponse(responseBytes)
-	if err != nil || parsedResp.Usage == nil {
+	if err != nil {
 		logger.Error(err, "error in HandleResponseBodyStreaming using parser")
-	} else {
+	} else if parsedResp.Usage != nil {
 		reqCtx.Usage = *parsedResp.Usage
 	}
 	if strings.Contains(responseText, streamingEndMsg) {
@@ -139,12 +140,4 @@ func (s *StreamingServer) generateResponseHeaders(reqCtx *RequestContext) []*con
 		})
 	}
 	return headers
-}
-
-type ResponseBody struct {
-	Usage fwkrq.Usage `json:"usage"`
-}
-
-type PromptTokenDetails struct {
-	CachedTokens int `json:"cached_tokens"`
 }

@@ -123,20 +123,18 @@ func InstantiateAndConfigure(
 		}
 	}
 
-	config := &config.Config{
+	parserConfig, err := buildParserConfig(rawConfig.Parser, handle)
+	if err != nil {
+		return nil, fmt.Errorf("parse config build failed: %w", err)
+	}
+
+	return &config.Config{
 		SchedulerConfig:          schedulerConfig,
 		SaturationDetectorConfig: buildSaturationConfig(rawConfig.SaturationDetector),
 		DataConfig:               dataConfig,
 		FlowControlConfig:        flowControlConfig,
-	}
-	if rawConfig.Parser != nil {
-		parserConfig, err := buildParserConfig(rawConfig.Parser, handle)
-		if err != nil {
-			return nil, fmt.Errorf("parse config build failed: %w", err)
-		}
-		config.ParserConfig = parserConfig
-	}
-	return config, nil
+		ParserConfig:             parserConfig,
+	}, nil
 }
 
 func decodeRawConfig(configBytes []byte) (*configapi.EndpointPickerConfig, error) {

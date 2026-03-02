@@ -582,7 +582,7 @@ schedulingProfiles:
   plugins:
   - pluginRef: maxScore
 parser:
-  pluginRef: maxScore # Wrong type
+  pluginRef: maxScore # Wrong name
 `
 
 // errorParserWrongPluginTypeName references a plugin of the wrong name.

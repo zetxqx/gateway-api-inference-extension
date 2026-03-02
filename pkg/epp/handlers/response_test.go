@@ -54,6 +54,26 @@ const (
 		}
 	}
 	`
+
+	bodyWithoutUsage = `
+	{
+		"id": "cmpl-573498d260f2423f9e42817bbba3743a",
+		"object": "text_completion",
+		"created": 1732563765,
+		"model": "meta-llama/Llama-3.1-8B-Instruct",
+		"choices": [
+			{
+				"index": 0,
+				"text": " Chronicle\nThe San Francisco Chronicle has a new book review section, and it's a good one. The reviews are short, but they're well-written and well-informed. The Chronicle's book review section is a good place to start if you're looking for a good book review.\nThe Chronicle's book review section is a good place to start if you're looking for a good book review. The Chronicle's book review section",
+				"logprobs": null,
+				"finish_reason": "length",
+				"stop_reason": null,
+				"prompt_logprobs": null
+			}
+		]
+	}
+	`
+
 	bodyWithCachedTokens = `
 	{
 		"id": "cmpl-573498d260f2423f9e42817bbba3743a",
@@ -131,6 +151,11 @@ func TestHandleResponseBody(t *testing.T) {
 				TotalTokens:      111,
 				CompletionTokens: 100,
 			},
+		},
+		{
+			name: "success body without usage, the HandleResponseBody should still return non-nil error",
+			body: []byte(bodyWithoutUsage),
+			want: fwkrq.Usage{}, // Since the usage is not set in the responseBody, this usage should be empty.
 		},
 		{
 			name: "success with cached tokens",
