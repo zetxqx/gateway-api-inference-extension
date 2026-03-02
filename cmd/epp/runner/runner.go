@@ -553,9 +553,6 @@ func (r *Runner) parseConfigurationPhaseTwo(ctx context.Context, rawConfig *conf
 	r.applyDeprecatedSaturationConfig(cfg)
 
 	r.parser = handlers.NewParser(cfg.ParserConfig)
-	if r.parser != nil {
-		logger.Info("Pluggable parser is used", "parser name", r.parser.TypedName().Name)
-	}
 	logger.Info("loaded configuration from file/text successfully")
 
 	return cfg, nil

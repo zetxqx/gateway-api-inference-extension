@@ -215,6 +215,19 @@ parser:
   pluginRef: openai-parser
 `
 
+// successWithNoParserConfigText tests that a default openaiParser is injected when no parser is configured.
+const successWithNoParserConfigText = `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- name: maxScore
+  type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: maxScore
+`
+
 // successParserConfigText tests that configuration with parser plugin with custom name is correctly loaded.
 const successParserWithNameConfigText = `
 apiVersion: inference.networking.x-k8s.io/v1alpha1

@@ -366,6 +366,16 @@ func TestInstantiateAndConfigure(t *testing.T) {
 			},
 		},
 		{
+			name:       "Success - Config without parser and a default openai parser is injected",
+			configText: successWithNoParserConfigText,
+			wantErr:    false,
+			validate: func(t *testing.T, handle fwkplugin.Handle, rawCfg *configapi.EndpointPickerConfig, cfg *config.Config) {
+				require.NotNil(t, cfg.ParserConfig, "Parser config should be loaded")
+				require.Equal(t, "openai-parser", cfg.ParserConfig.Parser.TypedName().Name, "Should have openai parser name")
+				require.Equal(t, openai.OpenAIParserType, cfg.ParserConfig.Parser.TypedName().Type, "Should contain openai parser type")
+			},
+		},
+		{
 			name:       "Success - Parser Config With Name",
 			configText: successParserWithNameConfigText,
 			wantErr:    false,
