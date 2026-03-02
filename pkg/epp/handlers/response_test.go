@@ -74,6 +74,20 @@ const (
 	}
 	`
 
+	bodyInvalidJSON = `
+	{
+		"id": "cmpl-573498d260f2423f9e42817bbba3743a",
+		"object": "text_completion",
+		"created": 1732563765,
+		"model": "meta-llama/Llama-3.1-8B-Instruct",
+		"choices": [
+			{
+				"invalid json"
+			}
+		]
+	}
+	`
+
 	bodyWithCachedTokens = `
 	{
 		"id": "cmpl-573498d260f2423f9e42817bbba3743a",
@@ -137,11 +151,10 @@ func TestHandleResponseBody(t *testing.T) {
 	ctx := logutil.NewTestLoggerIntoContext(context.Background())
 
 	tests := []struct {
-		name    string
-		body    []byte
-		reqCtx  *RequestContext
-		want    fwkrq.Usage
-		wantErr bool
+		name   string
+		body   []byte
+		reqCtx *RequestContext
+		want   fwkrq.Usage
 	}{
 		{
 			name: "success",
@@ -151,11 +164,6 @@ func TestHandleResponseBody(t *testing.T) {
 				TotalTokens:      111,
 				CompletionTokens: 100,
 			},
-		},
-		{
-			name: "success body without usage, the HandleResponseBody should still return non-nil error",
-			body: []byte(bodyWithoutUsage),
-			want: fwkrq.Usage{}, // Since the usage is not set in the responseBody, this usage should be empty.
 		},
 		{
 			name: "success with cached tokens",
@@ -168,6 +176,16 @@ func TestHandleResponseBody(t *testing.T) {
 					CachedTokens: 10,
 				},
 			},
+		},
+		{
+			name: "success body without usage, the HandleResponseBody should still return non-nil error",
+			body: []byte(bodyWithoutUsage),
+			want: fwkrq.Usage{}, // Since the usage is not set in the responseBody, this usage should be empty.
+		},
+		{
+			name: "success invalid joson body, the HandleResponseBody should still return non-nil error",
+			body: []byte(bodyInvalidJSON),
+			want: fwkrq.Usage{}, // Since the response is invalid json, the usage cannot be extrcated.
 		},
 	}
 
@@ -183,10 +201,7 @@ func TestHandleResponseBody(t *testing.T) {
 			}
 			_, err := server.HandleResponseBody(ctx, reqCtx, test.body)
 			if err != nil {
-				if !test.wantErr {
-					t.Fatalf("HandleResponseBody returned unexpected error: %v, want %v", err, test.wantErr)
-				}
-				return
+				t.Errorf("HandleResponseBody returned unexpected error: %v, want nil", err)
 			}
 
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {

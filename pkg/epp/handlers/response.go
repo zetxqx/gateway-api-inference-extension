@@ -40,13 +40,13 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	logger := log.FromContext(ctx)
 
 	parsedResponse, parseErr := s.parser.ParseResponse(responseBytes)
-	if parseErr != nil || parsedResponse == nil {
-		return reqCtx, parseErr
+	if parseErr != nil {
+		logger.Error(parseErr, "response parsing")
 	}
-	if parsedResponse.Usage != nil {
+	if parsedResponse != nil && parsedResponse.Usage != nil {
 		reqCtx.Usage = *parsedResponse.Usage
+		logger.V(logutil.VERBOSE).Info("Response generated", "usage", reqCtx.Usage)
 	}
-	logger.V(logutil.VERBOSE).Info("Response generated", "usage", reqCtx.Usage)
 	return s.director.HandleResponseBodyComplete(ctx, reqCtx)
 }
 
@@ -60,7 +60,7 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	responseText := string(responseBytes)
 	parsedResp, err := s.parser.ParseStreamResponse(responseBytes)
 	if err != nil {
-		logger.Error(err, "error in HandleResponseBodyStreaming using parser")
+		logger.Error(err, "streaming response parsing")
 	} else if parsedResp.Usage != nil {
 		reqCtx.Usage = *parsedResp.Usage
 	}
