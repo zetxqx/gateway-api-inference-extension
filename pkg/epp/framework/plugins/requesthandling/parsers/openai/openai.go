@@ -92,8 +92,12 @@ func (p *OpenAIParser) ParseRequest(headers map[string]string, body []byte) (*sc
 	return extractedBody, nil
 }
 
-// // ParseResponse parses the response body and returns a ParsedResponse
-func (p *OpenAIParser) ParseResponse(body []byte) (*fwkrh.ParsedResponse, error) {
+// ParseResponse parses the response body and returns a ParsedResponse
+func (p *OpenAIParser) ParseResponse(body []byte, isStreaming bool) (*fwkrh.ParsedResponse, error) {
+	if isStreaming {
+		return p.parseStreamResponse(body)
+	}
+
 	usage, err := extractUsage(body)
 	if err != nil {
 		return nil, err
@@ -101,8 +105,7 @@ func (p *OpenAIParser) ParseResponse(body []byte) (*fwkrh.ParsedResponse, error)
 	return &fwkrh.ParsedResponse{Usage: usage}, nil
 }
 
-// ParseStreamResponse parses a chunk of the streaming response and returns a ParsedResponse
-func (p *OpenAIParser) ParseStreamResponse(chunk []byte) (*fwkrh.ParsedResponse, error) {
+func (p *OpenAIParser) parseStreamResponse(chunk []byte) (*fwkrh.ParsedResponse, error) {
 	usage := extractUsageStreaming(string(chunk))
 	return &fwkrh.ParsedResponse{
 		Usage: usage,

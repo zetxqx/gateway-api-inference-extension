@@ -29,11 +29,9 @@ type Parser interface {
 	// ParseRequest parses the request body and headers and returns a map representation.
 	ParseRequest(headers map[string]string, body []byte) (*scheduling.LLMRequestBody, error)
 
-	// ParseResponse parses the response body and returns ParsedResponse.
-	ParseResponse(body []byte) (*ParsedResponse, error)
-
-	// ParseStreamResponse parses a chunk of the streaming response and returns ParsedResponse.
-	ParseStreamResponse(chunk []byte) (*ParsedResponse, error)
+	// ParseResponse parses the response payload. If isStreaming is true, 'body' is
+	// treated as an individual chunk; otherwise, it is treated as the complete response.
+	ParseResponse(body []byte, isStreaming bool) (*ParsedResponse, error)
 }
 
 type ParsedResponse struct {
