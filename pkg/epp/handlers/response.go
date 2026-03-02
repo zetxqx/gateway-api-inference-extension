@@ -18,7 +18,6 @@ package handlers
 
 import (
 	"context"
-	"strings"
 
 	configPb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
@@ -29,10 +28,6 @@ import (
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
-)
-
-const (
-	streamingEndMsg = "data: [DONE]"
 )
 
 // HandleResponseBody always returns the requestContext even in the error case, as the request context is used in error handling.
@@ -57,14 +52,11 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	if err != nil {
 		logger.Error(err, "error in HandleResponseBodyStreaming")
 	}
-	responseText := string(responseBytes)
 	parsedResp, err := s.parser.ParseStreamResponse(responseBytes)
 	if err != nil {
 		logger.Error(err, "streaming response parsing")
 	} else if parsedResp.Usage != nil {
 		reqCtx.Usage = *parsedResp.Usage
-	}
-	if strings.Contains(responseText, streamingEndMsg) {
 		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
 		metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.CompletionTokens)
 		cachedToken := 0
