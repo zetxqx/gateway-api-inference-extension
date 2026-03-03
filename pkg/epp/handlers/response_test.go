@@ -270,7 +270,7 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			if reqCtx == nil {
 				reqCtx = &RequestContext{}
 			}
-			server.HandleResponseBodyModelStreaming(ctx, reqCtx, test.body)
+			server.HandleResponseBodyModelStreaming(ctx, reqCtx, test.body, true) // Hard coded to true since openAIParser does not endOfStream to switch logic.
 
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
 				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
@@ -282,42 +282,47 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 	t.Parallel()
 
+	type chunkStream struct {
+		body        []byte
+		endOfStream bool
+	}
+
 	tests := []struct {
 		name      string
-		chunks    [][]byte
+		chunks    []chunkStream
 		wantUsage fwkrq.Usage
 	}{
 		{
 			name: "Standard: Usage and DONE in same chunk",
-			chunks: [][]byte{
-				[]byte(`data: {"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}` + "\n" + `data: [DONE]`),
+			chunks: []chunkStream{
+				{body: []byte(`data: {"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}` + "\n" + `data: [DONE]`), endOfStream: true},
 			},
 			wantUsage: fwkrq.Usage{PromptTokens: 5, CompletionTokens: 10, TotalTokens: 15},
 		},
 		{
 			name: "Split: Usage in Chunk 1, DONE in Chunk 2",
-			chunks: [][]byte{
+			chunks: []chunkStream{
 				// Chunk 1: Usage data arrives
-				[]byte(`data: {"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}` + "\n"),
+				{body: []byte(`data: {"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}` + "\n"), endOfStream: false},
 				// Chunk 2: Stream termination. Should NOT overwrite the usage from Chunk 1.
-				[]byte(`data: [DONE]`),
+				{body: []byte(`data: [DONE]`), endOfStream: true},
 			},
 			wantUsage: fwkrq.Usage{PromptTokens: 5, CompletionTokens: 10, TotalTokens: 15},
 		},
 		{
 			name: "Fragmented: Content -> Usage -> DONE",
-			chunks: [][]byte{
-				[]byte(`data: {"choices":[{"text":"Hello"}]}` + "\n"),
-				[]byte(`data: {"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}` + "\n"),
-				[]byte(`data: [DONE]`),
+			chunks: []chunkStream{
+				{body: []byte(`data: {"choices":[{"text":"Hello"}]}` + "\n"), endOfStream: false},
+				{body: []byte(`data: {"usage":{"prompt_tokens":5,"completion_tokens":10,"total_tokens":15}}` + "\n"), endOfStream: false},
+				{body: []byte(`data: [DONE]`), endOfStream: true},
 			},
 			wantUsage: fwkrq.Usage{PromptTokens: 5, CompletionTokens: 10, TotalTokens: 15},
 		},
 		{
 			name: "No Usage Data",
-			chunks: [][]byte{
-				[]byte(`data: {"choices":[{"text":"Hello"}]}` + "\n"),
-				[]byte(`data: [DONE]`),
+			chunks: []chunkStream{
+				{body: []byte(`data: {"choices":[{"text":"Hello"}]}` + "\n"), endOfStream: false},
+				{body: []byte(`data: [DONE]`), endOfStream: true},
 			},
 			wantUsage: fwkrq.Usage{}, // Zero values
 		},
@@ -332,7 +337,7 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 			reqCtx := &RequestContext{}
 
 			for _, chunk := range tc.chunks {
-				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, chunk)
+				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, chunk.body, chunk.endOfStream)
 			}
 
 			assert.Equal(t, tc.wantUsage, reqCtx.Usage, "Usage data should match expected accumulation")

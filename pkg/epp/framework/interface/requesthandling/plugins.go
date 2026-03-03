@@ -36,7 +36,7 @@ type Parser interface {
 	// once per chunk sent by the model server, where 'body' represents an individual chunk.
 	// In the non-streaming case, this method is invoked exactly once, where 'body' represents
 	// the complete response.
-	ParseResponse(ctx context.Context, body []byte, isStreaming bool) (*ParsedResponse, error)
+	ParseResponse(ctx context.Context, body []byte, endofStream bool) (*ParsedResponse, error)
 }
 
 type ParsedResponse struct {

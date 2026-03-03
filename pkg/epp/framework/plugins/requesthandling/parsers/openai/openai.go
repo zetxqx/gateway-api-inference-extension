@@ -94,8 +94,9 @@ func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers ma
 }
 
 // ParseResponse parses the response body and returns a ParsedResponse
-func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, isStreaming bool) (*fwkrh.ParsedResponse, error) {
-	if isStreaming {
+func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, _ bool) (*fwkrh.ParsedResponse, error) {
+	// Use "data: " prefix to detect whether this is an openAI streaming response.
+	if strings.HasPrefix(string(body), streamingRespPrefix) {
 		return p.parseStreamResponse(body)
 	}
 
