@@ -194,7 +194,7 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 }
 
 func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkrh.Parser) (*fwksched.LLMRequestBody, error) {
-	llmRequestBody, err := parser.ParseRequest(reqCtx.Request.Headers, reqCtx.Request.RawBody)
+	llmRequestBody, err := parser.ParseRequest(reqCtx.Request.RawBody, reqCtx.Request.Headers)
 	if err != nil {
 		return nil, errutil.Error{Code: errutil.BadRequest, Msg: err.Error()}
 	}

@@ -27,10 +27,13 @@ import (
 type Parser interface {
 	fwkplugin.Plugin
 	// ParseRequest parses the request body and headers and returns a map representation.
-	ParseRequest(headers map[string]string, body []byte) (*scheduling.LLMRequestBody, error)
+	ParseRequest(body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error)
 
-	// ParseResponse parses the response payload. If isStreaming is true, 'body' is
-	// treated as an individual chunk; otherwise, it is treated as the complete response.
+	// ParseResponse parses the response payload.
+	// In the streaming case (isStreaming is true), this method is invoked multiple times,
+	// once per chunk sent by the model server, where 'body' represents an individual chunk.
+	// In the non-streaming case, this method is invoked exactly once, where 'body' represents
+	// the complete response.
 	ParseResponse(body []byte, isStreaming bool) (*ParsedResponse, error)
 }
 
