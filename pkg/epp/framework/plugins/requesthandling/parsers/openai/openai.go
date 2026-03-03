@@ -17,6 +17,7 @@ limitations under the License.
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -79,7 +80,7 @@ func (p *OpenAIParser) WithName(name string) *OpenAIParser {
 }
 
 // ParseRequest parses the request body and headers and returns a map representation.
-func (p *OpenAIParser) ParseRequest(body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error) {
+func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error) {
 	bodyMap := make(map[string]any)
 	if err := json.Unmarshal(body, &bodyMap); err != nil {
 		return nil, errors.New("error unmarshaling request bodyMap")
@@ -93,7 +94,7 @@ func (p *OpenAIParser) ParseRequest(body []byte, headers map[string]string) (*sc
 }
 
 // ParseResponse parses the response body and returns a ParsedResponse
-func (p *OpenAIParser) ParseResponse(body []byte, isStreaming bool) (*fwkrh.ParsedResponse, error) {
+func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, isStreaming bool) (*fwkrh.ParsedResponse, error) {
 	if isStreaming {
 		return p.parseStreamResponse(body)
 	}

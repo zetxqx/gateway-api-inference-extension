@@ -17,6 +17,8 @@ limitations under the License.
 package requesthandle
 
 import (
+	"context"
+
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
@@ -27,14 +29,14 @@ import (
 type Parser interface {
 	fwkplugin.Plugin
 	// ParseRequest parses the request body and headers and returns a map representation.
-	ParseRequest(body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error)
+	ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error)
 
 	// ParseResponse parses the response payload.
 	// In the streaming case (isStreaming is true), this method is invoked multiple times,
 	// once per chunk sent by the model server, where 'body' represents an individual chunk.
 	// In the non-streaming case, this method is invoked exactly once, where 'body' represents
 	// the complete response.
-	ParseResponse(body []byte, isStreaming bool) (*ParsedResponse, error)
+	ParseResponse(ctx context.Context, body []byte, isStreaming bool) (*ParsedResponse, error)
 }
 
 type ParsedResponse struct {

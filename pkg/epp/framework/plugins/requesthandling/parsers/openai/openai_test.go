@@ -17,6 +17,7 @@ limitations under the License.
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -610,7 +611,7 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Invalid tt.body %v: cannot convert to bytes", tt.body)
 			}
-			got, err := parser.ParseRequest(bodyBytes, tt.headers)
+			got, err := parser.ParseRequest(context.Background(), bodyBytes, tt.headers)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ParseRequest() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -729,7 +730,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parser.ParseResponse(tt.body, false)
+			got, err := parser.ParseResponse(context.Background(), tt.body, false)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ParseResponse() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -796,7 +797,7 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parser.ParseResponse(tt.chunk, true)
+			got, err := parser.ParseResponse(context.Background(), tt.chunk, true)
 			if err != nil {
 				t.Fatalf("ParseStreamResponse() error = %v", err)
 			}
@@ -822,7 +823,7 @@ func BenchmarkExtractRequestData_Completions(b *testing.B) {
 		if err != nil {
 			b.Errorf("body cannot be marshalled to JSON bytes")
 		}
-		_, err = parser.ParseRequest(jsonBytes, headers)
+		_, err = parser.ParseRequest(context.Background(), jsonBytes, headers)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -845,7 +846,7 @@ func BenchmarkExtractRequestData_ChatCompletions(b *testing.B) {
 		if err != nil {
 			b.Errorf("body cannot be marshalled to JSON bytes")
 		}
-		_, err = parser.ParseRequest(jsonBytes, headers)
+		_, err = parser.ParseRequest(context.Background(), jsonBytes, headers)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -896,7 +897,7 @@ func BenchmarkExtractRequestData_Responses(b *testing.B) {
 		if err != nil {
 			b.Errorf("body cannot be marshalled to JSON bytes")
 		}
-		_, err = parser.ParseRequest(jsonBytes, headers)
+		_, err = parser.ParseRequest(context.Background(), jsonBytes, headers)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -919,7 +920,7 @@ func BenchmarkExtractRequestData_Conversations(b *testing.B) {
 		if err != nil {
 			b.Errorf("body cannot be marshalled to JSON bytes")
 		}
-		_, err = parser.ParseRequest(jsonBytes, headers)
+		_, err = parser.ParseRequest(context.Background(), jsonBytes, headers)
 		if err != nil {
 			b.Fatal(err)
 		}
