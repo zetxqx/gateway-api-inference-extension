@@ -94,10 +94,15 @@ func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers ma
 }
 
 // ParseResponse parses the response body and returns a ParsedResponse
-func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, _ bool) (*fwkrh.ParsedResponse, error) {
+func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, endOfStream bool) (*fwkrh.ParsedResponse, error) {
 	// Use "data: " prefix to detect whether this is an openAI streaming response.
 	if strings.HasPrefix(string(body), streamingRespPrefix) {
 		return p.parseStreamResponse(body)
+	}
+
+	if endOfStream && len(body) == 0 {
+		// This only happens when the response is streaming. An extra empty chunk with endOfStream setting to true is sent to EPP.
+		return nil, nil
 	}
 
 	usage, err := extractUsage(body)

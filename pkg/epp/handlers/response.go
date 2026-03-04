@@ -55,7 +55,7 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	parsedResp, err := s.parser.ParseResponse(ctx, responseBytes, endOfStream)
 	if err != nil {
 		logger.Error(err, "streaming response parsing")
-	} else if parsedResp.Usage != nil {
+	} else if parsedResp != nil && parsedResp.Usage != nil {
 		reqCtx.Usage = *parsedResp.Usage
 		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
 		metrics.RecordOutputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.CompletionTokens)
