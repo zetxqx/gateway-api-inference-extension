@@ -32,11 +32,11 @@ type Parser interface {
 	ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error)
 
 	// ParseResponse parses the response payload.
-	// In the streaming case (isStreaming is true), this method is invoked multiple times,
-	// once per chunk sent by the model server, where 'body' represents an individual chunk.
-	// In the non-streaming case, this method is invoked exactly once, where 'body' represents
-	// the complete response.
-	ParseResponse(ctx context.Context, body []byte, endofStream bool) (*ParsedResponse, error)
+	// For streaming responses , this method is invoked multiple times (once per chunk),
+	// where 'endOfStream' is set to true only for the final chunk.
+	// For non-streaming responses, this method is invoked exactly once with the full
+	// buffered response body and 'endOfStream' set to true.
+	ParseResponse(ctx context.Context, body []byte, headers map[string]string, endofStream bool) (*ParsedResponse, error)
 }
 
 type ParsedResponse struct {

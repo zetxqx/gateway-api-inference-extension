@@ -45,12 +45,18 @@ const (
 	objectTypeChatCompletion      = "chat.completion"
 	objectTypeChatCompletionChunk = "chat.completion.chunk"
 	objectTypeTextCompletion      = "text_completion"
+
+	contentType = "content-type"
+	// The base media type for Server-Sent Events. We check for this substring
+	// to account for optional parameters like "; charset=utf-8" often appended by proxies.
+	eventStreamType = "text/event-stream"
 )
 
 // compile-time type validation
 var _ fwkrh.Parser = &OpenAIParser{}
 
-// OpenAIParser implements the backend.OpenAIParser interface for OpenAI API.
+// OpenAIParser implements the fwkrh.Parser interface for OpenAI API
+// https://developers.openai.com/api/reference/overview
 type OpenAIParser struct {
 	typedName fwkplugin.TypedName
 }
@@ -93,16 +99,24 @@ func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers ma
 	return extractedBody, nil
 }
 
-// ParseResponse parses the response body and returns a ParsedResponse
-func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, endOfStream bool) (*fwkrh.ParsedResponse, error) {
-	// Use "data: " prefix to detect whether this is an openAI streaming response.
-	if strings.HasPrefix(string(body), streamingRespPrefix) {
-		return p.parseStreamResponse(body)
+// ParseResponse extracts usage metadata from the provider's response.
+// It automatically detects and handles both standard JSON responses and SSE streams.
+func (p *OpenAIParser) ParseResponse(ctx context.Context, body []byte, headers map[string]string, _ bool) (*fwkrh.ParsedResponse, error) {
+	if len(body) == 0 {
+		// An empty body can occur during streaming; for instance, Envoy proxies
+		// may emit a trailing empty body with the EndOfStream flag set to true.
+		return nil, nil
 	}
 
-	if endOfStream && len(body) == 0 {
-		// This only happens when the response is streaming. An extra empty chunk with endOfStream setting to true is sent to EPP.
-		return nil, nil
+	isStream := false
+	for k, v := range headers {
+		if strings.ToLower(k) == contentType && strings.Contains(strings.ToLower(v), eventStreamType) {
+			isStream = true
+			break
+		}
+	}
+	if isStream {
+		return p.parseStreamResponse(body)
 	}
 
 	usage, err := extractUsage(body)

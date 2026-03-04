@@ -197,7 +197,9 @@ func TestHandleResponseBody(t *testing.T) {
 			server.director = &mockDirector{}
 			reqCtx := test.reqCtx
 			if reqCtx == nil {
-				reqCtx = &RequestContext{}
+				reqCtx = &RequestContext{
+					Response: &Response{},
+				}
 			}
 			_, err := server.HandleResponseBody(ctx, reqCtx, test.body)
 			if err != nil {
@@ -216,25 +218,18 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 	tests := []struct {
 		name    string
 		body    []byte
-		reqCtx  *RequestContext
 		want    fwkrq.Usage
 		wantErr bool
 	}{
 		{
-			name: "streaming request without usage",
-			body: []byte(streamingBodyWithoutUsage),
-			reqCtx: &RequestContext{
-				modelServerStreaming: true,
-			},
+			name:    "streaming request without usage",
+			body:    []byte(streamingBodyWithoutUsage),
 			wantErr: false,
 			// In the middle of streaming response, so request context response is not set yet.
 		},
 		{
-			name: "streaming request with usage",
-			body: []byte(streamingBodyWithUsage),
-			reqCtx: &RequestContext{
-				modelServerStreaming: true,
-			},
+			name:    "streaming request with usage",
+			body:    []byte(streamingBodyWithUsage),
 			wantErr: false,
 			want: fwkrq.Usage{
 				PromptTokens:     7,
@@ -243,11 +238,8 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 			},
 		},
 		{
-			name: "streaming request with usage and cached tokens",
-			body: []byte(streamingBodyWithUsageAndCachedTokens),
-			reqCtx: &RequestContext{
-				modelServerStreaming: true,
-			},
+			name:    "streaming request with usage and cached tokens",
+			body:    []byte(streamingBodyWithUsageAndCachedTokens),
 			wantErr: false,
 			want: fwkrq.Usage{
 				PromptTokens:     7,
@@ -266,9 +258,12 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 				parser: openai.NewOpenAIParser(),
 			}
 			server.director = &mockDirector{}
-			reqCtx := test.reqCtx
-			if reqCtx == nil {
-				reqCtx = &RequestContext{}
+			reqCtx := &RequestContext{
+				Response: &Response{
+					Headers: map[string]string{
+						"content-type": "text/event-stream; charset=utf-8",
+					},
+				},
 			}
 			server.HandleResponseBodyModelStreaming(ctx, reqCtx, test.body, true) // Hard coded to true since openAIParser does not endOfStream to switch logic.
 
@@ -334,7 +329,13 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 				parser:   openai.NewOpenAIParser(),
 				director: &mockDirector{},
 			}
-			reqCtx := &RequestContext{}
+			reqCtx := &RequestContext{
+				Response: &Response{
+					Headers: map[string]string{
+						"content-type": "text/event-stream",
+					},
+				},
+			}
 
 			for _, chunk := range tc.chunks {
 				server.HandleResponseBodyModelStreaming(context.Background(), reqCtx, chunk.body, chunk.endOfStream)

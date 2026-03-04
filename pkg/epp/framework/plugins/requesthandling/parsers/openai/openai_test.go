@@ -730,7 +730,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parser.ParseResponse(context.Background(), tt.body, false)
+			got, err := parser.ParseResponse(context.Background(), tt.body, map[string]string{}, false)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ParseResponse() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -797,7 +797,7 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parser.ParseResponse(context.Background(), tt.chunk, true)
+			got, err := parser.ParseResponse(context.Background(), tt.chunk, map[string]string{contentType: eventStreamType}, true)
 			if err != nil {
 				t.Fatalf("ParseStreamResponse() error = %v", err)
 			}

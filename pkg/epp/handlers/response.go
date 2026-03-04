@@ -34,7 +34,7 @@ import (
 func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, responseBytes []byte) (*RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	parsedResponse, parseErr := s.parser.ParseResponse(ctx, responseBytes, true)
+	parsedResponse, parseErr := s.parser.ParseResponse(ctx, responseBytes, reqCtx.Response.Headers, true)
 	if parseErr != nil {
 		logger.Error(parseErr, "response parsing")
 	}
@@ -52,7 +52,7 @@ func (s *StreamingServer) HandleResponseBodyModelStreaming(ctx context.Context, 
 	if err != nil {
 		logger.Error(err, "error in HandleResponseBodyStreaming")
 	}
-	parsedResp, err := s.parser.ParseResponse(ctx, responseBytes, endOfStream)
+	parsedResp, err := s.parser.ParseResponse(ctx, responseBytes, reqCtx.Response.Headers, endOfStream)
 	if err != nil {
 		logger.Error(err, "streaming response parsing")
 	} else if parsedResp != nil && parsedResp.Usage != nil {
