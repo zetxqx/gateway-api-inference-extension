@@ -96,6 +96,12 @@ var currentCodeExceptionMap = map[string][]string{
 	"pkg/epp/framework/plugins/scheduling/scorer/prefix/plugin.go": {
 		"pkg/epp/metrics",
 	},
+	"pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/vllmgrpc.go": {
+		"pkg/epp/api/gen",
+	},
+	"pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/vllmgrpc_test.go": {
+		"pkg/epp/api/gen",
+	},
 }
 
 func init() {
