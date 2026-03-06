@@ -48,7 +48,6 @@ const (
 var _ requestcontrol.PreRequest = &PredictedLatency{}
 var _ requestcontrol.ResponseReceived = &PredictedLatency{}
 var _ requestcontrol.ResponseStreaming = &PredictedLatency{}
-var _ requestcontrol.ResponseComplete = &PredictedLatency{}
 var _ requestcontrol.AdmissionPlugin = &PredictedLatency{}
 
 type predictedLatencyCtx struct {
@@ -220,7 +219,7 @@ func (t *PredictedLatency) ResponseStreaming(ctx context.Context, request *sched
 		logger.V(logutil.DEBUG).Info("PredictedLatency.ResponseStreaming: request is nil, skipping")
 		return
 	}
-	if !t.checkPredictor(logger, targetMetadata) || response.EndOfStream || !t.config.StreamingMode {
+	if !t.checkPredictor(logger, targetMetadata) {
 		return
 	}
 
@@ -313,7 +312,6 @@ func (t *PredictedLatency) ResponseComplete(ctx context.Context, request *schedu
 				logger.V(logutil.DEBUG).Error(err, "record TPOT training failed")
 			}
 		}
-	}
 
 	// Decrement per-pod token-in-flight counters now that the request is complete.
 	// Also clean up the map entry if the counter reaches zero, preventing stale entries
