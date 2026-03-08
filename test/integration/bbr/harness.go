@@ -25,6 +25,9 @@ import (
 	"google.golang.org/grpc"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/datastore"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/framework"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/handlers"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins"
 	runserver "sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/server"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	"sigs.k8s.io/gateway-api-inference-extension/test/integration"
@@ -56,6 +59,9 @@ func NewBBRHarness(t *testing.T, ctx context.Context, streaming bool) *BBRHarnes
 	runner.SecureServing = false
 	runner.Streaming = streaming
 	runner.Datastore = datastore.NewDatastore()
+	modelToHeaderPlugin, err := plugins.NewBodyFieldToHeaderPlugin(handlers.ModelField, handlers.ModelHeader)
+	require.NoError(t, err, "failed to create body-field-to-header plugin")
+	runner.RequestPlugins = []framework.RequestProcessor{modelToHeaderPlugin}
 
 	// 3. Start Server in Background
 	serverCtx, serverCancel := context.WithCancel(ctx)

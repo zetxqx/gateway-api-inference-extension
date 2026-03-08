@@ -26,6 +26,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/framework"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins"
+	envoytest "sigs.k8s.io/gateway-api-inference-extension/pkg/common/envoy/test"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 )
 
@@ -54,13 +56,13 @@ func TestHandleRequestBodyStreaming(t *testing.T) {
 									SetHeaders: []*basepb.HeaderValueOption{
 										{
 											Header: &basepb.HeaderValue{
-												Key:      modelHeader,
+												Key:      ModelHeader,
 												RawValue: []byte("foo"),
 											},
 										},
 										{
 											Header: &basepb.HeaderValue{
-												Key:      baseModelHeader,
+												Key:      BaseModelHeader,
 												RawValue: []byte(""),
 											},
 										},
@@ -88,13 +90,13 @@ func TestHandleRequestBodyStreaming(t *testing.T) {
 									SetHeaders: []*basepb.HeaderValueOption{
 										{
 											Header: &basepb.HeaderValue{
-												Key:      modelHeader,
+												Key:      ModelHeader,
 												RawValue: []byte("foo"),
 											},
 										},
 										{
 											Header: &basepb.HeaderValue{
-												Key:      baseModelHeader,
+												Key:      BaseModelHeader,
 												RawValue: []byte(""),
 											},
 										},
@@ -125,17 +127,21 @@ func TestHandleRequestBodyStreaming(t *testing.T) {
 			},
 		},
 	}
-
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			srv := NewServer(tc.streaming, &fakeDatastore{}, []framework.PayloadProcessor{}, []framework.PayloadProcessor{})
+			modelToHeaderPlugin, _ := plugins.NewBodyFieldToHeaderPlugin(ModelField, ModelHeader)
+			srv := NewServer(tc.streaming, &fakeDatastore{}, []framework.RequestProcessor{modelToHeaderPlugin}, []framework.ResponseProcessor{})
 			reqCtx := &RequestContext{
-				Request: &Request{Headers: make(map[string]string)},
+				Request: framework.NewInferenceRequest(),
 			}
 			got, err := srv.HandleRequestBody(ctx, reqCtx, tc.body)
 			if err != nil {
 				t.Fatalf("HandleRequestBody(): %v", err)
 			}
+
+			// sort headers in responses for deterministic tests
+			envoytest.SortSetHeadersInResponses(tc.want)
+			envoytest.SortSetHeadersInResponses(got)
 			if diff := cmp.Diff(tc.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("HandleRequestBody returned unexpected response, diff(-want, +got): %v", diff)
 			}

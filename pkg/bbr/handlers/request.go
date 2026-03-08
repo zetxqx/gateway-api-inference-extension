@@ -19,11 +19,9 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
-	basepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	eppb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -32,13 +30,6 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/common"
 	reqenvoy "sigs.k8s.io/gateway-api-inference-extension/pkg/common/envoy/request"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
-)
-
-const (
-	modelHeader     = "X-Gateway-Model-Name"
-	baseModelHeader = "X-Gateway-Base-Model-Name"
-
-	executeExtensionPoint = "Request"
 )
 
 // HandleRequestBody parses the raw body bytes into reqCtx.Request.Body and processes the request.
@@ -50,23 +41,8 @@ func (s *Server) HandleRequestBody(ctx context.Context, reqCtx *RequestContext, 
 		return nil, err
 	}
 
-	targetModelAny, ok := reqCtx.Request.Body["model"]
-	if !ok {
-		metrics.RecordModelNotParsedCounter()
-		targetModelAny = ""
-	}
-
-	targetModel, ok := targetModelAny.(string)
-	if !ok {
-		metrics.RecordModelNotParsedCounter()
-		return nil, errors.New("model is not a string")
-	}
-
-	logger.Info("Parsed model name", "model", targetModel)
-
-	if targetModel == "" {
-		metrics.RecordModelNotInBodyCounter()
-		logger.V(logutil.DEFAULT).Info("Request body does not contain model parameter")
+	if err := s.runRequestPlugins(ctx, reqCtx.Request); err != nil {
+		logger.V(logutil.DEFAULT).Error(err, "failed to execute request plugins")
 		if s.streaming {
 			ret = append(ret, &eppb.ProcessingResponse{
 				Response: &eppb.ProcessingResponse_RequestHeaders{
@@ -85,14 +61,12 @@ func (s *Server) HandleRequestBody(ctx context.Context, reqCtx *RequestContext, 
 		return ret, nil
 	}
 
-	if err := s.executePlugins(ctx, reqCtx.Request.Headers, reqCtx.Request.Body, s.requestPlugins); err != nil {
-		return nil, fmt.Errorf("failed to execute request plugins - %w", err)
-	}
+	// TODO temp until this is implemented as plugin
+	baseModel := s.ds.GetBaseModel(reqCtx.Request.Headers[ModelHeader])
+	reqCtx.Request.SetHeader(BaseModelHeader, baseModel)
+	logger.Info("Base model from datastore", "baseModel", baseModel)
 
 	metrics.RecordSuccessCounter()
-	baseModel := s.ds.GetBaseModel(targetModel)
-
-	logger.Info("Base model from datastore", "baseModel", baseModel)
 
 	if s.streaming {
 		ret = append(ret, &eppb.ProcessingResponse{
@@ -101,20 +75,8 @@ func (s *Server) HandleRequestBody(ctx context.Context, reqCtx *RequestContext, 
 					Response: &eppb.CommonResponse{
 						ClearRouteCache: true,
 						HeaderMutation: &eppb.HeaderMutation{
-							SetHeaders: []*basepb.HeaderValueOption{
-								{
-									Header: &basepb.HeaderValue{
-										Key:      modelHeader,
-										RawValue: []byte(targetModel),
-									},
-								},
-								{
-									Header: &basepb.HeaderValue{
-										Key:      baseModelHeader,
-										RawValue: []byte(baseModel),
-									},
-								},
-							},
+							SetHeaders:    reqenvoy.GenerateHeadersMutation(reqCtx.Request.MutatedHeaders()),
+							RemoveHeaders: reqCtx.Request.RemovedHeaders(),
 						},
 					},
 				},
@@ -132,20 +94,8 @@ func (s *Server) HandleRequestBody(ctx context.Context, reqCtx *RequestContext, 
 						// Necessary so that the new headers are used in the routing decision.
 						ClearRouteCache: true,
 						HeaderMutation: &eppb.HeaderMutation{
-							SetHeaders: []*basepb.HeaderValueOption{
-								{
-									Header: &basepb.HeaderValue{
-										Key:      modelHeader,
-										RawValue: []byte(targetModel),
-									},
-								},
-								{
-									Header: &basepb.HeaderValue{
-										Key:      baseModelHeader,
-										RawValue: []byte(baseModel),
-									},
-								},
-							},
+							SetHeaders:    reqenvoy.GenerateHeadersMutation(reqCtx.Request.MutatedHeaders()),
+							RemoveHeaders: reqCtx.Request.RemovedHeaders(),
 						},
 					},
 				},
@@ -154,19 +104,16 @@ func (s *Server) HandleRequestBody(ctx context.Context, reqCtx *RequestContext, 
 	}, nil
 }
 
-// executePlugins executes BBR plugins in the order they were registered.
-func (s *Server) executePlugins(ctx context.Context, headers map[string]string, body map[string]any,
-	plugins []framework.PayloadProcessor) error {
-	updatedHeaders := headers
-	updatedBody := body
+// runRequestPlugins executes request plugins in the order they were registered.
+func (s *Server) runRequestPlugins(ctx context.Context, request *framework.InferenceRequest) error {
 	var err error
-	for _, plugin := range plugins {
-		log.FromContext(ctx).Info("Executing request plugin", "plugin", plugin.TypedName())
+	for _, plugin := range s.requestPlugins {
+		log.FromContext(ctx).V(logutil.VERBOSE).Info("Executing request plugin", "plugin", plugin.TypedName())
 		before := time.Now()
-		updatedHeaders, updatedBody, err = plugin.Execute(ctx, updatedHeaders, updatedBody)
-		metrics.RecordPluginProcessingLatency(executeExtensionPoint, plugin.TypedName().Type, plugin.TypedName().Name, time.Since(before))
+		err = plugin.ProcessRequest(ctx, request)
+		metrics.RecordPluginProcessingLatency(requestPluginExtensionPoint, plugin.TypedName().Type, plugin.TypedName().Name, time.Since(before))
 		if err != nil {
-			return fmt.Errorf("failed to execute payload processor %s - %w", plugin.TypedName(), err)
+			return fmt.Errorf("failed to execute request plugin '%s' - %w", plugin.TypedName(), err)
 		}
 	}
 
