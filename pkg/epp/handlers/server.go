@@ -286,7 +286,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				err = s.finishResponse(ctx, reqCtx, body)
 			}
 		case *extProcPb.ProcessingRequest_ResponseTrailers:
-			// For HTTP, the response trailer is not sent. Thus, it won't achieve this case.
+			// For HTTP, the response trailer is not sent. Thus, this case will not be triggered.
 			// For gRPC(over HTTP2), the protocol relies on responseTrialers to determine whether a response is complete.
 			// More info: https://chromium.googlesource.com/external/github.com/grpc/grpc/+/HEAD/doc/PROTOCOL-HTTP2.md#responses
 			err = s.finishResponse(ctx, reqCtx, body)
@@ -323,7 +323,11 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 	}
 }
 
+// finishResponse ensures all post-response logic, such as metric recording
+// and state updates, is executed exactly once for the request lifecycle.
 func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestContext, body []byte) error {
+	// Return early if the response has already been finished to prevent
+	// duplicate execution of side effects and metrics.
 	if reqCtx.ResponseComplete {
 		return nil
 	}
