@@ -341,13 +341,13 @@ func (d *Director) HandleResponseReceived(ctx context.Context, reqCtx *handlers.
 
 // HandleResponseBodyStreaming is invoked by the director for every chunk received in a streaming
 // response, or exactly once for a non-streaming response.
-func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *handlers.RequestContext) *handlers.RequestContext {
+func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *handlers.RequestContext, endOfStream bool) *handlers.RequestContext {
 	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk")
 	logger.V(logutil.TRACE).Info("Entering HandleResponseBodyChunk")
 	response := &fwk.Response{
 		RequestId:   reqCtx.Request.Headers[reqcommon.RequestIdHeaderKey],
 		Headers:     reqCtx.Response.Headers,
-		EndOfStream: reqCtx.ResponseComplete,
+		EndOfStream: endOfStream,
 	}
 	d.runResponseStreamingPlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
 	logger.V(logutil.TRACE).Info("Exiting HandleResponseBodyChunk")

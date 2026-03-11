@@ -172,6 +172,9 @@ func (d *Detector) ResponseStreaming(
 	resp *requestcontrol.Response,
 	targetEndpoint *fwkdl.EndpointMetadata,
 ) {
+	if targetEndpoint == nil {
+		return
+	}
 	if resp.EndOfStream {
 		d.tracker.dec(targetEndpoint.NamespacedName.String())
 	}

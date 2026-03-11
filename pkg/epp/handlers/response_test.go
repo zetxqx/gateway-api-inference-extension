@@ -128,7 +128,7 @@ data: [DONE]
 
 type mockDirector struct{}
 
-func (m *mockDirector) HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext) *RequestContext {
+func (m *mockDirector) HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext {
 	return reqCtx
 }
 func (m *mockDirector) HandleResponseReceived(ctx context.Context, reqCtx *RequestContext) *RequestContext {
