@@ -58,7 +58,7 @@ func NewStreamingServer(datastore Datastore, director Director, parser fwkrh.Par
 type Director interface {
 	HandleRequest(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error)
 	HandleResponseReceived(ctx context.Context, reqCtx *RequestContext) *RequestContext
-	HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext) *RequestContext
+	HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext
 	GetRandomEndpoint() *fwkdl.EndpointMetadata
 }
 
@@ -187,7 +187,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			// Use a fresh context as the request context might be canceled (Client Disconnect).
 			// We only need logging from the original context.
 			cleanupCtx := log.IntoContext(context.Background(), logger)
-			s.director.HandleResponseBodyStreaming(cleanupCtx, reqCtx)
+			s.director.HandleResponseBodyStreaming(cleanupCtx, reqCtx, true)
 		}
 	}(err, reqCtx)
 
@@ -272,29 +272,27 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			chunk := v.ResponseBody.Body
 
 			if reqCtx.modelServerStreaming {
-				if !endOfStream {
-					s.HandleResponseBodyStreaming(ctx, reqCtx, chunk, endOfStream)
-				} else {
-					body = chunk
-				}
+				// STREAMING: Process this specific chunk and prepare it to be sent immediately.
+				s.HandleResponseBodyStreaming(ctx, reqCtx, chunk, endOfStream)
 				reqCtx.respBodyResp = generateResponseBodyResponses(chunk, endOfStream)
 			} else {
+				// NON-STREAMING: Buffer the chunk.
 				body = append(body, chunk...)
 			}
+
+			// If this chunk marks the end of the stream, trigger the finalization logic.
 			if endOfStream {
-				err = s.finishResponse(ctx, reqCtx, body)
+				s.finishResponse(ctx, reqCtx, body)
 			}
 		case *extProcPb.ProcessingRequest_ResponseTrailers:
 			// For HTTP, the response trailer is not sent. Thus, this case will not be triggered.
 			// For gRPC(over HTTP2), the protocol relies on responseTrialers to determine whether a response is complete.
 			// More info: https://chromium.googlesource.com/external/github.com/grpc/grpc/+/HEAD/doc/PROTOCOL-HTTP2.md#responses
-			err = s.finishResponse(ctx, reqCtx, body)
-			if err == nil {
-				reqCtx.respTrailerResp = &extProcPb.ProcessingResponse{
-					Response: &extProcPb.ProcessingResponse_ResponseTrailers{
-						ResponseTrailers: &extProcPb.TrailersResponse{},
-					},
-				}
+			s.finishResponse(ctx, reqCtx, body)
+			reqCtx.respTrailerResp = &extProcPb.ProcessingResponse{
+				Response: &extProcPb.ProcessingResponse_ResponseTrailers{
+					ResponseTrailers: &extProcPb.TrailersResponse{},
+				},
 			}
 		}
 
@@ -324,19 +322,21 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 // finishResponse ensures all post-response logic, such as metric recording
 // and state updates, is executed exactly once for the request lifecycle.
-func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestContext, body []byte) error {
+func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestContext, body []byte) {
 	// Return early if the response has already been finished to prevent
 	// duplicate execution of side effects and metrics.
 	if reqCtx.ResponseComplete {
-		return nil
+		return
 	}
 
 	reqCtx.ResponseComplete = true
 	reqCtx.ResponseCompleteTimestamp = time.Now()
-	reqCtx.ResponseSize = len(body)
-	reqCtx = s.HandleResponseBodyStreaming(ctx, reqCtx, body, true)
-	reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
-	return nil
+	if !reqCtx.modelServerStreaming {
+		// NON-STREAMING: We now have the complete body.
+		reqCtx.ResponseSize = len(body)
+		reqCtx = s.HandleResponseBodyStreaming(ctx, reqCtx, body, true)
+		reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
+	}
 }
 
 // updateStateAndSendIfNeeded checks state and can send mutiple responses in a single pass, but only if ordered properly.

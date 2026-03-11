@@ -1105,7 +1105,6 @@ func TestDirector_HandleResponseReceived(t *testing.T) {
 	}
 }
 
-// TODO add called multiple times
 func TestDirector_HandleResponseStreaming(t *testing.T) {
 	ps1 := newTestResponseStreaming("ps1")
 
@@ -1127,16 +1126,21 @@ func TestDirector_HandleResponseStreaming(t *testing.T) {
 		TargetPod: &fwkdl.EndpointMetadata{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
 	}
 
-	director.HandleResponseBodyStreaming(ctx, reqCtx)
+	director.HandleResponseBodyStreaming(ctx, reqCtx, false)
+	director.HandleResponseBodyStreaming(ctx, reqCtx, false)
+	director.HandleResponseBodyStreaming(ctx, reqCtx, true)
 
-	if diff := cmp.Diff("test-req-id-for-streaming", ps1.lastRespOnStreaming.RequestId); diff != "" {
-		t.Errorf("Scheduler.OnStreaming RequestId mismatch (-want +got):\n%s", diff)
-	}
-	if diff := cmp.Diff(reqCtx.Response.Headers, ps1.lastRespOnStreaming.Headers); diff != "" {
-		t.Errorf("Scheduler.OnStreaming Headers mismatch (-want +got):\n%s", diff)
-	}
-	if diff := cmp.Diff("namespace1/test-pod-name", ps1.lastTargetPodOnStreaming); diff != "" {
-		t.Errorf("Scheduler.OnStreaming TargetPodName mismatch (-want +got):\n%s", diff)
+	assert.Equal(t, 3, len(ps1.respsOnStreaming), "Should have received 3 streaming calls")
+
+	for i, resp := range ps1.respsOnStreaming {
+		assert.Equal(t, "test-req-id-for-streaming", resp.RequestId)
+		assert.Equal(t, reqCtx.Response.Headers, resp.Headers)
+		assert.Equal(t, "namespace1/test-pod-name", ps1.targetPodsOnStreaming[i])
+		if i < 2 {
+			assert.False(t, resp.EndOfStream, "EndOfStream should be false for chunk %d", i)
+		} else {
+			assert.True(t, resp.EndOfStream, "EndOfStream should be true for last chunk")
+		}
 	}
 }
 
@@ -1153,7 +1157,11 @@ type testResponseReceived struct {
 }
 
 type testResponseStreaming struct {
-	typedName                fwkplugin.TypedName
+	typedName             fwkplugin.TypedName
+	respsOnStreaming      []*fwk.Response
+	targetPodsOnStreaming []string
+
+	// Legacy fields for existing tests if any, but better to update them
 	lastRespOnStreaming      *fwk.Response
 	lastTargetPodOnStreaming string
 }
@@ -1184,6 +1192,10 @@ func (p *testResponseReceived) ResponseReceived(_ context.Context, _ *fwksched.L
 }
 
 func (p *testResponseStreaming) ResponseStreaming(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
+	p.respsOnStreaming = append(p.respsOnStreaming, response)
+	p.targetPodsOnStreaming = append(p.targetPodsOnStreaming, targetPod.NamespacedName.String())
+
+	// Maintain legacy fields for compatibility
 	p.lastRespOnStreaming = response
 	p.lastTargetPodOnStreaming = targetPod.NamespacedName.String()
 }
