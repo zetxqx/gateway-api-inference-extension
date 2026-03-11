@@ -38,15 +38,15 @@ type PreRequest interface {
 	PreRequest(ctx context.Context, request *types.LLMRequest, schedulingResult *types.SchedulingResult)
 }
 
-// ResponseReceived is called by the director after the response headers are successfully received
+// ResponseHeader is called by the director after the response headers are successfully received
 // which indicates the beginning of the response handling by the model server.
 // The given pod argument is the pod that served the request.
-type ResponseReceived interface {
+type ResponseHeader interface {
 	plugin.Plugin
-	ResponseReceived(ctx context.Context, request *types.LLMRequest, response *Response, targetEndpoint *datalayer.EndpointMetadata)
+	ResponseHeader(ctx context.Context, request *types.LLMRequest, response *Response, targetEndpoint *datalayer.EndpointMetadata)
 }
 
-// ResponseStreaming is the primary hook for processing response data.
+// ResponseBody is the primary hook for processing response data.
 // It is called by the director for every data chunk in a streaming response, or exactly once
 // for non-streaming responses.
 //
@@ -59,9 +59,9 @@ type ResponseReceived interface {
 // TODO(https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/2079):
 // Update signature to pass error/termination state. This is a breaking change required for plugins to distinguish
 // between success, errors, and disconnects.
-type ResponseStreaming interface {
+type ResponseBody interface {
 	plugin.Plugin
-	ResponseStreaming(ctx context.Context, request *types.LLMRequest, response *Response, targetEndpoint *datalayer.EndpointMetadata)
+	ResponseBody(ctx context.Context, request *types.LLMRequest, response *Response, targetEndpoint *datalayer.EndpointMetadata)
 }
 
 // PrepareRequestData is called by the director before scheduling requests.

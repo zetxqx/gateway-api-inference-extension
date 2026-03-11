@@ -76,9 +76,9 @@ func init() {
 }
 
 var (
-	_ requestcontrol.PreRequest        = &Detector{}
-	_ requestcontrol.ResponseStreaming = &Detector{}
-	_ framework.Filter                 = &Detector{}
+	_ requestcontrol.PreRequest   = &Detector{}
+	_ requestcontrol.ResponseBody = &Detector{}
+	_ framework.Filter            = &Detector{}
 )
 
 // Detector implements a saturation detector and scheduling filter based on active request concurrency.
@@ -165,8 +165,8 @@ func (d *Detector) PreRequest(_ context.Context, _ *framework.LLMRequest, result
 	d.tracker.inc(result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().NamespacedName.String())
 }
 
-// ResponseStreaming decrements the atomic in-flight counter for the target endpoint when response is endOfStream.
-func (d *Detector) ResponseStreaming(
+// ResponseBody decrements the atomic in-flight counter for the target endpoint when response is endOfStream.
+func (d *Detector) ResponseBody(
 	_ context.Context,
 	_ *framework.LLMRequest,
 	resp *requestcontrol.Response,

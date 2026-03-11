@@ -46,8 +46,8 @@ const (
 )
 
 var _ requestcontrol.PreRequest = &PredictedLatency{}
-var _ requestcontrol.ResponseReceived = &PredictedLatency{}
-var _ requestcontrol.ResponseStreaming = &PredictedLatency{}
+var _ requestcontrol.ResponseHeader = &PredictedLatency{}
+var _ requestcontrol.ResponseBody = &PredictedLatency{}
 var _ requestcontrol.AdmissionPlugin = &PredictedLatency{}
 
 type predictedLatencyCtx struct {
@@ -204,7 +204,7 @@ func (t *PredictedLatency) PreRequest(ctx context.Context, request *schedulingty
 	processPreRequestForLatencyPrediction(ctx, predictedLatencyCtx)
 }
 
-func (t *PredictedLatency) ResponseReceived(ctx context.Context, request *schedulingtypes.LLMRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {
+func (t *PredictedLatency) ResponseHeader(ctx context.Context, request *schedulingtypes.LLMRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {
 	logger := log.FromContext(ctx)
 	if request == nil {
 		logger.V(logutil.DEBUG).Info("PredictedLatency.ResponseReceived: request is nil, skipping")
@@ -213,7 +213,7 @@ func (t *PredictedLatency) ResponseReceived(ctx context.Context, request *schedu
 }
 
 // --- Response Hooks when body chunks received---
-func (t *PredictedLatency) ResponseStreaming(ctx context.Context, request *schedulingtypes.LLMRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {
+func (t *PredictedLatency) ResponseBody(ctx context.Context, request *schedulingtypes.LLMRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {
 	logger := log.FromContext(ctx)
 	if request == nil {
 		logger.V(logutil.DEBUG).Info("PredictedLatency.ResponseStreaming: request is nil, skipping")

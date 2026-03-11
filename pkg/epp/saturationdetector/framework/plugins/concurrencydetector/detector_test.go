@@ -222,7 +222,7 @@ func TestDetector_Lifecycle(t *testing.T) {
 
 	// 3. Decrement (Available)
 	targetEndpoint := newStubSchedulingEndpoint(endpointName)
-	detector.ResponseStreaming(ctx, nil, &requestcontrol.Response{EndOfStream: true}, targetEndpoint.metadata)
+	detector.ResponseBody(ctx, nil, &requestcontrol.Response{EndOfStream: true}, targetEndpoint.metadata)
 	require.InDelta(t, 0.0, detector.Saturation(ctx, candidates), 1e-6, "expected 0.0 after completion")
 
 	// 4. Increment again -> Delete -> Verify Reset
@@ -252,8 +252,8 @@ func TestDetector_ConcurrencyStress(t *testing.T) {
 	// positive drift.
 	warmUpRes := makeSchedulingResult(endpointName)
 	warmUpEndpoint := newStubSchedulingEndpoint(endpointName)
-	detector.PreRequest(ctx, nil, warmUpRes)                                                                   // Creates entry, count=1
-	detector.ResponseStreaming(ctx, nil, &requestcontrol.Response{EndOfStream: true}, warmUpEndpoint.metadata) // Decrements, count=0
+	detector.PreRequest(ctx, nil, warmUpRes)                                                              // Creates entry, count=1
+	detector.ResponseBody(ctx, nil, &requestcontrol.Response{EndOfStream: true}, warmUpEndpoint.metadata) // Decrements, count=0
 
 	const (
 		numGoroutines = 50
@@ -280,7 +280,7 @@ func TestDetector_ConcurrencyStress(t *testing.T) {
 			defer wg.Done()
 			targetEndpoint := newStubSchedulingEndpoint(endpointName)
 			for range opsPerRoutine {
-				detector.ResponseStreaming(ctx, nil, &requestcontrol.Response{EndOfStream: true}, targetEndpoint.metadata)
+				detector.ResponseBody(ctx, nil, &requestcontrol.Response{EndOfStream: true}, targetEndpoint.metadata)
 			}
 		}()
 	}
