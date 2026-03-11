@@ -39,7 +39,7 @@ import (
 //
 //	Invoked exactly once with endOfStream=true. It processes the entire response
 //	body as a single "stream" event.
-func (s *StreamingServer) HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext, responseBytes []byte, endOfStream bool) *RequestContext {
+func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, responseBytes []byte, endOfStream bool) *RequestContext {
 	logger := log.FromContext(ctx)
 	parsedResp, err := s.parser.ParseResponse(ctx, responseBytes, reqCtx.Response.Headers, endOfStream)
 	if err != nil {
@@ -57,14 +57,14 @@ func (s *StreamingServer) HandleResponseBodyStreaming(ctx context.Context, reqCt
 		metrics.RecordRequestLatencies(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp)
 		metrics.RecordResponseSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.ResponseSize)
 	}
-	return s.director.HandleResponseBodyStreaming(ctx, reqCtx, endOfStream)
+	return s.director.HandleResponseBody(ctx, reqCtx, endOfStream)
 }
 
 func (s *StreamingServer) HandleResponseHeaders(ctx context.Context, reqCtx *RequestContext, resp *extProcPb.ProcessingRequest_ResponseHeaders) *RequestContext {
 	for _, header := range resp.ResponseHeaders.Headers.Headers {
 		reqCtx.Response.Headers[header.Key] = envoy.GetHeaderValue(header)
 	}
-	return s.director.HandleResponseReceived(ctx, reqCtx)
+	return s.director.HandleResponseHeader(ctx, reqCtx)
 }
 
 func (s *StreamingServer) generateResponseHeaderResponse(reqCtx *RequestContext) *extProcPb.ProcessingResponse {

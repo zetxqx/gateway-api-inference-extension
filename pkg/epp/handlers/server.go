@@ -57,8 +57,8 @@ func NewStreamingServer(datastore Datastore, director Director, parser fwkrh.Par
 
 type Director interface {
 	HandleRequest(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error)
-	HandleResponseReceived(ctx context.Context, reqCtx *RequestContext) *RequestContext
-	HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext
+	HandleResponseHeader(ctx context.Context, reqCtx *RequestContext) *RequestContext
+	HandleResponseBody(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext
 	GetRandomEndpoint() *fwkdl.EndpointMetadata
 }
 
@@ -192,7 +192,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			// Use a fresh context as the request context might be canceled (Client Disconnect).
 			// We only need logging from the original context.
 			cleanupCtx := log.IntoContext(context.Background(), logger)
-			s.director.HandleResponseBodyStreaming(cleanupCtx, reqCtx, true)
+			s.director.HandleResponseBody(cleanupCtx, reqCtx, true)
 		}
 	}(err, reqCtx)
 
@@ -279,7 +279,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			if reqCtx.modelServerStreaming {
 				// STREAMING: Process this specific chunk and prepare it to be sent immediately.
 				if !endOfStream {
-					s.HandleResponseBodyStreaming(ctx, reqCtx, chunk, endOfStream)
+					s.HandleResponseBody(ctx, reqCtx, chunk, endOfStream)
 					reqCtx.respBodyResp = generateResponseBodyResponses(chunk, endOfStream)
 				} else {
 					body = chunk
@@ -343,7 +343,7 @@ func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestCon
 	reqCtx.ResponseComplete = true
 	reqCtx.ResponseCompleteTimestamp = time.Now()
 	reqCtx.ResponseSize = len(body)
-	reqCtx = s.HandleResponseBodyStreaming(ctx, reqCtx, body, true)
+	reqCtx = s.HandleResponseBody(ctx, reqCtx, body, true)
 	if shouldSendResponse {
 		reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
 	}

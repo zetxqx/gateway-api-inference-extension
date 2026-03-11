@@ -1092,7 +1092,7 @@ func TestDirector_HandleResponseReceived(t *testing.T) {
 		TargetPod: &fwkdl.EndpointMetadata{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
 	}
 
-	director.HandleResponseReceived(ctx, reqCtx)
+	director.HandleResponseHeader(ctx, reqCtx)
 
 	if diff := cmp.Diff("test-req-id-for-response", pr1.lastRespOnResponse.RequestId); diff != "" {
 		t.Errorf("Scheduler.OnResponse RequestId mismatch (-want +got):\n%s", diff)
@@ -1126,9 +1126,9 @@ func TestDirector_HandleResponseStreaming(t *testing.T) {
 		TargetPod: &fwkdl.EndpointMetadata{NamespacedName: types.NamespacedName{Namespace: "namespace1", Name: "test-pod-name"}},
 	}
 
-	director.HandleResponseBodyStreaming(ctx, reqCtx, false)
-	director.HandleResponseBodyStreaming(ctx, reqCtx, false)
-	director.HandleResponseBodyStreaming(ctx, reqCtx, true)
+	director.HandleResponseBody(ctx, reqCtx, false)
+	director.HandleResponseBody(ctx, reqCtx, false)
+	director.HandleResponseBody(ctx, reqCtx, true)
 
 	assert.Equal(t, 3, len(ps1.respsOnStreaming), "Should have received 3 streaming calls")
 
@@ -1186,12 +1186,12 @@ func (p *testResponseStreaming) TypedName() fwkplugin.TypedName {
 	return p.typedName
 }
 
-func (p *testResponseReceived) ResponseReceived(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
+func (p *testResponseReceived) ResponseHeader(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
 	p.lastRespOnResponse = response
 	p.lastTargetPodOnResponse = targetPod.NamespacedName.String()
 }
 
-func (p *testResponseStreaming) ResponseStreaming(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
+func (p *testResponseStreaming) ResponseBody(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
 	p.respsOnStreaming = append(p.respsOnStreaming, response)
 	p.targetPodsOnStreaming = append(p.targetPodsOnStreaming, targetPod.NamespacedName.String())
 

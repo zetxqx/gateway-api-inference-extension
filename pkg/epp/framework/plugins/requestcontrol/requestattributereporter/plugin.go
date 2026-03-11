@@ -41,7 +41,7 @@ const (
 )
 
 // Test interface satisfaction at compile time.
-var _ requestcontrol.ResponseStreaming = &Plugin{}
+var _ requestcontrol.ResponseBody = &Plugin{}
 
 // Plugin state
 type Plugin struct {
@@ -150,8 +150,8 @@ func (c *Plugin) TypedName() plugin.TypedName {
 	return c.typedName
 }
 
-// ResponseStreaming implements the requestcontrol.ResponseStreaming interface.
-func (c *Plugin) ResponseStreaming(ctx context.Context, request *scheduling.LLMRequest, response *requestcontrol.Response,
+// ResponseBody implements the requestcontrol.ResponseBody interface.
+func (c *Plugin) ResponseBody(ctx context.Context, request *scheduling.LLMRequest, response *requestcontrol.Response,
 	_ *datalayer.EndpointMetadata) {
 	if !response.EndOfStream {
 		return

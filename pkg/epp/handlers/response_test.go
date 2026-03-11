@@ -128,10 +128,10 @@ data: [DONE]
 
 type mockDirector struct{}
 
-func (m *mockDirector) HandleResponseBodyStreaming(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext {
+func (m *mockDirector) HandleResponseBody(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext {
 	return reqCtx
 }
-func (m *mockDirector) HandleResponseReceived(ctx context.Context, reqCtx *RequestContext) *RequestContext {
+func (m *mockDirector) HandleResponseHeader(ctx context.Context, reqCtx *RequestContext) *RequestContext {
 	return reqCtx
 }
 func (m *mockDirector) GetRandomEndpoint() *fwkdl.EndpointMetadata {
@@ -195,7 +195,7 @@ func TestHandleResponseBody(t *testing.T) {
 					Response: &Response{},
 				}
 			}
-			server.HandleResponseBodyStreaming(ctx, reqCtx, test.body, true)
+			server.HandleResponseBody(ctx, reqCtx, test.body, true)
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
 				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
 			}
@@ -255,7 +255,7 @@ func TestHandleStreamedResponseBody(t *testing.T) {
 					},
 				},
 			}
-			server.HandleResponseBodyStreaming(ctx, reqCtx, test.body, true) // Hard coded to true since openAIParser does not endOfStream to switch logic.
+			server.HandleResponseBody(ctx, reqCtx, test.body, true) // Hard coded to true since openAIParser does not endOfStream to switch logic.
 
 			if diff := cmp.Diff(test.want, reqCtx.Usage); diff != "" {
 				t.Errorf("HandleResponseBody returned unexpected response, diff(-want, +got): %v", diff)
@@ -328,7 +328,7 @@ func TestHandleResponseBodyModelStreaming_TokenAccumulation(t *testing.T) {
 			}
 
 			for _, chunk := range tc.chunks {
-				server.HandleResponseBodyStreaming(context.Background(), reqCtx, chunk.body, chunk.endOfStream)
+				server.HandleResponseBody(context.Background(), reqCtx, chunk.body, chunk.endOfStream)
 			}
 
 			assert.Equal(t, tc.wantUsage, reqCtx.Usage, "Usage data should match expected accumulation")

@@ -326,8 +326,8 @@ func (d *Director) toSchedulerPodMetrics(pods []backendmetrics.PodMetrics) []fwk
 	return pm
 }
 
-// HandleResponseReceived is called when the response headers are received.
-func (d *Director) HandleResponseReceived(ctx context.Context, reqCtx *handlers.RequestContext) *handlers.RequestContext {
+// HandleResponseHeader is called when the response headers are received.
+func (d *Director) HandleResponseHeader(ctx context.Context, reqCtx *handlers.RequestContext) *handlers.RequestContext {
 	response := &fwk.Response{
 		RequestId:   reqCtx.Request.Headers[reqcommon.RequestIdHeaderKey],
 		Headers:     reqCtx.Response.Headers,
@@ -335,13 +335,13 @@ func (d *Director) HandleResponseReceived(ctx context.Context, reqCtx *handlers.
 	}
 	// TODO: to extend fallback functionality, handle cases where target pod is unavailable
 	// https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/1224
-	d.runResponseReceivedPlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
+	d.runResponseHeaderPlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
 	return reqCtx
 }
 
-// HandleResponseBodyStreaming is invoked by the director for every chunk received in a streaming
+// HandleResponseBody is invoked by the director for every chunk received in a streaming
 // response, or exactly once for a non-streaming response.
-func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *handlers.RequestContext, endOfStream bool) *handlers.RequestContext {
+func (d *Director) HandleResponseBody(ctx context.Context, reqCtx *handlers.RequestContext, endOfStream bool) *handlers.RequestContext {
 	logger := log.FromContext(ctx).WithValues("stage", "bodyChunk")
 	logger.V(logutil.TRACE).Info("Entering HandleResponseBodyChunk")
 	response := &fwk.Response{
@@ -349,7 +349,7 @@ func (d *Director) HandleResponseBodyStreaming(ctx context.Context, reqCtx *hand
 		Headers:     reqCtx.Response.Headers,
 		EndOfStream: endOfStream,
 	}
-	d.runResponseStreamingPlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
+	d.runResponseBodyPlugins(ctx, reqCtx.SchedulingRequest, response, reqCtx.TargetPod)
 	logger.V(logutil.TRACE).Info("Exiting HandleResponseBodyChunk")
 	return reqCtx
 }
@@ -398,23 +398,23 @@ func (d *Director) runAdmissionPlugins(ctx context.Context,
 	return true
 }
 
-func (d *Director) runResponseReceivedPlugins(ctx context.Context, request *fwksched.LLMRequest, response *fwk.Response, targetEndpoint *fwkdl.EndpointMetadata) {
+func (d *Director) runResponseHeaderPlugins(ctx context.Context, request *fwksched.LLMRequest, response *fwk.Response, targetEndpoint *fwkdl.EndpointMetadata) {
 	loggerDebug := log.FromContext(ctx).V(logutil.DEBUG)
 	for _, plugin := range d.requestControlPlugins.responseReceivedPlugins {
 		loggerDebug.Info("Running ResponseReceived plugin", "plugin", plugin.TypedName())
 		before := time.Now()
-		plugin.ResponseReceived(ctx, request, response, targetEndpoint)
+		plugin.ResponseHeader(ctx, request, response, targetEndpoint)
 		metrics.RecordPluginProcessingLatency(fwk.ResponseReceivedExtensionPoint, plugin.TypedName().Type, plugin.TypedName().Name, time.Since(before))
 		loggerDebug.Info("Completed running ResponseReceived plugin successfully", "plugin", plugin.TypedName())
 	}
 }
 
-func (d *Director) runResponseStreamingPlugins(ctx context.Context, request *fwksched.LLMRequest, response *fwk.Response, targetEndpoint *fwkdl.EndpointMetadata) {
+func (d *Director) runResponseBodyPlugins(ctx context.Context, request *fwksched.LLMRequest, response *fwk.Response, targetEndpoint *fwkdl.EndpointMetadata) {
 	loggerTrace := log.FromContext(ctx).V(logutil.TRACE)
 	for _, plugin := range d.requestControlPlugins.responseStreamingPlugins {
 		loggerTrace.Info("Running ResponseStreaming plugin", "plugin", plugin.TypedName())
 		before := time.Now()
-		plugin.ResponseStreaming(ctx, request, response, targetEndpoint)
+		plugin.ResponseBody(ctx, request, response, targetEndpoint)
 		metrics.RecordPluginProcessingLatency(fwk.ResponseStreamingExtensionPoint, plugin.TypedName().Type, plugin.TypedName().Name, time.Since(before))
 		loggerTrace.Info("Completed running ResponseStreaming plugin successfully", "plugin", plugin.TypedName())
 	}
