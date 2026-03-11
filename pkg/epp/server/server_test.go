@@ -211,7 +211,23 @@ func runStreamingTest(t *testing.T, streamingResponse bool, hasTrailers bool) {
 		t.Fatalf("failed to send response body: %v", err)
 	}
 
-	if hasTrailers {
+	switch {
+	case !hasTrailers:
+		if err := recvResponseBody(process); err != nil {
+			t.Fatalf("failed to receive response body (no trailers case): %v", err)
+		}
+	case streamingResponse:
+		// For streaming case, ext_proc will first receive the response before getting trailers.
+		if err := recvResponseBody(process); err != nil {
+			t.Fatalf("failed to receive response body (streaming case): %v", err)
+		}
+		if err := sendResponseTrailers(process); err != nil {
+			t.Fatalf("failed to send response trailers (streaming case): %v", err)
+		}
+		if err := recvResponseTrailers(process); err != nil {
+			t.Fatalf("failed to receive response trailers (streaming case): %v", err)
+		}
+	default:
 		// For non-streaming case, ext_proc will receive response until the trailer is sent by the client.
 		if err := sendResponseTrailers(process); err != nil {
 			t.Fatalf("failed to send response trailers (non-streaming case): %v", err)
