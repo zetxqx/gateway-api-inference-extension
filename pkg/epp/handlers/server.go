@@ -166,11 +166,6 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 	}
 
 	var body []byte
-	// hasPendingResponseBody tracks whether we've received an actionable body chunk
-	// from Envoy that needs to be forwarded back. Envoy occasionally sends empty
-	// body frames; this flag ensures we don't generate redundant, empty body
-	// mutation messages in finishResponse.
-	var hasPendingResponseBody bool
 
 	// Create error handling var as each request should only report once for
 	// error metrics. This doesn't cover the error "Cannot receive stream request" because
@@ -277,29 +272,21 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			chunk := v.ResponseBody.Body
 
 			if reqCtx.modelServerStreaming {
-				// STREAMING: Process this specific chunk and prepare it to be sent immediately.
-				if !endOfStream {
-					s.HandleResponseBody(ctx, reqCtx, chunk, endOfStream)
-					reqCtx.respBodyResp = generateResponseBodyResponses(chunk, endOfStream)
-				} else {
-					body = chunk
-					hasPendingResponseBody = true
-				}
+				s.HandleResponseBody(ctx, reqCtx, chunk, endOfStream)
+				reqCtx.respBodyResp = generateResponseBodyResponses(chunk, endOfStream)
 			} else {
-				// NON-STREAMING: Buffer the chunk.
 				body = append(body, chunk...)
-				hasPendingResponseBody = true
 			}
 
 			// If this chunk marks the end of the stream, trigger the finalization logic.
 			if endOfStream {
-				s.finishResponse(ctx, reqCtx, body, hasPendingResponseBody)
+				s.finishResponse(ctx, reqCtx, body, reqCtx.modelServerStreaming)
 			}
 		case *extProcPb.ProcessingRequest_ResponseTrailers:
 			// For HTTP, the response trailer is not sent. Thus, this case will not be triggered.
 			// For gRPC(over HTTP2), the protocol relies on responseTrialers to determine whether a response is complete.
 			// More info: https://chromium.googlesource.com/external/github.com/grpc/grpc/+/HEAD/doc/PROTOCOL-HTTP2.md#responses
-			s.finishResponse(ctx, reqCtx, body, hasPendingResponseBody)
+			s.finishResponse(ctx, reqCtx, body, reqCtx.modelServerStreaming)
 			reqCtx.respTrailerResp = &extProcPb.ProcessingResponse{
 				Response: &extProcPb.ProcessingResponse_ResponseTrailers{
 					ResponseTrailers: &extProcPb.TrailersResponse{},
@@ -333,7 +320,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 // finishResponse ensures all post-response logic, such as metric recording
 // and state updates, is executed exactly once for the request lifecycle.
-func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestContext, body []byte, shouldSendResponse bool) {
+func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestContext, body []byte, modelStreaming bool) {
 	// Return early if the response has already been finished to prevent
 	// duplicate execution of side effects and metrics.
 	if reqCtx.ResponseComplete {
@@ -344,7 +331,7 @@ func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestCon
 	reqCtx.ResponseCompleteTimestamp = time.Now()
 	reqCtx.ResponseSize = len(body)
 	reqCtx = s.HandleResponseBody(ctx, reqCtx, body, true)
-	if shouldSendResponse {
+	if !modelStreaming {
 		reqCtx.respBodyResp = generateResponseBodyResponses(body, true)
 	}
 }

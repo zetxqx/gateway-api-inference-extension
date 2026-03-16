@@ -266,7 +266,7 @@ func TestPredictedLatency_PreRequest_QueueAlreadyExists(t *testing.T) {
 	assert.NotNil(t, value)
 }
 
-func TestPredictedLatency_ResponseReceived_NilPredictor(t *testing.T) {
+func TestPredictedLatency_ResponseHeader_NilPredictor(t *testing.T) {
 	router := createTestRouter()
 	router.latencypredictor = nil
 
@@ -286,7 +286,7 @@ func TestPredictedLatency_ResponseReceived_NilPredictor(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestPredictedLatency_ResponseReceived_NoPod(t *testing.T) {
+func TestPredictedLatency_ResponseHeader_NoPod(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -305,7 +305,7 @@ func TestPredictedLatency_ResponseReceived_NoPod(t *testing.T) {
 
 }
 
-func TestPredictedLatency_ResponseReceived_NoContext(t *testing.T) {
+func TestPredictedLatency_ResponseHeader_NoContext(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -322,7 +322,7 @@ func TestPredictedLatency_ResponseReceived_NoContext(t *testing.T) {
 
 }
 
-func TestPredictedLatency_ResponseStreaming_NilPredictor(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_NilPredictor(t *testing.T) {
 	router := createTestRouter()
 	router.latencypredictor = nil
 
@@ -341,7 +341,7 @@ func TestPredictedLatency_ResponseStreaming_NilPredictor(t *testing.T) {
 	_, err := router.getPredictedLatencyContextForRequest(request)
 	assert.NoError(t, err)
 }
-func TestPredictedLatency_ResponseStreaming_FirstToken(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FirstToken(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -354,7 +354,7 @@ func TestPredictedLatency_ResponseStreaming_FirstToken(t *testing.T) {
 
 	predictedLatencyCtx := newPredictedLatencyContext(request)
 	predictedLatencyCtx.targetMetadata = endpoint.GetMetadata()
-	predictedLatencyCtx.requestReceivedTimestamp = time.Now()
+	predictedLatencyCtx.requestReceivedTimestamp = time.Now().Add(-100 * time.Millisecond)
 	predictedLatencyCtx.schedulingResult = schedulingResult
 	predictedLatencyCtx.schedulingRequest = *request
 	predictedLatencyCtx.ttftSLO = 100
@@ -388,13 +388,46 @@ func TestPredictedLatency_ResponseStreaming_FirstToken(t *testing.T) {
 	// Verify first token timestamp was set
 	retrievedCtx, err := router.getPredictedLatencyContextForRequest(request)
 	require.NoError(t, err)
+
+	assert.GreaterOrEqual(t, retrievedCtx.ttft, float64(100), "ttft should be set to >= 100ms")
+
 	assert.True(t, retrievedCtx.lastTokenTimestamp.After(beforeTime) ||
 		retrievedCtx.lastTokenTimestamp.Equal(beforeTime))
 	assert.True(t, retrievedCtx.lastTokenTimestamp.Before(afterTime) ||
 		retrievedCtx.lastTokenTimestamp.Equal(afterTime))
 }
 
-func TestPredictedLatency_ResponseStreaming_SubsequentTokens(t *testing.T) {
+func TestPredictedLatency_NonStreamingMode_ResponseBody_FirstToken(t *testing.T) {
+	router := createTestRouter()
+	router.config.StreamingMode = false // Non-streaming mode
+	mockPredictor := new(mockPredictor)
+	router.latencypredictor = mockPredictor
+
+	ctx := context.Background()
+	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	request := createTestLLMRequest("test", 100, 50)
+	response := &requestcontrol.Response{} // EndOfStream is false
+	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
+
+	predictedLatencyCtx := newPredictedLatencyContext(request)
+	predictedLatencyCtx.targetMetadata = endpoint.GetMetadata()
+	predictedLatencyCtx.requestReceivedTimestamp = time.Now().Add(-100 * time.Millisecond)
+	predictedLatencyCtx.schedulingResult = schedulingResult
+	predictedLatencyCtx.schedulingRequest = *request
+
+	router.setPredictedLatencyContextForRequest(request, predictedLatencyCtx)
+
+	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
+
+	// Verify that in non-streaming mode it returns early and does NOT set ttft or lastTokenTimestamp
+	retrievedCtx, err := router.getPredictedLatencyContextForRequest(request)
+	require.NoError(t, err)
+
+	assert.Zero(t, retrievedCtx.ttft, "ttft should not be set because it should early return in non-streaming mode")
+	assert.True(t, retrievedCtx.lastTokenTimestamp.IsZero(), "lastTokenTimestamp should not be set")
+}
+
+func TestPredictedLatency_StreamingMode_ResponseBody_SubsequentTokens(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -443,7 +476,7 @@ func TestPredictedLatency_ResponseStreaming_SubsequentTokens(t *testing.T) {
 	assert.True(t, retrievedCtx.lastTokenTimestamp.After(firstTokenTime))
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_QueueNotFound(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_QueueNotFound(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -468,7 +501,7 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_QueueNotFound(t *testing.
 	_, err := router.getPredictedLatencyContextForRequest(request)
 	assert.Error(t, err)
 }
-func TestPredictedLatency_ResponseStreaming_NoContext(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_NoContext(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -485,7 +518,7 @@ func TestPredictedLatency_ResponseStreaming_NoContext(t *testing.T) {
 
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_Success(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_Success(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -521,7 +554,7 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_Success(t *testing.T) {
 	assert.Equal(t, 0, queue.Len())
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_NilPredictor(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NilPredictor(t *testing.T) {
 	router := createTestRouter()
 	router.latencypredictor = nil
 
@@ -541,7 +574,7 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_NilPredictor(t *testing.T
 	assert.NoError(t, err)
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_NoPod(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NoPod(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -561,7 +594,7 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_NoPod(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_NoContext(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NoContext(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -575,7 +608,7 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_NoContext(t *testing.T) {
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_WithMetrics(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_WithMetrics(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -608,7 +641,7 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_WithMetrics(t *testing.T)
 	assert.Error(t, err)
 }
 
-func TestPredictedLatency_ResponseStreamingEndOfStream_NoSLOs(t *testing.T) {
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NoSLOs(t *testing.T) {
 	router := createTestRouter()
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
@@ -633,6 +666,105 @@ func TestPredictedLatency_ResponseStreamingEndOfStream_NoSLOs(t *testing.T) {
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
 	// Verify cleanup
+	_, err := router.getPredictedLatencyContextForRequest(request)
+	assert.Error(t, err)
+}
+
+func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken(t *testing.T) {
+	router := createTestRouter()
+	router.config.StreamingMode = true
+	mockPredictor := new(mockPredictor)
+	router.latencypredictor = mockPredictor
+
+	ctx := context.Background()
+	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	request := createTestLLMRequest("test", 100, 50)
+	response := &requestcontrol.Response{EndOfStream: true} // True
+	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
+
+	predictedLatencyCtx := newPredictedLatencyContext(request)
+	predictedLatencyCtx.targetMetadata = endpoint.GetMetadata()
+	predictedLatencyCtx.requestReceivedTimestamp = time.Now().Add(-200 * time.Millisecond)
+	predictedLatencyCtx.schedulingResult = schedulingResult
+	predictedLatencyCtx.schedulingRequest = *request
+	predictedLatencyCtx.ttft = 100 // TTFT > 0: means first token already arrived (False for FirstChunk)
+
+	router.setPredictedLatencyContextForRequest(request, predictedLatencyCtx)
+
+	// Initialize the queue and add the request
+	queue := newRequestPriorityQueue()
+	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
+	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+
+	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
+
+	// Context should be deleted when EndOfStream is reached
+	_, err := router.getPredictedLatencyContextForRequest(request)
+	assert.Error(t, err)
+}
+
+func TestPredictedLatency_StreamingMode_ResponseBody_SingleChunk(t *testing.T) {
+	router := createTestRouter()
+	router.config.StreamingMode = true
+	mockPredictor := new(mockPredictor)
+	router.latencypredictor = mockPredictor
+
+	ctx := context.Background()
+	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	request := createTestLLMRequest("test", 100, 50)
+	response := &requestcontrol.Response{EndOfStream: true} // True
+	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
+
+	predictedLatencyCtx := newPredictedLatencyContext(request)
+	predictedLatencyCtx.targetMetadata = endpoint.GetMetadata()
+	predictedLatencyCtx.requestReceivedTimestamp = time.Now().Add(-150 * time.Millisecond)
+	predictedLatencyCtx.schedulingResult = schedulingResult
+	predictedLatencyCtx.schedulingRequest = *request
+	// ttft == 0: First chunk and Final chunk at the same time
+
+	router.setPredictedLatencyContextForRequest(request, predictedLatencyCtx)
+
+	// Initialize the queue and add the request
+	queue := newRequestPriorityQueue()
+	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
+	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+
+	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
+
+	// Context should be deleted when EndOfStream is reached
+	_, err := router.getPredictedLatencyContextForRequest(request)
+	assert.Error(t, err)
+}
+
+func TestPredictedLatency_NonStreamingMode_ResponseBody_FinalToken(t *testing.T) {
+	router := createTestRouter()
+	router.config.StreamingMode = false
+	mockPredictor := new(mockPredictor)
+	router.latencypredictor = mockPredictor
+
+	ctx := context.Background()
+	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	request := createTestLLMRequest("test", 100, 50)
+	response := &requestcontrol.Response{EndOfStream: true} // True
+	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
+
+	predictedLatencyCtx := newPredictedLatencyContext(request)
+	predictedLatencyCtx.targetMetadata = endpoint.GetMetadata()
+	predictedLatencyCtx.requestReceivedTimestamp = time.Now().Add(-300 * time.Millisecond)
+	predictedLatencyCtx.schedulingResult = schedulingResult
+	predictedLatencyCtx.schedulingRequest = *request
+	// ttft == 0: For non-streaming, TTFT happens when EndOfStream is true
+
+	router.setPredictedLatencyContextForRequest(request, predictedLatencyCtx)
+
+	// Initialize the queue and add the request
+	queue := newRequestPriorityQueue()
+	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
+	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+
+	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
+
+	// Context should be deleted when EndOfStream is reached
 	_, err := router.getPredictedLatencyContextForRequest(request)
 	assert.Error(t, err)
 }
@@ -822,13 +954,13 @@ func TestPredictedLatency_RequestLifecycle_ResponseEndOfStream(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, retrievedCtx.targetMetadata)
 
-	// 2. ResponseReceived
+	// 2. ResponseHeader
 	router.ResponseHeader(ctx, request, response, endpoint.GetMetadata())
 
-	// 3. ResponseStreaming (first token)
+	// 3. ResponseBody (first token)
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
-	// 4. ResponseStreaming (subsequent tokens)
+	// 4. ResponseBody (subsequent tokens)
 	retrievedCtx, _ = router.getPredictedLatencyContextForRequest(request)
 	retrievedCtx.ttft = 100 // Mark first token received
 	router.setPredictedLatencyContextForRequest(request, retrievedCtx)
