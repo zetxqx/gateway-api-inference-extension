@@ -1105,7 +1105,7 @@ func TestDirector_HandleResponseReceived(t *testing.T) {
 	}
 }
 
-func TestDirector_HandleResponseStreaming(t *testing.T) {
+func TestDirector_HandleResponseBody(t *testing.T) {
 	ps1 := newTestResponseStreaming("ps1")
 
 	ctx := logutil.NewTestLoggerIntoContext(context.Background())

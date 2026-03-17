@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/request"
 )
 
-// HandleResponseStream processes response data for both streaming and non-streaming models.
+// HandleResponseBody processes response data for both streaming and non-streaming models.
 //
 // Streaming case:
 //
@@ -43,7 +43,7 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 	logger := log.FromContext(ctx)
 	parsedResp, err := s.parser.ParseResponse(ctx, responseBytes, reqCtx.Response.Headers, endOfStream)
 	if err != nil {
-		logger.Error(err, "failed to parse response")
+		logger.Error(err, "parsing response")
 	} else if parsedResp != nil && parsedResp.Usage != nil {
 		reqCtx.Usage = *parsedResp.Usage
 		metrics.RecordInputTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokens)
