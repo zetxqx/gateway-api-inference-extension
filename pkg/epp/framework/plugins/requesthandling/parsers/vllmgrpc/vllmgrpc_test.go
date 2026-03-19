@@ -21,10 +21,16 @@ import (
 	"encoding/binary"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	// Note: Adjust these imports if your local aliases differ
 	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/gen"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
+	fwkrc "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 )
 
 // helper function to simulate the gRPC payload framing
@@ -46,13 +52,19 @@ func createGrpcPayload(t *testing.T, msg proto.Message) []byte {
 
 func TestVllmGRPCParser_PluginLifecycle(t *testing.T) {
 	parser := NewVllmGRPCParser()
-	if parser.TypedName().Type != VllmGRPCParserType {
-		t.Errorf("expected type %s, got %s", VllmGRPCParserType, parser.TypedName().Type)
+
+	wantName := fwkplugin.TypedName{
+		Type: VllmGRPCParserType,
+		Name: VllmGRPCParserType,
+	}
+	if diff := cmp.Diff(wantName, parser.TypedName()); diff != "" {
+		t.Errorf("TypedName() mismatch (-want +got):\n%s", diff)
 	}
 
 	parser.WithName("custom-name")
-	if parser.TypedName().Name != "custom-name" {
-		t.Errorf("expected name custom-name, got %s", parser.TypedName().Name)
+	wantName.Name = "custom-name"
+	if diff := cmp.Diff(wantName, parser.TypedName()); diff != "" {
+		t.Errorf("TypedName() mismatch (-want +got):\n%s", diff)
 	}
 
 	plugin, err := VllmGRPCParserPluginFactory("factory-name", nil, nil)
@@ -64,8 +76,10 @@ func TestVllmGRPCParser_PluginLifecycle(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *VllmGRPCParser, got %T", plugin)
 	}
-	if p.TypedName().Name != "factory-name" {
-		t.Errorf("expected factory-name, got %s", p.TypedName().Name)
+
+	wantName.Name = "factory-name"
+	if diff := cmp.Diff(wantName, p.TypedName()); diff != "" {
+		t.Errorf("TypedName() mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -74,8 +88,8 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 		name          string
 		reqMsg        *pb.GenerateRequest
 		malformedData []byte
-		expectError   bool
-		expectPrompt  string
+		wantErr       bool
+		want          *scheduling.LLMRequestBody
 	}{
 		{
 			name: "Valid Text Request",
@@ -84,8 +98,16 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 					Text: "Hello world",
 				},
 			},
-			expectError:  false,
-			expectPrompt: "Hello world",
+			want: &scheduling.LLMRequestBody{
+				Completions: &scheduling.CompletionsRequest{
+					Prompt: "Hello world",
+				},
+				ParsedBody: &pb.GenerateRequest{
+					Input: &pb.GenerateRequest_Text{
+						Text: "Hello world",
+					},
+				},
+			},
 		},
 		{
 			name: "Valid Tokenized Request",
@@ -96,18 +118,33 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			expectError:  false,
-			expectPrompt: "Tokenized hello",
+			want: &scheduling.LLMRequestBody{
+				Completions: &scheduling.CompletionsRequest{
+					Prompt: "Tokenized hello",
+				},
+				ParsedBody: &pb.GenerateRequest{
+					Input: &pb.GenerateRequest_Tokenized{
+						Tokenized: &pb.TokenizedInput{
+							OriginalText: "Tokenized hello",
+						},
+					},
+				},
+			},
 		},
 		{
 			name:          "Malformed gRPC payload (too short)",
 			malformedData: []byte{0, 0, 0},
-			expectError:   true,
+			wantErr:       true,
 		},
 		{
 			name:          "Compressed payload (unsupported)",
 			malformedData: []byte{1, 0, 0, 0, 0}, // Flag 1 = compressed
-			expectError:   true,
+			wantErr:       true,
+		},
+		{
+			name:    "Nil Input Request",
+			reqMsg:  &pb.GenerateRequest{},
+			wantErr: true,
 		},
 	}
 
@@ -123,25 +160,18 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 				payload = createGrpcPayload(t, tt.reqMsg)
 			}
 
-			reqBody, err := parser.ParseRequest(ctx, payload, nil)
+			got, err := parser.ParseRequest(ctx, payload, nil)
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected an error but got none")
-				}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseRequest() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if reqBody == nil || reqBody.Completions == nil {
-				t.Fatalf("expected non-nil LLMRequestBody and Completions")
-			}
-
-			if reqBody.Completions.Prompt != tt.expectPrompt {
-				t.Errorf("expected prompt %q, got %q", tt.expectPrompt, reqBody.Completions.Prompt)
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("ParseRequest() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -149,11 +179,10 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 
 func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 	tests := []struct {
-		name                 string
-		respMsg              *pb.GenerateResponse
-		expectError          bool
-		expectPromptTokens   int
-		expectCompleteTokens int
+		name    string
+		respMsg *pb.GenerateResponse
+		wantErr bool
+		want    *fwkrh.ParsedResponse
 	}{
 		{
 			name: "Valid Chunk Response",
@@ -167,9 +196,16 @@ func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 					},
 				},
 			},
-			expectError:          false,
-			expectPromptTokens:   10,
-			expectCompleteTokens: 5,
+			want: &fwkrh.ParsedResponse{
+				Usage: &fwkrc.Usage{
+					PromptTokens:     10,
+					CompletionTokens: 5,
+					TotalTokens:      15,
+					PromptTokenDetails: &fwkrc.PromptTokenDetails{
+						CachedTokens: 2,
+					},
+				},
+			},
 		},
 		{
 			name: "Valid Complete Response",
@@ -183,9 +219,16 @@ func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 					},
 				},
 			},
-			expectError:          false,
-			expectPromptTokens:   20,
-			expectCompleteTokens: 15,
+			want: &fwkrh.ParsedResponse{
+				Usage: &fwkrc.Usage{
+					PromptTokens:     20,
+					CompletionTokens: 15,
+					TotalTokens:      35,
+					PromptTokenDetails: &fwkrc.PromptTokenDetails{
+						CachedTokens: 5,
+					},
+				},
+			},
 		},
 		{
 			name: "Empty Chunk (No Tokens, Streaming intermediate)",
@@ -197,8 +240,14 @@ func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 					},
 				},
 			},
-			expectError:        false,
-			expectPromptTokens: 0, // Should result in nil Usage
+			want: &fwkrh.ParsedResponse{
+				Usage: nil,
+			},
+		},
+		{
+			name:    "Nil Response",
+			respMsg: &pb.GenerateResponse{},
+			wantErr: true,
 		},
 	}
 
@@ -209,31 +258,18 @@ func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			payload := createGrpcPayload(t, tt.respMsg)
 
-			parsedResp, err := parser.ParseResponse(ctx, payload, nil, false)
+			got, err := parser.ParseResponse(ctx, payload, nil, false)
 
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("expected an error but got none")
-				}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseResponse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if tt.expectPromptTokens > 0 {
-				if parsedResp.Usage == nil {
-					t.Fatalf("expected Usage to be populated, got nil")
-				}
-				if parsedResp.Usage.PromptTokens != tt.expectPromptTokens {
-					t.Errorf("expected %d prompt tokens, got %d", tt.expectPromptTokens, parsedResp.Usage.PromptTokens)
-				}
-				if parsedResp.Usage.CompletionTokens != tt.expectCompleteTokens {
-					t.Errorf("expected %d completion tokens, got %d", tt.expectCompleteTokens, parsedResp.Usage.CompletionTokens)
-				}
-			} else if parsedResp.Usage != nil {
-				t.Errorf("expected Usage to be nil for empty/intermediate chunks, got %+v", parsedResp.Usage)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("ParseResponse() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
