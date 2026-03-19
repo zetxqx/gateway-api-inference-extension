@@ -48,6 +48,15 @@ func TestSchedulePlugins(t *testing.T) {
 		TypeRes: "picker",
 		PickRes: k8stypes.NamespacedName{Name: "pod1"},
 	}
+	tp3 := &testPlugin{
+		TypeRes:   "test3",
+		ScoreRes:  1.0,
+		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}, {Name: "pod2"}, {Name: "pod3"}},
+	}
+	pickerPluginLoadBalancing := &testPlugin{
+		TypeRes: "picker_lb",
+		PickRes: k8stypes.NamespacedName{Name: "pod3"},
+	}
 
 	tests := []struct {
 		name                string
@@ -105,6 +114,22 @@ func TestSchedulePlugins(t *testing.T) {
 			numEndpointsToScore: 0,
 			err:                 true, // no available endpoints to server after filter all
 		},
+		{
+			name: "all plugins executed successfully, load balancing factor applied",
+			profile: NewSchedulerProfile().
+				WithFilters(tp3).
+				WithScorers(NewWeightedScorer(tp3, 1)).
+				WithPicker(pickerPluginLoadBalancing),
+			input: []fwksched.Endpoint{
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}, &fwkdl.Metrics{RunningRequestsSize: 50}, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}, &fwkdl.Metrics{RunningRequestsSize: 40}, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}, &fwkdl.Metrics{RunningRequestsSize: 10}, nil),
+			},
+			wantTargetEndpoint:  k8stypes.NamespacedName{Name: "pod3"},
+			targetEndpointScore: 0.9, // base score 1.0 * factor (1 - 10/100) = 0.9
+			numEndpointsToScore: 3,
+			err:                 false,
+		},
 	}
 
 	for _, test := range tests {
@@ -136,9 +161,20 @@ func TestSchedulePlugins(t *testing.T) {
 			}
 
 			// Validate output
+			var wantTargetEndpoint fwksched.Endpoint
+			for _, ep := range test.input {
+				if ep.GetMetadata().NamespacedName == test.wantTargetEndpoint {
+					wantTargetEndpoint = ep
+					break
+				}
+			}
+			if wantTargetEndpoint == nil {
+				wantTargetEndpoint = fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: test.wantTargetEndpoint}, nil, nil)
+			}
+
 			wantRes := &fwksched.ProfileRunResult{
 				TargetEndpoints: []fwksched.Endpoint{
-					fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: test.wantTargetEndpoint}, nil, nil),
+					wantTargetEndpoint,
 				},
 			}
 
