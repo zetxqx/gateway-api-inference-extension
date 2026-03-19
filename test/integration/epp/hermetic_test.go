@@ -384,6 +384,244 @@ func TestFullDuplexStreamed_KubeInferenceObjectiveRequest(t *testing.T) {
 					`),
 			},
 		},
+		{
+			name: "response processing: /v1/completions, non-streaming, has usage, no token details",
+			requests: append(
+				integration.ReqRaw(
+					map[string]string{
+						":path":                      "/v1/completions",
+						metadata.ObjectiveKey:        modelSheddable,
+						metadata.ModelNameRewriteKey: modelSheddableTarget,
+						reqcommon.RequestIdHeaderKey: "test-req-id",
+					},
+					`{"prompt":"hello","model":"sql-lora-sheddable","max_tokens":100,"temperature":0}`,
+				),
+				ReqResponseOnly(
+					map[string]string{"content-type": "application/json", "status": "200"},
+					`{"id":"cmpl-123","object":"text_completion","created":12345,"model":"sql-lora-sheddable","choices":[{"text":"world","index":0,"finish_reason":"length"}],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}}`,
+				)...,
+			),
+			pods:         []podState{P(0, 4, 0.2, modelSheddableTarget)},
+			waitForModel: modelSheddable,
+			wantResponses: append(
+				ExpectRouteTo("192.168.1.1:8000", modelSheddableTarget, "hello"),
+				ExpectBufferResp(
+					`{"id":"cmpl-123","object":"text_completion","created":12345,"model":"sql-lora-sheddable","choices":[{"text":"world","index":0,"finish_reason":"length"}],"usage":{"prompt_tokens":5,"completion_tokens":7,"total_tokens":12}}`,
+					"application/json",
+				)...,
+			),
+			wantMetrics: map[string]string{
+				"inference_objective_input_tokens": cleanMetric(`
+					# HELP inference_objective_input_tokens [ALPHA] Inference objective input token count distribution for requests in each model.
+					# TYPE inference_objective_input_tokens histogram
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1"} 0
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_input_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 5
+					inference_objective_input_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+				"inference_objective_output_tokens": cleanMetric(`
+					# HELP inference_objective_output_tokens [ALPHA] Inference objective output token count distribution for requests in each model.
+					# TYPE inference_objective_output_tokens histogram
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1"} 0
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_output_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 7
+					inference_objective_output_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+			},
+		},
+		{
+			name: "response processing: /v1/chat/completions, streaming, has usage, has token details",
+			requests: append(
+				integration.ReqRaw(
+					map[string]string{
+						":path":                      "/v1/chat/completions",
+						metadata.ObjectiveKey:        modelSheddable,
+						metadata.ModelNameRewriteKey: modelSheddableTarget,
+						reqcommon.RequestIdHeaderKey: "test-req-id",
+					},
+					`{"messages":[{"role":"user","content":"hello"}],"model":"sql-lora-sheddable","max_tokens":100,"temperature":0}`,
+				),
+				ReqResponseOnly(
+					map[string]string{"content-type": "text/event-stream", "status": "200"},
+					`data: {"choices":[{"delta":{"content":"world"},"index":0,"finish_reason":null}]}`,
+					`data: {"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30,"prompt_token_details":{"cached_tokens":5}}}`+"\n"+`data: [DONE]`,
+					"",
+				)...,
+			),
+			pods:         []podState{P(0, 4, 0.2, modelSheddableTarget)},
+			waitForModel: modelSheddable,
+			wantResponses: append(
+				// Since we simulate chat completions, EPP just passes through the rewritten body and changes content length
+				integration.NewRequestBufferedResponse(
+					"192.168.1.1:8000",
+					`{"max_tokens":100,"messages":[{"content":"hello","role":"user"}],"model":"sql-lora-1fdg3","temperature":0}`,
+					&configPb.HeaderValueOption{Header: &configPb.HeaderValue{
+						Key:      reqcommon.RequestIdHeaderKey,
+						RawValue: []byte("test-req-id"),
+					}},
+				),
+				ExpectStreamResp(
+					`data: {"choices":[{"delta":{"content":"world"},"index":0,"finish_reason":null}]}`,
+					`data: {"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30,"prompt_token_details":{"cached_tokens":5}}}`+"\n"+`data: [DONE]`,
+					"",
+				)...,
+			),
+			wantMetrics: map[string]string{
+				"inference_objective_input_tokens": cleanMetric(`
+					# HELP inference_objective_input_tokens [ALPHA] Inference objective input token count distribution for requests in each model.
+					# TYPE inference_objective_input_tokens histogram
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1"} 0
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8"} 0
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="64"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="128"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="256"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="512"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1024"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="2048"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="4096"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8192"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16384"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32778"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="65536"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="131072"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="262144"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="524288"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1.048576e+06"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_input_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 10
+					inference_objective_input_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+				"inference_objective_output_tokens": cleanMetric(`
+					# HELP inference_objective_output_tokens [ALPHA] Inference objective output token count distribution for requests in each model.
+					# TYPE inference_objective_output_tokens histogram
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1"} 0
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8"} 0
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 0
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="64"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="128"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="256"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="512"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1024"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="2048"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="4096"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8192"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_output_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 20
+					inference_objective_output_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+				"inference_objective_prompt_cached_tokens": cleanMetric(`
+					# HELP inference_objective_prompt_cached_tokens [ALPHA] Inference objective prompt cached token count distribution for requests in each model.
+					# TYPE inference_objective_prompt_cached_tokens histogram
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1"} 0
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="64"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="128"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="256"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="512"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1024"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="2048"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="4096"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8192"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16384"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32778"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="65536"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="131072"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="262144"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="524288"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="1.048576e+06"} 1
+					inference_objective_prompt_cached_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_prompt_cached_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 5
+					inference_objective_prompt_cached_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+			},
+		},
+		{
+			name: "response processing: /v1/responses, non-streaming, no usage",
+			requests: append(
+				integration.ReqRaw(
+					map[string]string{
+						":path":                      "/v1/responses",
+						metadata.ObjectiveKey:        modelSheddable,
+						metadata.ModelNameRewriteKey: modelSheddableTarget,
+						reqcommon.RequestIdHeaderKey: "test-req-id",
+					},
+					`{"prompt":"hello","model":"sql-lora-sheddable","max_tokens":100,"temperature":0}`,
+				),
+				ReqResponseOnly(
+					map[string]string{"content-type": "application/json", "status": "200"},
+					`{"some": "data"}`,
+				)...,
+			),
+			pods:         []podState{P(0, 4, 0.2, modelSheddableTarget)},
+			waitForModel: modelSheddable,
+			wantResponses: append(
+				ExpectRouteTo("192.168.1.1:8000", modelSheddableTarget, "hello"),
+				ExpectBufferResp(`{"some": "data"}`, "application/json")...,
+			),
+			wantMetrics: map[string]string{
+				"inference_objective_request_total": cleanMetric(metricReqTotal(modelSheddable, modelSheddableTarget)),
+			},
+		},
+		{
+			name: "response processing: /v1/conversations, streaming, has usage, no token details",
+			requests: append(
+				integration.ReqRaw(
+					map[string]string{
+						":path":                      "/v1/conversations",
+						metadata.ObjectiveKey:        modelSheddable,
+						metadata.ModelNameRewriteKey: modelSheddableTarget,
+						reqcommon.RequestIdHeaderKey: "test-req-id",
+					},
+					`{"prompt":"hello","model":"sql-lora-sheddable","max_tokens":100,"temperature":0}`,
+				),
+				ReqResponseOnly(
+					map[string]string{"content-type": "text/event-stream", "status": "200"},
+					`data: {"choices":[{"delta":{"content":"world"},"index":0,"finish_reason":null}]}`,
+					`data: {"usage":{"input_tokens":15,"output_tokens":25,"total_tokens":40}}`+"\n"+`data: [DONE]`,
+					"",
+				)...,
+			),
+			pods:         []podState{P(0, 4, 0.2, modelSheddableTarget)},
+			waitForModel: modelSheddable,
+			wantResponses: append(
+				ExpectRouteTo("192.168.1.1:8000", modelSheddableTarget, "hello"),
+				ExpectStreamResp(
+					`data: {"choices":[{"delta":{"content":"world"},"index":0,"finish_reason":null}]}`,
+					`data: {"usage":{"input_tokens":15,"output_tokens":25,"total_tokens":40}}`+"\n"+`data: [DONE]`,
+					"",
+				)...,
+			),
+			wantMetrics: map[string]string{
+				"inference_objective_input_tokens": cleanMetric(`
+					# HELP inference_objective_input_tokens [ALPHA] Inference objective input token count distribution for requests in each model.
+					# TYPE inference_objective_input_tokens histogram
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="8"} 0
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32"} 1
+					inference_objective_input_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_input_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 15
+					inference_objective_input_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+				"inference_objective_output_tokens": cleanMetric(`
+					# HELP inference_objective_output_tokens [ALPHA] Inference objective output token count distribution for requests in each model.
+					# TYPE inference_objective_output_tokens histogram
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="16"} 0
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="32"} 1
+					inference_objective_output_tokens_bucket{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3",le="+Inf"} 1
+					inference_objective_output_tokens_sum{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 25
+					inference_objective_output_tokens_count{model_name="sql-lora-sheddable",target_model_name="sql-lora-1fdg3"} 1
+					`),
+			},
+		},
 	}
 
 	for _, executionMode := range executionModes {
