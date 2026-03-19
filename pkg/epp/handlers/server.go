@@ -335,7 +335,7 @@ func (s *StreamingServer) finishResponse(ctx context.Context, reqCtx *RequestCon
 	reqCtx = s.HandleResponseBody(ctx, reqCtx, body, true)
 	if !modelStreaming {
 		// For non-streaming response, we send response back to envoy after receiving all the response body.
-		reqCtx.respBodyResp = generateResponseBodyResponses(body, true, reqCtx.Response.DynamicMetadata)
+		reqCtx.respBodyResp = generateResponseBodyResponses(body, setEos, reqCtx.Response.DynamicMetadata)
 	}
 }
 
@@ -399,7 +399,7 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 		if err := srv.Send(r.respTrailerResp); err != nil {
 			return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
 		} else {
-			logger.V(1).Info("EPP sent trailer back to proxy")
+			logger.V(logutil.DEBUG).Info("EPP sent trailer back to proxy")
 		}
 	}
 	return nil
