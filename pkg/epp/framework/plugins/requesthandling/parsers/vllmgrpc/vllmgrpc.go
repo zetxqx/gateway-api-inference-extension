@@ -35,6 +35,8 @@ import (
 
 const (
 	VllmGRPCParserType = "vllmgrpc-parser"
+
+	gRPCPayloadHeaderLen = 5
 )
 
 // compile-time type validation
@@ -74,87 +76,79 @@ func (p *VllmGRPCParser) ParseRequest(ctx context.Context, body []byte, headers 
 	logger := log.FromContext(ctx)
 
 	extractedBody, err := convertToLLMRequestBody(body)
-	logger.V(logutil.DEBUG).Info("parsed GenerateRequest")
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse gRPC payload: %w", err)
+		return nil, fmt.Errorf("parsing gRPC payload: %w", err)
 	}
+	logger.V(logutil.TRACE).Info("parsed GenerateRequest")
 	return extractedBody, nil
 }
 
 // ParseResponse parses the response body and returns a ParsedResponse
 func (p *VllmGRPCParser) ParseResponse(ctx context.Context, body []byte, headers map[string]string, endofStream bool) (*fwkrh.ParsedResponse, error) {
 	logger := log.FromContext(ctx)
-	pbResp, err := toGenerateResponse(body)
-	if err != nil {
+	resp := &pb.GenerateResponse{}
+	if err := toGenerateResponse(body, resp); err != nil {
 		return nil, fmt.Errorf("failed to parse gRPC response payload: %w", err)
 	}
 
 	result := &fwkrh.ParsedResponse{}
 
-	if pbResp != nil && pbResp.Response != nil {
-		switch v := pbResp.Response.(type) {
-		case *pb.GenerateResponse_Chunk:
-			logger.V(logutil.DEBUG).Info("parsed GenerateResponse_Chunk. Token IDs length: ", "tokenLength", len(v.Chunk.TokenIds))
-			// Only populate Usage if the chunk actually contains token data.
-			// Streaming chunks often leave this empty until the final chunk.
-			if v.Chunk.PromptTokens > 0 || v.Chunk.CompletionTokens > 0 {
-				result.Usage = &requestcontrol.Usage{
-					PromptTokens:     int(v.Chunk.PromptTokens),
-					CompletionTokens: int(v.Chunk.CompletionTokens),
-					TotalTokens:      int(v.Chunk.PromptTokens + v.Chunk.CompletionTokens),
-					PromptTokenDetails: &requestcontrol.PromptTokenDetails{
-						CachedTokens: int(v.Chunk.CachedTokens),
-					},
-				}
-			}
+	if resp.Response == nil {
+		return nil, errors.New("missing response in GenerateResponse")
+	}
 
-		case *pb.GenerateResponse_Complete:
-			logger.V(logutil.DEBUG).Info("parsed GenerateResponse_Complete. Token IDs length: ", "finishedReason", len(v.Complete.FinishReason))
-			// Populate Usage for complete, non-streaming responses.
-			if v.Complete.PromptTokens > 0 || v.Complete.CompletionTokens > 0 {
-				result.Usage = &requestcontrol.Usage{
-					PromptTokens:     int(v.Complete.PromptTokens),
-					CompletionTokens: int(v.Complete.CompletionTokens),
-					TotalTokens:      int(v.Complete.PromptTokens + v.Complete.CompletionTokens),
-					PromptTokenDetails: &requestcontrol.PromptTokenDetails{
-						CachedTokens: int(v.Complete.CachedTokens),
-					},
-				}
-			}
-
-		default:
-			return nil, errors.New("unrecognized response type in GenerateResponse")
+	switch v := resp.Response.(type) {
+	case *pb.GenerateResponse_Chunk:
+		logger.V(logutil.DEBUG).Info("parsed GenerateResponse_Chunk", "tokenLength", len(v.Chunk.TokenIds))
+		// Only populate Usage if the chunk actually contains token data.
+		// Streaming chunks often leave this empty until the final chunk.
+		promptToken, completionToken, cahcedToken := int(v.Chunk.PromptTokens), int(v.Chunk.CompletionTokens), int(v.Chunk.CachedTokens)
+		if promptToken > 0 || completionToken > 0 {
+			result.Usage = requestControlUsage(promptToken, completionToken, cahcedToken)
 		}
+
+	case *pb.GenerateResponse_Complete:
+		logger.V(logutil.DEBUG).Info("parsed GenerateResponse_Complete", "finishReason", v.Complete.FinishReason)
+		// Populate Usage for complete, non-streaming responses.
+		promptToken, completionToken, cahcedToken := int(v.Complete.PromptTokens), int(v.Complete.CompletionTokens), int(v.Complete.CachedTokens)
+		if promptToken > 0 || completionToken > 0 {
+			result.Usage = requestControlUsage(promptToken, completionToken, cahcedToken)
+		}
+
+	default:
+		return nil, errors.New("unrecognized response type in GenerateResponse")
 	}
 
 	return result, nil
 }
 
-// toGenerateResponse extracts the gRPC payload and unmarshals it into a GenerateResponse.
-func toGenerateResponse(payload []byte) (*pb.GenerateResponse, error) {
-	parsedPayload, compressed, ok := parseGrpcPayload(payload)
-	if !ok {
-		return nil, errors.New("not able to parse payload")
+func requestControlUsage(promptToken, completionToken, cachedToken int) *requestcontrol.Usage {
+	return &requestcontrol.Usage{
+		PromptTokens:     promptToken,
+		CompletionTokens: completionToken,
+		TotalTokens:      promptToken + completionToken,
+		PromptTokenDetails: &requestcontrol.PromptTokenDetails{
+			CachedTokens: cachedToken,
+		},
+	}
+}
+
+func toGenerateResponse(payload []byte, resp *pb.GenerateResponse) error {
+	parsedPayload, compressed, err := parseGrpcPayload(payload)
+	if err != nil {
+		return errors.New("not able to parse payload")
 	}
 	if compressed {
-		// TODO: handle compressed payload.
-		return nil, errors.New("not able to parse compressed payload")
+		// TODO(#2635): handle compressed payload.
+		return errors.New("not able to parse compressed payload")
 	}
 
-	resp := &pb.GenerateResponse{}
-	err := proto.Unmarshal(parsedPayload, resp)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return proto.Unmarshal(parsedPayload, resp)
 }
 
 func convertToLLMRequestBody(payload []byte) (*scheduling.LLMRequestBody, error) {
-	pbReq, err := toGenerateRequest(payload)
-	if err != nil {
-		return nil, err
-	}
-	if pbReq == nil {
+	pbReq := &pb.GenerateRequest{}
+	if err := toGenerateRequest(payload, pbReq); err != nil {
 		return nil, err
 	}
 	switch pbReq.Input.(type) {
@@ -176,12 +170,12 @@ func convertToLLMRequestBody(payload []byte) (*scheduling.LLMRequestBody, error)
 	return nil, errors.New("not supported request inputType")
 }
 
-// parseGrpcPayload extracts the payload and the compression status.
-//
-// Returns: (payload, isCompressed, success)
-func parseGrpcPayload(data []byte) ([]byte, bool, bool) {
-	if len(data) < 5 {
-		return nil, false, false
+// parseGrpcPayload extracts the message payload and its compression status from a gRPC frame.
+// A standard gRPC frame consists of a 1-byte compression flag, a 4-byte message length,
+// and the actual message payload.
+func parseGrpcPayload(data []byte) ([]byte, bool, error) {
+	if len(data) < gRPCPayloadHeaderLen {
+		return nil, false, fmt.Errorf("invalid gRPC frame: expected at least %d bytes for header, got %d", gRPCPayloadHeaderLen, len(data))
 	}
 
 	// gRPC frame header: [Compression Flag (1 byte)] [Message Length (4 bytes)]
@@ -189,25 +183,21 @@ func parseGrpcPayload(data []byte) ([]byte, bool, bool) {
 	isCompressed := data[0] == 1
 	msgLen := binary.BigEndian.Uint32(data[1:5])
 
-	if uint32(len(data)) < 5+msgLen {
-		return nil, false, false
+	if uint32(len(data)) < gRPCPayloadHeaderLen+msgLen {
+		return nil, false, fmt.Errorf("incomplete gRPC payload: header indicates %d bytes, but only %d bytes are available", msgLen, uint32(len(data))-gRPCPayloadHeaderLen)
 	}
-	return data[5 : 5+msgLen], isCompressed, true
+	return data[gRPCPayloadHeaderLen : gRPCPayloadHeaderLen+msgLen], isCompressed, nil
 }
 
-func toGenerateRequest(payload []byte) (*pb.GenerateRequest, error) {
-	parsedPayload, compressed, ok := parseGrpcPayload(payload)
-	if !ok {
-		return nil, errors.New("not able to parse payload")
+func toGenerateRequest(payload []byte, req *pb.GenerateRequest) error {
+	parsedPayload, compressed, err := parseGrpcPayload(payload)
+	if err != nil {
+		return errors.New("not able to parse payload")
 	}
 	if compressed {
-		// TODO: handle compressed payload.
-		return nil, errors.New("not able to parse compressed payload")
+		// TODO(#2635): handle compressed payload.
+		return errors.New("not able to parse compressed payload")
 	}
-	req := &pb.GenerateRequest{}
-	err := proto.Unmarshal(parsedPayload, req)
-	if err != nil {
-		return nil, err
-	}
-	return req, nil
+
+	return proto.Unmarshal(parsedPayload, req)
 }
