@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/internal/runnable"
 	tlsutil "sigs.k8s.io/gateway-api-inference-extension/internal/tls"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/common"
+	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/controller"
 	datalayerlogger "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer/logger"
@@ -132,9 +133,23 @@ func (r *ExtProcServerRunner) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
+type wrappedStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *wrappedStream) Context() context.Context {
+	return w.ctx
+}
+
 // AsRunnable returns a Runnable that can be used to start the ext-proc gRPC server.
 // The runnable implements LeaderElectionRunnable with leader election disabled.
 func (r *ExtProcServerRunner) AsRunnable(logger logr.Logger) manager.Runnable {
+	streamInterceptor := func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx := logutil.IntoContext(ss.Context(), logger)
+		return handler(srv, &wrappedStream{ss, ctx})
+	}
+
 	return runnable.NoLeaderElection(manager.RunnableFunc(func(ctx context.Context) error {
 		if r.UseExperimentalDatalayerV2 {
 			datalayerlogger.StartMetricsLogger(ctx, r.Datastore, r.RefreshPrometheusMetricsInterval, r.MetricsStalenessThreshold)
@@ -175,9 +190,9 @@ func (r *ExtProcServerRunner) AsRunnable(logger logr.Logger) manager.Runnable {
 				})
 			}
 			// Init the server.
-			srv = grpc.NewServer(grpc.Creds(creds))
+			srv = grpc.NewServer(grpc.Creds(creds), grpc.StreamInterceptor(streamInterceptor))
 		} else {
-			srv = grpc.NewServer()
+			srv = grpc.NewServer(grpc.StreamInterceptor(streamInterceptor))
 		}
 
 		extProcServer := handlers.NewStreamingServer(r.Datastore, r.Director, r.Parser)
