@@ -32,7 +32,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	envoy "sigs.k8s.io/gateway-api-inference-extension/pkg/common/envoy"
 	errcommon "sigs.k8s.io/gateway-api-inference-extension/pkg/common/error"
@@ -148,7 +147,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 	ctx, span := tracer.Start(ctx, "gateway.request", trace.WithSpanKind(trace.SpanKindServer))
 	defer span.End()
 
-	logger := log.FromContext(ctx)
+	logger := logutil.FromContext(ctx)
 	loggerTrace := logger.V(logutil.TRACE)
 	loggerTrace.Info("Processing")
 
@@ -186,7 +185,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		if reqCtx.TargetPod != nil && !reqCtx.ResponseComplete {
 			// Use a fresh context as the request context might be canceled (Client Disconnect).
 			// We only need logging from the original context.
-			cleanupCtx := log.IntoContext(context.Background(), logger)
+			cleanupCtx := logutil.IntoContext(context.Background(), logger)
 			s.director.HandleResponseBody(cleanupCtx, reqCtx, true)
 		}
 	}(err, reqCtx)
@@ -221,7 +220,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 			logger = logger.WithValues(reqcommon.RequestIdHeaderKey, requestID)
 			logger.V(logutil.DEFAULT).Info("EPP received request") // Request ID will be logged too as part of logger context values.
 			loggerTrace = logger.V(logutil.TRACE)
-			ctx = log.IntoContext(ctx, logger)
+			ctx = logutil.IntoContext(ctx, logger)
 
 			err = s.HandleRequestHeaders(ctx, reqCtx, v)
 		case *extProcPb.ProcessingRequest_RequestBody:
