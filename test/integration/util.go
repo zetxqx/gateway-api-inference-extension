@@ -67,8 +67,8 @@ func ReqLLM(logger logr.Logger, prompt, model, targetModel string) []*extProcPb.
 	return GenerateStreamedRequestSet(logger, prompt, model, targetModel, nil)
 }
 
-func ReqGRPCLLM(logger logr.Logger, prompt string) []*extProcPb.ProcessingRequest {
-	return GenerateStreamedGRPCRequestSet(logger, prompt, nil)
+func ReqGRPCLLM(logger logr.Logger, prompt, objectiveModel string) []*extProcPb.ProcessingRequest {
+	return GenerateStreamedGRPCRequestSet(logger, prompt, objectiveModel, nil)
 }
 
 // ReqLLMUnary creates a single `ProcessingRequest` containing a complete JSON body.
@@ -224,12 +224,13 @@ func GenerateStreamedRequestSet(
 func GenerateStreamedGRPCRequestSet(
 	logger logr.Logger,
 	prompt string,
+	objectiveModel string, // Set to non-empty to set x-gateway-inference-objective value
 	filterMetadata []string,
 ) []*extProcPb.ProcessingRequest {
 	requests := make([]*extProcPb.ProcessingRequest, 0, 2)
 
 	// Headers
-	requests = append(requests, gnereateHeaders("", "", filterMetadata)) // GRPC payload does not need model and dose not support TargetModel.
+	requests = append(requests, gnereateHeaders(objectiveModel, "", filterMetadata)) // GRPC payload does not need model and dose not support TargetModel.
 
 	// Body
 	requests = append(requests, GenerateGRPCRequest(logger, prompt, filterMetadata))

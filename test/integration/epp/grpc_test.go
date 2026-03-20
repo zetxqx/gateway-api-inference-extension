@@ -69,7 +69,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		// --- Standard Routing Logic ---
 		{
 			name:     "select lower queue and kv cache",
-			requests: integration.ReqGRPCLLM(logger, "test1"),
+			requests: integration.ReqGRPCLLM(logger, "test1", modelMyModel),
 			pods: []podState{
 				P(0, 3, 0.2),
 				P(1, 0, 0.1), // Winner (Low Queue, Low KV)
@@ -77,13 +77,13 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			},
 			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test1"),
 			wantMetrics: map[string]string{
-				"inference_objective_request_total": cleanMetric(metricReqTotal("", "")),
+				"inference_objective_request_total": cleanMetric(metricReqTotal(modelMyModel, "")),
 				"inference_pool_ready_pods":         cleanMetric(metricReadyPods(3)),
 			},
 		},
 		{
 			name:     "do not shed requests by default",
-			requests: integration.ReqGRPCLLM(logger, "test2"),
+			requests: integration.ReqGRPCLLM(logger, "test2", ""),
 			pods: []podState{
 				P(0, 6, 0.2, "foo", "bar"), // Winner (Lowest saturated)
 				P(1, 0, 0.85, "foo"),
@@ -149,7 +149,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		{
 			name: "subsetting: select best from subset",
 			// Only pods in the subset list are eligible.
-			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2",
+			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "",
 				[]string{"192.168.1.1:8000", "192.168.1.2:8000", "192.168.1.3:8000"}),
 			pods: []podState{
 				P(0, 0, 0.2, "foo"),
@@ -160,7 +160,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		},
 		{
 			name:     "subsetting: partial match",
-			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", []string{"192.168.1.3:8000"}),
+			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "", []string{"192.168.1.3:8000"}),
 			pods: []podState{
 				P(0, 0, 0.2, "foo"),
 				P(1, 0, 0.1, "foo", modelSQLLoraTarget),
@@ -170,7 +170,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		},
 		{
 			name:     "subsetting: no pods match",
-			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", []string{"192.168.1.99:8000"}),
+			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "", []string{"192.168.1.99:8000"}),
 			pods: []podState{
 				P(0, 0, 0.2, "foo"),
 				P(1, 0, 0.1, "foo", modelSQLLoraTarget),
