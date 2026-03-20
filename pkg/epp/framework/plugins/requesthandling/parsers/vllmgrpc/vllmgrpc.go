@@ -140,7 +140,7 @@ func toGenerateResponse(payload []byte, resp *pb.GenerateResponse) error {
 	}
 	if compressed {
 		// TODO(#2635): handle compressed payload.
-		return errors.New("not able to parse compressed payload")
+		return errors.New("compressed vllmgrpc payload is not supported")
 	}
 
 	return proto.Unmarshal(parsedPayload, resp)
@@ -196,7 +196,7 @@ func toGenerateRequest(payload []byte, req *pb.GenerateRequest) error {
 	}
 	if compressed {
 		// TODO(#2635): handle compressed payload.
-		return errors.New("not able to parse compressed payload")
+		return errors.New("compressed vllmgrpc payload is not supported")
 	}
 
 	return proto.Unmarshal(parsedPayload, req)
