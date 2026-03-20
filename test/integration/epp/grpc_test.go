@@ -62,7 +62,6 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		pods          []podState
 		wantResponses []*extProcPb.ProcessingResponse
 		wantMetrics   map[string]string
-		waitForModel  string
 		// requiresCRDs indicates that this test case relies on specific Gateway API CRD features (like
 		// InferenceModelRewrite) which are not available in Standalone runMode without CRD.
 		requiresCRDs bool
@@ -238,8 +237,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 					gRPCPayload[len(gRPCPayload)/2:],
 				)
 			}(),
-			pods:         []podState{P(0, 4, 0.2)},
-			waitForModel: modelSheddable,
+			pods: []podState{P(0, 4, 0.2)},
 			wantResponses: func() []*extProcPb.ProcessingResponse {
 				resp := &pb.GenerateResponse{
 					Response: &pb.GenerateResponse_Complete{
@@ -291,14 +289,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 
 			h := NewTestHarness(t, ctx, WithStandardMode(), WithConfigText(testConfigWithVllmGRPCParser)).WithBaseResources()
 
-			// In standalone runMode without crd, we cannot wait for an Objective CRD to sync as it doesn't exist.
-			// We only wait for Pod discovery.
-			modelToSync := tc.waitForModel
-			if modelToSync == "" {
-				modelToSync = modelMyModel
-			}
-
-			h.WithPods(tc.pods).WaitForSync(len(tc.pods), modelToSync)
+			h.WithPods(tc.pods).WaitForSync(len(tc.pods), modelMyModel)
 			if len(tc.pods) > 0 {
 				h.WaitForReadyPodsMetric(len(tc.pods))
 			}
