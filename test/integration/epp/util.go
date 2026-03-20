@@ -25,6 +25,7 @@ import (
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	envoyTypePb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	reqcommon "sigs.k8s.io/gateway-api-inference-extension/pkg/common/request"
+	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/gen"
 	"sigs.k8s.io/gateway-api-inference-extension/test/integration"
 )
 
@@ -70,6 +71,47 @@ func ReqResponseOnly(
 	return reqs
 }
 
+// ReqResponseGRPCWithTailer creates a sequence simulating only the response phase from Envoy while passing gRPC payload.
+// It also generate a response trailer.
+// It skips the RequestHeaders phase entirely.
+func ReqResponseGRPCWithTailer(
+	respHeaders map[string]string,
+	bodyChunks ...[]byte,
+) []*extProcPb.ProcessingRequest {
+	reqs := make([]*extProcPb.ProcessingRequest, 0, 1+len(bodyChunks))
+
+	// 1. Response Headers
+	hListResp := make([]*envoyCorev3.HeaderValue, 0, len(respHeaders))
+	for k, v := range respHeaders {
+		hListResp = append(hListResp, &envoyCorev3.HeaderValue{Key: k, RawValue: []byte(v)})
+	}
+	reqs = append(reqs, &extProcPb.ProcessingRequest{
+		Request: &extProcPb.ProcessingRequest_ResponseHeaders{
+			ResponseHeaders: &extProcPb.HttpHeaders{Headers: &envoyCorev3.HeaderMap{Headers: hListResp}},
+		},
+	})
+
+	// 2. Response Body Chunks
+	for _, chunk := range bodyChunks {
+		reqs = append(reqs, &extProcPb.ProcessingRequest{
+			Request: &extProcPb.ProcessingRequest_ResponseBody{
+				ResponseBody: &extProcPb.HttpBody{
+					Body:        chunk,
+					EndOfStream: false,
+				},
+			},
+		})
+	}
+
+	// 3. Response Trailer
+	reqs = append(reqs, &extProcPb.ProcessingRequest{
+		Request: &extProcPb.ProcessingRequest_ResponseTrailers{
+			ResponseTrailers: &extProcPb.HttpTrailers{},
+		},
+	})
+	return reqs
+}
+
 // --- Response Expectations ---
 
 // ExpectRouteTo asserts that the request was successfully routed to the specified endpoint and that the body was
@@ -80,7 +122,26 @@ func ExpectRouteTo(endpoint, targetModel, prompt string) []*extProcPb.Processing
 		"max_tokens": 100, "model": targetModel, "prompt": prompt, "temperature": 0,
 	})
 	return integration.NewRequestBufferedResponse(
-		endpoint, string(j),
+		endpoint, j,
+		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{Key: "hi", RawValue: []byte("mom")}},
+		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{
+			Key:      reqcommon.RequestIdHeaderKey,
+			RawValue: []byte("test-request-id"),
+		}},
+	)
+}
+
+// ExpectGRPCRouteTo asserts that the request was successfully routed to the specified endpoint.
+func ExpectGRPCRouteTo(endpoint, prompt string) []*extProcPb.ProcessingResponse {
+	req := &pb.GenerateRequest{
+		Input: &pb.GenerateRequest_Text{
+			Text: prompt,
+		},
+	}
+	// Reconstruct the expected rewritten body.
+	j, _ := integration.CreateGrpcPayload(req)
+	return integration.NewRequestBufferedResponse(
+		endpoint, j,
 		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{Key: "hi", RawValue: []byte("mom")}},
 		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{
 			Key:      reqcommon.RequestIdHeaderKey,
@@ -99,6 +160,7 @@ func ExpectReject(code envoyTypePb.StatusCode, msg string) []*extProcPb.Processi
 func ExpectBufferResp(body string, contentType string) []*extProcPb.ProcessingResponse {
 	return integration.NewResponseBufferedResponse(
 		body,
+		contentType != "application/grpc", // For gRPC, the EoS will not be set to true but it will return a trailer.
 		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{
 			Key:      "x-went-into-resp-headers",
 			RawValue: []byte("true"),
