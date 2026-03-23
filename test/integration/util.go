@@ -26,9 +26,9 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"strconv"
 	"testing"
@@ -577,25 +577,20 @@ func ExtProcServerClient(
 // Note: There is a theoretical race condition where another process grabs the port between the Close() call and the
 // subsequent usage, but this is generally acceptable in hermetic test environments.
 func GetFreePort() (int, error) {
-	// Seed the random number generator
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	// Try up to 10 times to find a free port
-	for i := 0; i < 10; i++ {
-		// Pick a random port between 10000 and 30000
-		// This safely avoids the Linux ephemeral range (32768+)
-		port := 10000 + r.Intn(20000)
-
-		// Check if it is actually free by trying to listen on it
-		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-		if err == nil {
-			// It is free! Close it so the test server can use it, and return the number.
-			listener.Close()
-			return port, nil
-		}
+	// Force IPv4 to prevent flakes on dual-stack CI environments
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, fmt.Errorf("failed to listen on a free port: %w", err)
 	}
 
-	return 0, fmt.Errorf("could not find a free port after 10 attempts")
+	// Critical: Close the listener immediately so the caller can bind to it.
+	defer listener.Close()
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, errors.New("failed to cast listener address to TCPAddr")
+	}
+	return addr.Port, nil
 }
 
 // --- Internal Helpers ---
