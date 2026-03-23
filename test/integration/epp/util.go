@@ -26,7 +26,7 @@ import (
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	envoyTypePb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	reqcommon "sigs.k8s.io/gateway-api-inference-extension/pkg/common/request"
-	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/gen"
+	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/gen"
 	"sigs.k8s.io/gateway-api-inference-extension/test/integration"
 )
 

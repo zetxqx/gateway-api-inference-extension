@@ -54,11 +54,11 @@ const (
 
 var (
 	// --- Common Label Sets ---
-	modelLabels                 = []string{"model_name", "target_model_name"}
-	modelWithPriorityLabels     = []string{"model_name", "target_model_name", "priority"}
-	modelTypeLabels             = []string{"model_name", "target_model_name", "type"}
-	poolLabels      = []string{"name"}
-	endpointLabels  = []string{"pod_name", "namespace", "port"}
+	modelLabels             = []string{"model_name", "target_model_name"}
+	modelWithPriorityLabels = []string{"model_name", "target_model_name", "priority"}
+	modelTypeLabels         = []string{"model_name", "target_model_name", "type"}
+	poolLabels              = []string{"name"}
+	endpointLabels          = []string{"pod_name", "namespace", "port"}
 
 	// --- Common Buckets ---
 

@@ -26,11 +26,11 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	// Note: Adjust these imports if your local aliases differ
-	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/gen"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkrc "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
+	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/gen"
 )
 
 // helper function to simulate the gRPC payload framing

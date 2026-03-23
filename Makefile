@@ -127,11 +127,11 @@ generate: controller-gen code-generator tidy ## Generate WebhookConfiguration, C
 .PHONY: generate-proto
 generate-proto: protoc-gen-go protoc-gen-go-grpc ## Generate Golang code from protobuf files.
 	PATH="$(LOCALBIN):$$PATH" $(PROTOC) \
-		-I pkg/epp/api/proto \
+		-I pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/proto \
 		-I . \
 		--go_out=module=sigs.k8s.io/gateway-api-inference-extension:. \
 		--go-grpc_out=module=sigs.k8s.io/gateway-api-inference-extension:. \
-		pkg/epp/api/proto/*.proto
+		pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/proto/*.proto
 
 # Use same code-generator version as k8s.io/api
 CODEGEN_VERSION := $(shell go list -m -f '{{.Version}}' k8s.io/api)
