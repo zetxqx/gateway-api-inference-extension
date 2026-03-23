@@ -19,6 +19,7 @@ package epp
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	envoyCorev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -225,12 +226,12 @@ func labelsToString(labels []label) string {
 	return sb.String()
 }
 
-func metricReqTotal(model, target string) string {
+func metricReqTotal(model, target string, priority int) string {
 	return fmt.Sprintf(`
 		# HELP inference_objective_request_total [ALPHA] Counter of inference objective requests broken out for each model and target model.
 		# TYPE inference_objective_request_total counter
 		inference_objective_request_total{%s} 1
-		`, labelsToString([]label{{"model_name", model}, {"target_model_name", target}}))
+		`, labelsToString([]label{{"model_name", model}, {"priority", strconv.Itoa(priority)}, {"target_model_name", target}}))
 }
 
 func metricReadyPods(count int) string {

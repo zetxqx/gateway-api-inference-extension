@@ -69,7 +69,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		// --- Standard Routing Logic ---
 		{
 			name:     "select lower queue and kv cache",
-			requests: integration.ReqGRPCLLM(logger, "test1", modelMyModel),
+			requests: integration.ReqGRPCLLM(logger, "test1", inferenceObjectiveWithPriority4),
 			pods: []podState{
 				P(0, 3, 0.2),
 				P(1, 0, 0.1), // Winner (Low Queue, Low KV)
@@ -77,7 +77,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			},
 			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test1"),
 			wantMetrics: map[string]string{
-				"inference_objective_request_total": cleanMetric(metricReqTotal(modelMyModel, "")),
+				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 4)),
 				"inference_pool_ready_pods":         cleanMetric(metricReadyPods(3)),
 			},
 		},
@@ -91,7 +91,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			},
 			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test2"),
 			wantMetrics: map[string]string{
-				"inference_objective_request_total": cleanMetric(metricReqTotal("", "")),
+				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 0)),
 			},
 		},
 
@@ -134,7 +134,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			},
 			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test3"),
 			wantMetrics: map[string]string{
-				"inference_objective_request_total": cleanMetric(metricReqTotal("", "")),
+				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 0)),
 			},
 		},
 		{

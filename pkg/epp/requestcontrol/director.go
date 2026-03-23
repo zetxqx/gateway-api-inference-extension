@@ -144,6 +144,7 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	}
 
 	infObjective := d.getInferenceObjective(ctx, reqCtx)
+	reqCtx.Priority = *infObjective.Spec.Priority
 	requestObjectives := fwksched.RequestObjectives{Priority: *infObjective.Spec.Priority}
 
 	span.SetAttributes(
@@ -217,8 +218,6 @@ func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.Requ
 	case proto.Message:
 		// Protos are not currently mutated, return as-is.
 		reqCtx.RequestSize = len(reqCtx.Request.RawBody)
-		// Set the IncomingModelName as the ObjectiveKey. Since currently, the proto we support does not have a model name.
-		reqCtx.IncomingModelName = reqCtx.ObjectiveKey
 	case map[string]any:
 		if err := d.mutateAndRepackage(ctx, reqCtx, v); err != nil {
 			return nil, err

@@ -86,6 +86,7 @@ type RequestContext struct {
 	TargetModelName           string
 	FairnessID                string
 	ObjectiveKey              string
+	Priority                  int
 	RequestReceivedTimestamp  time.Time
 	ResponseCompleteTimestamp time.Time
 	RequestSize               int
@@ -246,8 +247,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 
 				reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
 				reqCtx.reqBodyResp = envoy.GenerateRequestBodyResponses(reqCtx.Request.RawBody)
-
-				metrics.RecordRequestCounter(reqCtx.IncomingModelName, reqCtx.TargetModelName)
+				metrics.RecordRequestCounter(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Priority)
 				metrics.RecordRequestSizes(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestSize)
 			}
 		case *extProcPb.ProcessingRequest_RequestTrailers:
