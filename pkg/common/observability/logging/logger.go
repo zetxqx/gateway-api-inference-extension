@@ -64,3 +64,14 @@ func NewTestLogger() logr.Logger {
 func NewTestLoggerIntoContext(ctx context.Context) context.Context {
 	return log.IntoContext(ctx, NewTestLogger())
 }
+
+// FromContext returns a logger with predefined values from a context.Context.
+func FromContext(ctx context.Context) logr.Logger {
+	return log.FromContext(ctx)
+}
+
+// IntoContext takes a context and sets the logger as one of its values.
+// Use FromContext function to retrieve the logger.
+func IntoContext(ctx context.Context, logger logr.Logger) context.Context {
+	return log.IntoContext(ctx, logger)
+}
