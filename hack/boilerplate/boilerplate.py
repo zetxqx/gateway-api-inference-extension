@@ -166,6 +166,7 @@ skipped_dirs = [
     'internal/runnable/leader_election.go',
     '_output',
     'pkg/epp/backend/metrics/pod_metrics_test.go',
+    'pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api',
     'pkg/epp/saturationdetector/config.go',
     'pkg/epp/scheduling/framework/plugins/multi/prefix/indexer_test.go',
     'pkg/epp/util/env/env_test.go',
