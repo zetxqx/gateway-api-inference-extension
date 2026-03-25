@@ -137,7 +137,7 @@ func (m *mockDirector) HandleResponseHeader(ctx context.Context, reqCtx *Request
 func (m *mockDirector) GetRandomEndpoint() *fwkdl.EndpointMetadata {
 	return &fwkdl.EndpointMetadata{}
 }
-func (m *mockDirector) HandleRequest(ctx context.Context, llmRequest *fwkrh.LLMRequestBody, reqCtx *RequestContext) (*RequestContext, error) {
+func (m *mockDirector) HandleRequest(ctx context.Context, llmRequest *fwkrh.InferenceRequestBody, reqCtx *RequestContext) (*RequestContext, error) {
 	return reqCtx, nil
 }
 

@@ -126,7 +126,7 @@ func TestBulkPredictWithMetrics_WithPredictedLatencyCtx(t *testing.T) {
 	prefixCacheScores := []float64{0.0}
 
 	plCtx := &predictedLatencyCtx{
-		schedulingRequest: schedulingtypes.LLMRequest{
+		schedulingRequest: schedulingtypes.InferenceRequest{
 			TargetModel: "test-model",
 		},
 		incomingModelName: "incoming-model",

@@ -26,7 +26,7 @@ import (
 type Parser interface {
 	fwkplugin.Plugin
 	// ParseRequest parses the request body and headers and returns a map representation.
-	ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*LLMRequestBody, error)
+	ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*InferenceRequestBody, error)
 
 	// ParseResponse parses the response payload.
 	// For streaming responses , this method is invoked multiple times (once per chunk),

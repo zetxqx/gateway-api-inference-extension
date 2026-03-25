@@ -47,7 +47,7 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 		name    string
 		headers map[string]string
 		body    map[string]any
-		want    *fwkrh.LLMRequestBody
+		want    *fwkrh.InferenceRequestBody
 		wantErr bool
 	}{
 		{
@@ -57,9 +57,11 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"model":  "test",
 				"prompt": "test prompt",
 			},
-			want: &fwkrh.LLMRequestBody{
-				Completions: &fwkrh.CompletionsRequest{
-					Prompt: "test prompt",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
+						Prompt: "test prompt",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":  "test",
@@ -81,11 +83,13 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			want: &fwkrh.LLMRequestBody{
-				ChatCompletions: &fwkrh.ChatCompletionsRequest{
-					Messages: []fwkrh.Message{
-						{Role: "system", Content: 	fwkrh.Content{Raw: "this is a system message"}},
-						{Role: "user", Content: fwkrh.Content{Raw: "hello"}},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "system", Content: fwkrh.Content{Raw: "this is a system message"}},
+							{Role: "user", Content: fwkrh.Content{Raw: "hello"}},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -129,25 +133,27 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			want: &fwkrh.LLMRequestBody{
-				ChatCompletions: &fwkrh.ChatCompletionsRequest{
-					Messages: []fwkrh.Message{
-						{Role: "system", Content: fwkrh.Content{
-							Structured: []fwkrh.ContentBlock{
-								{
-									Text: "Describe this image in one sentence.",
-									Type: "text",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "system", Content: fwkrh.Content{
+								Structured: []fwkrh.ContentBlock{
+									{
+										Text: "Describe this image in one sentence.",
+										Type: "text",
+									},
 								},
-							},
-						}},
-						{Role: "user", Content: fwkrh.Content{
-							Structured: []fwkrh.ContentBlock{
-								{
-									Type:     "image_url",
-									ImageURL: fwkrh.ImageBlock{Url: "https://example.com/images/dui.jpg."},
+							}},
+							{Role: "user", Content: fwkrh.Content{
+								Structured: []fwkrh.ContentBlock{
+									{
+										Type:     "image_url",
+										ImageURL: fwkrh.ImageBlock{Url: "https://example.com/images/dui.jpg."},
+									},
 								},
-							},
-						}},
+							}},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -202,21 +208,23 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			want: &fwkrh.LLMRequestBody{
-				ChatCompletions: &fwkrh.ChatCompletionsRequest{
-					Messages: []fwkrh.Message{
-						{Role: "user", Content: fwkrh.Content{
-							Structured: []fwkrh.ContentBlock{
-								{
-									Type:       "input_audio",
-									InputAudio: fwkrh.AudioBlock{Data: "base64data", Format: "wav"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "user", Content: fwkrh.Content{
+								Structured: []fwkrh.ContentBlock{
+									{
+										Type:       "input_audio",
+										InputAudio: fwkrh.AudioBlock{Data: "base64data", Format: "wav"},
+									},
+									{
+										Type:     "video_url",
+										VideoURL: fwkrh.VideoBlock{Url: "https://example.com/video.mp4"},
+									},
 								},
-								{
-									Type:     "video_url",
-									VideoURL: fwkrh.VideoBlock{Url: "https://example.com/video.mp4"},
-								},
-							},
-						}},
+							}},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -260,16 +268,18 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"add_generation_prompt":        true,
 				"chat_template_kwargs":         map[string]any{"key": "value"},
 			},
-			want: &fwkrh.LLMRequestBody{
-				ChatCompletions: &fwkrh.ChatCompletionsRequest{
-					Messages:                  []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "hello"}}},
-					Tools:                     []any{map[string]any{"type": "function"}},
-					Documents:                 []any{map[string]any{"content": "doc"}},
-					ChatTemplate:              "custom template",
-					ReturnAssistantTokensMask: true,
-					ContinueFinalMessage:      true,
-					AddGenerationPrompt:       true,
-					ChatTemplateKWArgs:        map[string]any{"key": "value"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages:                  []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "hello"}}},
+						Tools:                     []any{map[string]any{"type": "function"}},
+						Documents:                 []any{map[string]any{"content": "doc"}},
+						ChatTemplate:              "custom template",
+						ReturnAssistantTokensMask: true,
+						ContinueFinalMessage:      true,
+						AddGenerationPrompt:       true,
+						ChatTemplateKWArgs:        map[string]any{"key": "value"},
+					},
 				},
 				ParsedBody: map[string]any{
 					"model": "test",
@@ -441,10 +451,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"prompt":     "test prompt",
 				"cache_salt": "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 			},
-			want: &fwkrh.LLMRequestBody{
-				Completions: &fwkrh.CompletionsRequest{
-					Prompt:    "test prompt",
-					CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
+						Prompt:    "test prompt",
+						CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":      "test",
@@ -468,13 +480,15 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				},
 				"cache_salt": "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 			},
-			want: &fwkrh.LLMRequestBody{
-				ChatCompletions: &fwkrh.ChatCompletionsRequest{
-					Messages: []fwkrh.Message{
-						{Role: "system", Content: fwkrh.Content{Raw: "this is a system message"}},
-						{Role: "user", Content: fwkrh.Content{Raw: "hello"}},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "system", Content: fwkrh.Content{Raw: "this is a system message"}},
+							{Role: "user", Content: fwkrh.Content{Raw: "hello"}},
+						},
+						CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 					},
-					CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 				},
 				ParsedBody: map[string]any{
 					"model": "test",
@@ -498,10 +512,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"input":        "How do I check if a Python object is an instance of a class?",
 				"instructions": "You are a coding assistant that talks like a pirate.",
 			},
-			want: &fwkrh.LLMRequestBody{
-				Responses: &fwkrh.ResponsesRequest{
-					Input:        "How do I check if a Python object is an instance of a class?",
-					Instructions: "You are a coding assistant that talks like a pirate.",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Responses: &fwkrh.ResponsesRequest{
+						Input:        "How do I check if a Python object is an instance of a class?",
+						Instructions: "You are a coding assistant that talks like a pirate.",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":        "gpt-4o",
@@ -518,10 +534,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"input":      "test input",
 				"cache_salt": "abc123",
 			},
-			want: &fwkrh.LLMRequestBody{
-				Responses: &fwkrh.ResponsesRequest{
-					Input:     "test input",
-					CacheSalt: "abc123",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Responses: &fwkrh.ResponsesRequest{
+						Input:     "test input",
+						CacheSalt: "abc123",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":      "gpt-4o",
@@ -549,10 +567,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					{"type": "message", "role": "user", "content": "Hello"},
 				},
 			},
-			want: &fwkrh.LLMRequestBody{
-				Conversations: &fwkrh.ConversationsRequest{
-					Items: []fwkrh.ConversationItem{
-						{Type: "message", Role: "user", Content: "Hello"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Conversations: &fwkrh.ConversationsRequest{
+						Items: []fwkrh.ConversationItem{
+							{Type: "message", Role: "user", Content: "Hello"},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -570,10 +590,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					{"type": "message", "role": "user", "content": "Hello"},
 				},
 			},
-			want: &fwkrh.LLMRequestBody{
-				Conversations: &fwkrh.ConversationsRequest{
-					Items: []fwkrh.ConversationItem{
-						{Type: "message", Role: "user", Content: "Hello"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Conversations: &fwkrh.ConversationsRequest{
+						Items: []fwkrh.ConversationItem{
+							{Type: "message", Role: "user", Content: "Hello"},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -591,9 +613,11 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"model":  "gpt-4o",
 				"prompt": "test prompt",
 			},
-			want: &fwkrh.LLMRequestBody{
-				Completions: &fwkrh.CompletionsRequest{
-					Prompt: "test prompt",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
+						Prompt: "test prompt",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":  "gpt-4o",

@@ -75,7 +75,7 @@ type mockScheduler struct {
 	dataProduced    bool // denotes whether data production is expected.
 }
 
-func (m *mockScheduler) Schedule(_ context.Context, _ *fwksched.LLMRequest, endpoints []fwksched.Endpoint) (*fwksched.SchedulingResult, error) {
+func (m *mockScheduler) Schedule(_ context.Context, _ *fwksched.InferenceRequest, endpoints []fwksched.Endpoint) (*fwksched.SchedulingResult, error) {
 	if endpoints != nil && m.dataProduced {
 		data, ok := endpoints[0].Get(mockProducedDataKey)
 		if !ok || data.(mockProducedDataType).value != 42 {
@@ -125,7 +125,7 @@ func (m *mockPrepareDataPlugin) Consumes() map[string]any {
 	return m.consumes
 }
 
-func (m *mockPrepareDataPlugin) PrepareRequestData(ctx context.Context, request *fwksched.LLMRequest, endpoints []fwksched.Endpoint) error {
+func (m *mockPrepareDataPlugin) PrepareRequestData(ctx context.Context, request *fwksched.InferenceRequest, endpoints []fwksched.Endpoint) error {
 	endpoints[0].Put(mockProducedDataKey, mockProducedDataType{value: 42})
 	return nil
 }
@@ -154,7 +154,7 @@ func (m *mockAdmissionPlugin) TypedName() fwkplugin.TypedName {
 	return m.typedName
 }
 
-func (m *mockAdmissionPlugin) AdmitRequest(ctx context.Context, request *fwksched.LLMRequest, endpoints []fwksched.Endpoint) error {
+func (m *mockAdmissionPlugin) AdmitRequest(ctx context.Context, request *fwksched.InferenceRequest, endpoints []fwksched.Endpoint) error {
 	return m.denialError
 }
 
@@ -294,13 +294,15 @@ func TestDirector_HandleRequest(t *testing.T) {
 		PrimaryProfileName: "testProfile",
 	}
 
-	makeCompletionsReq := func(model, prompt string) *fwkrh.LLMRequestBody {
-		return &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{Prompt: prompt},
+	makeCompletionsReq := func(model, prompt string) *fwkrh.InferenceRequestBody {
+		return &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{Prompt: prompt},
+			},
 			ParsedBody: map[string]any{"model": model, "prompt": prompt},
 		}
 	}
-	makeChatCompletionsReq := func(model string, messages []fwkrh.Message) *fwkrh.LLMRequestBody {
+	makeChatCompletionsReq := func(model string, messages []fwkrh.Message) *fwkrh.InferenceRequestBody {
 		var rawMessages []any
 		for _, m := range messages {
 			rawMessages = append(rawMessages, map[string]any{
@@ -308,15 +310,17 @@ func TestDirector_HandleRequest(t *testing.T) {
 				"content": m.Content.PlainText(),
 			})
 		}
-		return &fwkrh.LLMRequestBody{
-			ChatCompletions: &fwkrh.ChatCompletionsRequest{Messages: messages},
-			ParsedBody:      map[string]any{"model": model, "messages": rawMessages},
+		return &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				ChatCompletions: &fwkrh.ChatCompletionsRequest{Messages: messages},
+			},
+			ParsedBody: map[string]any{"model": model, "messages": rawMessages},
 		}
 	}
 
 	tests := []struct {
 		name                    string
-		llmRequest              *fwkrh.LLMRequestBody
+		llmRequest              *fwkrh.InferenceRequestBody
 		mockAdmissionController *mockAdmissionController
 		inferenceObjectiveName  string
 		schedulerMockSetup      func(m *mockScheduler)
@@ -522,19 +526,22 @@ func TestDirector_HandleRequest(t *testing.T) {
 			wantErrCode:             errcommon.ResourceExhausted,
 		},
 		{
-			name:                    "model not found, expect err",
-			llmRequest: &fwkrh.LLMRequestBody{Completions: &fwkrh.CompletionsRequest{Prompt: "p"}, ParsedBody: map[string]any{"prompt": "p"}},
+			name: "model not found, expect err",
+			llmRequest: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{Completions: &fwkrh.CompletionsRequest{Prompt: "p"}},
+				ParsedBody:     map[string]any{"prompt": "p"},
+			},
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			wantErrCode:             errcommon.BadRequest,
 		},
 		{
 			name:        "unsupported parsedBody type, expect err",
-			llmRequest: &fwkrh.LLMRequestBody{ParsedBody: "unsupported"},
+			llmRequest: &fwkrh.InferenceRequestBody{ParsedBody: "unsupported"},
 			wantErrCode: errcommon.BadRequest,
 		},
 		{
-			name: "unsupported parsedBody type empty, expect err",
-			llmRequest: &fwkrh.LLMRequestBody{ParsedBody: 123}, // int is unsupported
+			name:        "unsupported parsedBody type empty, expect err",
+			llmRequest: &fwkrh.InferenceRequestBody{ParsedBody: 123}, // int is unsupported
 			wantErrCode: errcommon.BadRequest,
 		},
 		{
@@ -635,12 +642,15 @@ func TestDirector_HandleRequest(t *testing.T) {
 					TargetModelName: test.initialTargetModelName,
 				}
 				var err error
-				var currentLLMRequest *fwkrh.LLMRequestBody
+				var currentLLMRequest *fwkrh.InferenceRequestBody
 				if test.llmRequest != nil {
 					// Clone to avoid state leakage across loop iterations due to mutation
-					currentLLMRequest = &fwkrh.LLMRequestBody{
-						Completions:     test.llmRequest.Completions,
-						ChatCompletions: test.llmRequest.ChatCompletions,
+					currentLLMRequest = &fwkrh.InferenceRequestBody{}
+					if test.llmRequest.LLMRequestBody != nil {
+						currentLLMRequest.LLMRequestBody = &fwkrh.LLMRequestBody{
+							Completions:     test.llmRequest.LLMRequestBody.Completions,
+							ChatCompletions: test.llmRequest.LLMRequestBody.ChatCompletions,
+						}
 					}
 					if test.llmRequest.ParsedBody != nil {
 						reqCtx.Request.RawBody, err = json.Marshal(test.llmRequest.ParsedBody)
@@ -660,10 +670,10 @@ func TestDirector_HandleRequest(t *testing.T) {
 				}
 
 				// Add appropriate path header based on request body content for path-based API detection
-				if test.llmRequest != nil {
-					if test.llmRequest.Completions != nil {
+				if test.llmRequest != nil && test.llmRequest.LLMRequestBody != nil {
+					if test.llmRequest.LLMRequestBody.Completions != nil {
 						reqCtx.Request.Headers[":path"] = "/v1/completions"
-					} else if test.llmRequest.ChatCompletions != nil {
+					} else if test.llmRequest.LLMRequestBody.ChatCompletions != nil {
 						reqCtx.Request.Headers[":path"] = "/v1/chat/completions"
 					}
 				}
@@ -1165,12 +1175,12 @@ func (p *testResponseStreaming) TypedName() fwkplugin.TypedName {
 	return p.typedName
 }
 
-func (p *testResponseReceived) ResponseHeader(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
+func (p *testResponseReceived) ResponseHeader(_ context.Context, _ *fwksched.InferenceRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
 	p.lastRespOnResponse = response
 	p.lastTargetPodOnResponse = targetPod.NamespacedName.String()
 }
 
-func (p *testResponseStreaming) ResponseBody(_ context.Context, _ *fwksched.LLMRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
+func (p *testResponseStreaming) ResponseBody(_ context.Context, _ *fwksched.InferenceRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
 	p.respsOnStreaming = append(p.respsOnStreaming, response)
 	p.targetPodsOnStreaming = append(p.targetPodsOnStreaming, targetPod.NamespacedName.String())
 

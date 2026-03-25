@@ -299,7 +299,7 @@ type testDirector struct {
 	requestHeaders map[string]string
 }
 
-func (ts *testDirector) HandleRequest(ctx context.Context, llmRequest *fwkrh.LLMRequestBody, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
+func (ts *testDirector) HandleRequest(ctx context.Context, llmRequest *fwkrh.InferenceRequestBody, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	ts.requestHeaders = reqCtx.Request.Headers
 
 	bodyMap := make(map[string]any)

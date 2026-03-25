@@ -85,12 +85,14 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	endpoints := []fwksched.Endpoint{endpoint1, endpoint2, endpoint3}
 
 	// First request.
-	req1 := &fwksched.LLMRequest{
+	req1 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "aaaaaa",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "aaaaaa",
+				},
 			},
 		},
 	}
@@ -118,12 +120,14 @@ func TestPrefixPluginCompletion(t *testing.T) {
 
 	// Second request doesn't share any prefix with first one. It should be added to the cache but
 	// the pod score should be 0.
-	req2 := &fwksched.LLMRequest{
+	req2 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model2",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "bbbbbb",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "bbbbbb",
+				},
 			},
 		},
 	}
@@ -149,12 +153,14 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	plugin.wg.Wait()
 
 	// Third request shares partial prefix with first one.
-	req3 := &fwksched.LLMRequest{
+	req3 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "aaaabbbb",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "aaaabbbb",
+				},
 			},
 		},
 	}
@@ -180,12 +186,14 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	plugin.wg.Wait()
 
 	// 4th request is same as req3 except the model is different, still no match.
-	req4 := &fwksched.LLMRequest{
+	req4 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model-new",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "aaaabbbb",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "aaaabbbb",
+				},
 			},
 		},
 	}
@@ -210,12 +218,14 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	plugin.wg.Wait()
 
 	// 5th request shares partial prefix with 3rd one.
-	req5 := &fwksched.LLMRequest{
+	req5 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "aaaabbbbcccc",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "aaaabbbbcccc",
+				},
 			},
 		},
 	}
@@ -253,14 +263,16 @@ func TestPrefixPluginChatCompletions(t *testing.T) {
 	endpoints := []fwksched.Endpoint{endpoint1}
 
 	// Test with chat completions request
-	req1 := &fwksched.LLMRequest{
+	req1 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			ChatCompletions: &fwkrh.ChatCompletionsRequest{
-				Messages: []fwkrh.Message{
-					{Role: "user", Content: fwkrh.Content{Raw: "hello world"}},
-					{Role: "assistant", Content: fwkrh.Content{Raw: "hi there"}},
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				ChatCompletions: &fwkrh.ChatCompletionsRequest{
+					Messages: []fwkrh.Message{
+						{Role: "user", Content: fwkrh.Content{Raw: "hello world"}},
+						{Role: "assistant", Content: fwkrh.Content{Raw: "hi there"}},
+					},
 				},
 			},
 		},
@@ -290,14 +302,16 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	endpoints := []fwksched.Endpoint{endpoint1, endpoint2}
 
 	// First request with initial conversation
-	req1 := &fwksched.LLMRequest{
+	req1 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			ChatCompletions: &fwkrh.ChatCompletionsRequest{
-				Messages: []fwkrh.Message{
-					{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
-					{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				ChatCompletions: &fwkrh.ChatCompletionsRequest{
+					Messages: []fwkrh.Message{
+						{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
+						{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
+					},
 				},
 			},
 		},
@@ -323,16 +337,18 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	plugin.wg.Wait()
 
 	// Second request adds assistant response and new user message (conversation grows)
-	req2 := &fwksched.LLMRequest{
+	req2 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			ChatCompletions: &fwkrh.ChatCompletionsRequest{
-				Messages: []fwkrh.Message{
-					{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
-					{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
-					{Role: "assistant", Content: fwkrh.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
-					{Role: "user", Content: fwkrh.Content{Raw: "Can you explain how prefix caching works?"}},
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				ChatCompletions: &fwkrh.ChatCompletionsRequest{
+					Messages: []fwkrh.Message{
+						{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
+						{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
+						{Role: "assistant", Content: fwkrh.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
+						{Role: "user", Content: fwkrh.Content{Raw: "Can you explain how prefix caching works?"}},
+					},
 				},
 			},
 		},
@@ -356,18 +372,20 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	plugin.wg.Wait()
 
 	// Third request continues the conversation even further
-	req3 := &fwksched.LLMRequest{
+	req3 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			ChatCompletions: &fwkrh.ChatCompletionsRequest{
-				Messages: []fwkrh.Message{
-					{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
-					{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
-					{Role: "assistant", Content: fwkrh.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
-					{Role: "user", Content: fwkrh.Content{Raw: "Can you explain how prefix caching works?"}},
-					{Role: "assistant", Content: fwkrh.Content{Raw: "Prefix caching is a technique where..."}},
-					{Role: "user", Content: fwkrh.Content{Raw: "That's very helpful, thank you!"}},
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				ChatCompletions: &fwkrh.ChatCompletionsRequest{
+					Messages: []fwkrh.Message{
+						{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
+						{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
+						{Role: "assistant", Content: fwkrh.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
+						{Role: "user", Content: fwkrh.Content{Raw: "Can you explain how prefix caching works?"}},
+						{Role: "assistant", Content: fwkrh.Content{Raw: "Prefix caching is a technique where..."}},
+						{Role: "user", Content: fwkrh.Content{Raw: "That's very helpful, thank you!"}},
+					},
 				},
 			},
 		},
@@ -418,12 +436,14 @@ func BenchmarkPrefixPluginStress(b *testing.B) {
 			}, nil, nil)
 
 			endpoints := []fwksched.Endpoint{endpoint}
-			req := &fwksched.LLMRequest{
+			req := &fwksched.InferenceRequest{
 				RequestId:   uuid.NewString(),
 				TargetModel: "model-stress",
-				Body: &fwkrh.LLMRequestBody{
-					Completions: &fwkrh.CompletionsRequest{
-						Prompt: prompt,
+				Body: &fwkrh.InferenceRequestBody{
+					LLMRequestBody: &fwkrh.LLMRequestBody{
+						Completions: &fwkrh.CompletionsRequest{
+							Prompt: prompt,
+						},
 					},
 				},
 			}
@@ -519,15 +539,17 @@ func TestPrefixPluginAutoTune(t *testing.T) {
 		}, nil)
 	endpoints := []fwksched.Endpoint{endpoint}
 
-	req := &fwksched.LLMRequest{
+	req := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				// Length 128 chars.
-				// If AutoTune=true (block size 64): 2 blocks
-				// If AutoTune=false (block size 32): 4 blocks
-				Prompt: strings.Repeat("a", 128),
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					// Length 128 chars.
+					// If AutoTune=true (block size 64): 2 blocks
+					// If AutoTune=false (block size 32): 4 blocks
+					Prompt: strings.Repeat("a", 128),
+				},
 			},
 		},
 	}
@@ -628,12 +650,14 @@ func TestPrepareRequestData(t *testing.T) {
 	endpoints := []fwksched.Endpoint{endpoint1, endpoint2}
 
 	// First request to populate cache.
-	req1 := &fwksched.LLMRequest{
+	req1 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "aaaabbbb",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "aaaabbbb",
+				},
 			},
 		},
 	}
@@ -648,12 +672,14 @@ func TestPrepareRequestData(t *testing.T) {
 	plugin.wg.Wait()
 
 	// Second request that shares a prefix.
-	req2 := &fwksched.LLMRequest{
+	req2 := &fwksched.InferenceRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwkrh.LLMRequestBody{
-			Completions: &fwkrh.CompletionsRequest{
-				Prompt: "aaaacccc",
+		Body: &fwkrh.InferenceRequestBody{
+			LLMRequestBody: &fwkrh.LLMRequestBody{
+				Completions: &fwkrh.CompletionsRequest{
+					Prompt: "aaaacccc",
+				},
 			},
 		},
 	}
@@ -723,12 +749,14 @@ func BenchmarkPrefixPluginChatCompletionsStress(b *testing.B) {
 			}, nil, nil)
 			endpoints := []fwksched.Endpoint{endpoint}
 
-			req := &fwksched.LLMRequest{
+			req := &fwksched.InferenceRequest{
 				RequestId:   uuid.NewString(),
 				TargetModel: "chat-model-stress",
-				Body: &fwkrh.LLMRequestBody{
-					ChatCompletions: &fwkrh.ChatCompletionsRequest{
-						Messages: messages,
+				Body: &fwkrh.InferenceRequestBody{
+					LLMRequestBody: &fwkrh.LLMRequestBody{
+						ChatCompletions: &fwkrh.ChatCompletionsRequest{
+							Messages: messages,
+						},
 					},
 				},
 			}

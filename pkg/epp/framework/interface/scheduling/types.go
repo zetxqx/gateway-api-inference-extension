@@ -32,14 +32,14 @@ type RequestObjectives struct {
 	Priority int
 }
 
-// LLMRequest is a structured representation of the fields we parse out of the LLMRequest body.
-type LLMRequest struct {
+// InferenceRequest is a structured representation of the fields we parse out of the InferenceRequest body.
+type InferenceRequest struct {
 	// RequestId is the Envoy generated Id for the request being processed
 	RequestId string
 	// TargetModel is the final target model after traffic split.
 	TargetModel string
 	// Data contains the request-body fields that we parse out as user input.
-	Body *fwrh.LLMRequestBody
+	Body *fwrh.InferenceRequestBody
 	// Headers is a map of the request headers.
 	Headers map[string]string
 	// Request Objective
@@ -61,12 +61,12 @@ type TokenizedPrompt struct {
 	TokenIDs []uint32
 }
 
-func (r *LLMRequest) String() string {
+func (r *InferenceRequest) String() string {
 	if r == nil {
 		return nilString
 	}
 
-	return fmt.Sprintf("RequestID: %s, TargetModel: %s, Body: %s, Headers: %v",
+	return fmt.Sprintf("RequestID: %v TargetModel: %v, Body: %v, Headers: %v",
 		r.RequestId, r.TargetModel, r.Body, r.Headers)
 }
 
@@ -140,5 +140,5 @@ type SchedulingResult struct {
 }
 
 type SchedulerProfile interface {
-	Run(ctx context.Context, request *LLMRequest, cycleState *CycleState, candidateEndpoints []Endpoint) (*ProfileRunResult, error)
+	Run(ctx context.Context, request *InferenceRequest, cycleState *CycleState, candidateEndpoints []Endpoint) (*ProfileRunResult, error)
 }

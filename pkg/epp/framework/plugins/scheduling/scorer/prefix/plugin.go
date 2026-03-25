@@ -244,7 +244,7 @@ func (p *Plugin) Consumes() map[string]any {
 }
 
 // PrepareRequestData hashes prompt, finds longest prefix match and stores it in endpoint as attribute.
-func (p *Plugin) PrepareRequestData(ctx context.Context, request *framework.LLMRequest, endpoints []framework.Endpoint) error {
+func (p *Plugin) PrepareRequestData(ctx context.Context, request *framework.InferenceRequest, endpoints []framework.Endpoint) error {
 	blockSize := getBlockSize(endpoints, p.config)
 	hashes := hashPrompt(ctx, request, blockSize, p.config.MaxPrefixBlocksToMatch)
 	state := &SchedulingContextState{
@@ -264,7 +264,7 @@ func (p *Plugin) PrepareRequestData(ctx context.Context, request *framework.LLMR
 }
 
 // Score returns the scoring result for the given list of pods based on context.
-func (p *Plugin) Score(ctx context.Context, cycleState *framework.CycleState, request *framework.LLMRequest, endpoints []framework.Endpoint) map[framework.Endpoint]float64 {
+func (p *Plugin) Score(ctx context.Context, cycleState *framework.CycleState, request *framework.InferenceRequest, endpoints []framework.Endpoint) map[framework.Endpoint]float64 {
 	// pre score step, hashing prompt and find longest prefix match.
 	blockSize := getBlockSize(endpoints, p.config)
 	hashes := hashPrompt(ctx, request, blockSize, p.config.MaxPrefixBlocksToMatch)
@@ -298,7 +298,7 @@ func (p *Plugin) Score(ctx context.Context, cycleState *framework.CycleState, re
 }
 
 // PreRequest records in the plugin cache the result of the scheduling selection.
-func (p *Plugin) PreRequest(ctx context.Context, request *framework.LLMRequest, schedulingResult *framework.SchedulingResult) {
+func (p *Plugin) PreRequest(ctx context.Context, request *framework.InferenceRequest, schedulingResult *framework.SchedulingResult) {
 	primaryProfileResult := schedulingResult.ProfileResults[schedulingResult.PrimaryProfileName]
 	targetEndpoint := primaryProfileResult.TargetEndpoints[0] // get the first endpoint of the primary profile
 	servers := []Server{p.makeServer(targetEndpoint)}
@@ -396,7 +396,7 @@ func (m *Plugin) CleanUpInactivePods(ctx context.Context, handle plugin.Handle) 
 // hashPrompt divides the prompt into blocks and calculate the prefix cache for each block.
 // hash[0] is calculated including the model name and cache_salt(if provided), since different models generally don't share prefix cache.
 // For block i, hash(i) = hash(block i content, hash(i-1)).
-func hashPrompt(ctx context.Context, request *framework.LLMRequest, blockSizeTokens int, maxPrefixBlocks int) []BlockHash {
+func hashPrompt(ctx context.Context, request *framework.InferenceRequest, blockSizeTokens int, maxPrefixBlocks int) []BlockHash {
 	loggerDebug := log.FromContext(ctx).V(logutil.DEBUG)
 	if request == nil || request.Body == nil {
 		loggerDebug.Info("Request or request data is nil, skipping hashing")
@@ -449,44 +449,47 @@ func toBytes(i BlockHash) []byte {
 	return bytes
 }
 
-func getUserInputBytes(request *framework.LLMRequest) ([]byte, error) {
+func getUserInputBytes(request *framework.InferenceRequest) ([]byte, error) {
+	if request.Body.LLMRequestBody == nil {
+		return nil, errors.New("invalid request body: LLMRequestBody is nil")
+	}
 	switch {
-	case request.Body.Conversations != nil:
+	case request.Body.LLMRequestBody.Conversations != nil:
 		// Handle conversations API - marshal the entire items slice for cache key generation
-		return json.Marshal(request.Body.Conversations.Items)
+		return json.Marshal(request.Body.LLMRequestBody.Conversations.Items)
 
-	case request.Body.Responses != nil:
+	case request.Body.LLMRequestBody.Responses != nil:
 		// Handle responses API - use ordered slice to ensure deterministic marshaling
 		var combined []map[string]interface{}
 
 		// 1. Instructions (if present)
-		if request.Body.Responses.Instructions != nil {
+		if request.Body.LLMRequestBody.Responses.Instructions != nil {
 			combined = append(combined, map[string]interface{}{
-				"instructions": request.Body.Responses.Instructions,
+				"instructions": request.Body.LLMRequestBody.Responses.Instructions,
 			})
 		}
 
 		// 2. Tools (if present)
-		if request.Body.Responses.Tools != nil {
+		if request.Body.LLMRequestBody.Responses.Tools != nil {
 			combined = append(combined, map[string]interface{}{
-				"tools": request.Body.Responses.Tools,
+				"tools": request.Body.LLMRequestBody.Responses.Tools,
 			})
 		}
 
 		// 3. Input (always present)
 		combined = append(combined, map[string]interface{}{
-			"input": request.Body.Responses.Input,
+			"input": request.Body.LLMRequestBody.Responses.Input,
 		})
 
 		return json.Marshal(combined)
 
-	case request.Body.ChatCompletions != nil:
+	case request.Body.LLMRequestBody.ChatCompletions != nil:
 		// Handle chat completions API (maintain backward compatibility)
-		return json.Marshal(request.Body.ChatCompletions.Messages)
+		return json.Marshal(request.Body.LLMRequestBody.ChatCompletions.Messages)
 
-	case request.Body.Completions != nil:
+	case request.Body.LLMRequestBody.Completions != nil:
 		// Handle completions API (maintain backward compatibility)
-		return []byte(request.Body.Completions.Prompt), nil
+		return []byte(request.Body.LLMRequestBody.Completions.Prompt), nil
 
 	default:
 		return nil, errors.New("invalid request body: no recognized API format found")
