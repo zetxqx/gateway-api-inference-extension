@@ -28,8 +28,8 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/framework"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins/basemodelextractor"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins/bodyfieldtoheader"
 	envoytest "sigs.k8s.io/gateway-api-inference-extension/pkg/common/envoy/test"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 )
@@ -57,13 +57,13 @@ func TestHandleRequestBodyStreaming(t *testing.T) {
 									SetHeaders: []*basepb.HeaderValueOption{
 										{
 											Header: &basepb.HeaderValue{
-												Key:      ModelHeader,
+												Key:      bodyfieldtoheader.ModelHeader,
 												RawValue: []byte("foo"),
 											},
 										},
 										{
 											Header: &basepb.HeaderValue{
-												Key:      BaseModelHeader,
+												Key:      basemodelextractor.BaseModelHeader,
 												RawValue: []byte(""),
 											},
 										},
@@ -95,13 +95,13 @@ func TestHandleRequestBodyStreaming(t *testing.T) {
 										},
 										{
 											Header: &basepb.HeaderValue{
-												Key:      ModelHeader,
+												Key:      bodyfieldtoheader.ModelHeader,
 												RawValue: []byte("foo"),
 											},
 										},
 										{
 											Header: &basepb.HeaderValue{
-												Key:      BaseModelHeader,
+												Key:      basemodelextractor.BaseModelHeader,
 												RawValue: []byte(""),
 											},
 										},
@@ -133,7 +133,7 @@ func TestHandleRequestBodyStreaming(t *testing.T) {
 	baseModelToHeaderPlugin := &basemodelextractor.BaseModelToHeaderPlugin{AdaptersStore: basemodelextractor.NewAdaptersStore()}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			modelToHeaderPlugin, _ := plugins.NewBodyFieldToHeaderPlugin(ModelField, ModelHeader)
+			modelToHeaderPlugin, _ := bodyfieldtoheader.NewBodyFieldToHeaderPlugin(modelField, bodyfieldtoheader.ModelHeader)
 			srv := NewServer(tc.streaming, []framework.RequestProcessor{modelToHeaderPlugin, baseModelToHeaderPlugin}, []framework.ResponseProcessor{})
 			reqCtx := &RequestContext{
 				CycleState: framework.NewCycleState(),

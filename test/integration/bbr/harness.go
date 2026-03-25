@@ -30,13 +30,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/framework"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/handlers"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins/basemodelextractor"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/plugins/bodyfieldtoheader"
 	runserver "sigs.k8s.io/gateway-api-inference-extension/pkg/bbr/server"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	"sigs.k8s.io/gateway-api-inference-extension/test/integration"
 )
+
+const modelField = "model"
 
 var logger = logutil.NewTestLogger().V(logutil.VERBOSE)
 
@@ -54,7 +55,7 @@ type BBRHarness struct {
 // BodyFieldToHeaderPlugin for model extraction.
 func NewBBRHarness(t *testing.T, ctx context.Context, streaming bool) *BBRHarness {
 	t.Helper()
-	modelToHeaderPlugin, err := plugins.NewBodyFieldToHeaderPlugin(handlers.ModelField, handlers.ModelHeader)
+	modelToHeaderPlugin, err := bodyfieldtoheader.NewBodyFieldToHeaderPlugin(modelField, bodyfieldtoheader.ModelHeader)
 	require.NoError(t, err, "failed to create body-field-to-header plugin")
 
 	testConfigMap := &corev1.ConfigMap{
