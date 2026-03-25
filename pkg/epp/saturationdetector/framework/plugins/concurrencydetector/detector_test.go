@@ -28,6 +28,7 @@ import (
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 )
 
@@ -531,8 +532,8 @@ func (f *stubSchedulingEndpoint) GetMetadata() *fwkdl.EndpointMetadata { return 
 func makeTokenRequest(requestID, prompt string) *schedulingtypes.LLMRequest {
 	return &schedulingtypes.LLMRequest{
 		RequestId: requestID,
-		Body: &schedulingtypes.LLMRequestBody{
-			Completions: &schedulingtypes.CompletionsRequest{Prompt: prompt},
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{Prompt: prompt},
 		},
 	}
 }

@@ -294,9 +294,29 @@ func TestDirector_HandleRequest(t *testing.T) {
 		PrimaryProfileName: "testProfile",
 	}
 
+	makeCompletionsReq := func(model, prompt string) *fwkrh.LLMRequestBody {
+		return &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{Prompt: prompt},
+			ParsedBody: map[string]any{"model": model, "prompt": prompt},
+		}
+	}
+	makeChatCompletionsReq := func(model string, messages []fwkrh.Message) *fwkrh.LLMRequestBody {
+		var rawMessages []any
+		for _, m := range messages {
+			rawMessages = append(rawMessages, map[string]any{
+				"role":    m.Role,
+				"content": m.Content.PlainText(),
+			})
+		}
+		return &fwkrh.LLMRequestBody{
+			ChatCompletions: &fwkrh.ChatCompletionsRequest{Messages: messages},
+			ParsedBody:      map[string]any{"model": model, "messages": rawMessages},
+		}
+	}
+
 	tests := []struct {
 		name                    string
-		reqBodyMap              map[string]any
+		llmRequest              *fwkrh.LLMRequestBody
 		mockAdmissionController *mockAdmissionController
 		inferenceObjectiveName  string
 		schedulerMockSetup      func(m *mockScheduler)
@@ -311,10 +331,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 	}{
 		{
 			name: "successful completions request",
-			reqBodyMap: map[string]any{
-				"model":  model,
-				"prompt": "critical prompt",
-			},
+			llmRequest: makeCompletionsReq(model, "critical prompt"),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -335,10 +352,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 			inferenceObjectiveName: objectiveName,
 		}, {
 			name: "successful request with model rewrite",
-			reqBodyMap: map[string]any{
-				"model":  modelToBeRewritten,
-				"prompt": "some prompt",
-			},
+			llmRequest: makeCompletionsReq(modelToBeRewritten, "some prompt"),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -359,15 +373,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 			inferenceObjectiveName: model,
 		}, {
 			name: "successful chat completions request",
-			reqBodyMap: map[string]any{
-				"model": model,
-				"messages": []any{
-					map[string]any{
-						"role":    "user",
-						"content": "critical prompt",
-					},
-				},
-			},
+			llmRequest: makeChatCompletionsReq(model, []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "critical prompt"}}}),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -388,15 +394,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "successful chat completions request with prepare data plugins",
-			reqBodyMap: map[string]any{
-				"model": model,
-				"messages": []any{
-					map[string]any{
-						"role":    "user",
-						"content": "critical prompt",
-					},
-				},
-			},
+			llmRequest: makeChatCompletionsReq(model, []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "critical prompt"}}}),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -418,15 +416,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "successful chat completions request with admit request plugins",
-			reqBodyMap: map[string]any{
-				"model": model,
-				"messages": []any{
-					map[string]any{
-						"role":    "user",
-						"content": "critical prompt",
-					},
-				},
-			},
+			llmRequest: makeChatCompletionsReq(model, []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "critical prompt"}}}),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -447,15 +437,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "denied request by admit request plugin",
-			reqBodyMap: map[string]any{
-				"model": model,
-				"messages": []any{
-					map[string]any{
-						"role":    "user",
-						"content": "critical prompt",
-					},
-				},
-			},
+			llmRequest: makeChatCompletionsReq(model, []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "critical prompt"}}}),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -467,19 +449,10 @@ func TestDirector_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "successful chat completions request with multiple messages",
-			reqBodyMap: map[string]any{
-				"model": model,
-				"messages": []any{
-					map[string]any{
-						"role":    "developer",
-						"content": "You are a helpful assistant.",
-					},
-					map[string]any{
-						"role":    "user",
-						"content": "Hello!",
-					},
-				},
-			},
+			llmRequest: makeChatCompletionsReq(model, []fwkrh.Message{
+				{Role: "developer", Content: fwkrh.Content{Raw: "You are a helpful assistant."}},
+				{Role: "user", Content: fwkrh.Content{Raw: "Hello!"}},
+			}),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -499,10 +472,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 			inferenceObjectiveName: objectiveName,
 		}, {
 			name: "successful request with target model resolution",
-			reqBodyMap: map[string]any{
-				"model":  modelWithResolvedTarget,
-				"prompt": "prompt for target resolution",
-			},
+			llmRequest: makeCompletionsReq(modelWithResolvedTarget, "prompt for target resolution"),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = defaultSuccessfulScheduleResults
@@ -540,48 +510,36 @@ func TestDirector_HandleRequest(t *testing.T) {
 				TargetEndpoint: "192.168.1.100:8000,192.168.2.100:8000,192.168.4.100:8000",
 			},
 			wantMutatedBodyModel: "food-review-1",
-			reqBodyMap: map[string]any{
-				"model":  "food-review-1",
-				"prompt": "test prompt",
-			},
+			llmRequest: makeCompletionsReq("food-review-1", "test prompt"),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			inferenceObjectiveName:  "food-review-1",
 		},
 		{
 			name: "request rejected by admission controller",
-			reqBodyMap: map[string]any{
-				"model":  modelSheddable,
-				"prompt": "sheddable prompt",
-			},
+			llmRequest: makeCompletionsReq(modelSheddable, "sheddable prompt"),
 			inferenceObjectiveName:  objectiveNameSheddable,
 			mockAdmissionController: &mockAdmissionController{admitErr: errcommon.Error{Code: errcommon.ResourceExhausted, Msg: "simulated admission rejection"}},
 			wantErrCode:             errcommon.ResourceExhausted,
 		},
 		{
 			name:                    "model not found, expect err",
-			reqBodyMap:              map[string]any{"prompt": "p"},
+			llmRequest: &fwkrh.LLMRequestBody{Completions: &fwkrh.CompletionsRequest{Prompt: "p"}, ParsedBody: map[string]any{"prompt": "p"}},
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			wantErrCode:             errcommon.BadRequest,
 		},
 		{
-			name:        "prompt or messages not found, expect err",
-			reqBodyMap:  map[string]any{"model": model},
+			name:        "unsupported parsedBody type, expect err",
+			llmRequest: &fwkrh.LLMRequestBody{ParsedBody: "unsupported"},
 			wantErrCode: errcommon.BadRequest,
 		},
 		{
-			name: "empty messages, expect err",
-			reqBodyMap: map[string]any{
-				"model":    model,
-				"messages": []any{},
-			},
+			name: "unsupported parsedBody type empty, expect err",
+			llmRequest: &fwkrh.LLMRequestBody{ParsedBody: 123}, // int is unsupported
 			wantErrCode: errcommon.BadRequest,
 		},
 		{
 			name: "scheduler returns error",
-			reqBodyMap: map[string]any{
-				"model":  model,
-				"prompt": "prompt that causes scheduler error",
-			},
+			llmRequest: makeCompletionsReq(model, "prompt that causes scheduler error"),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleErr = errors.New("simulated scheduler failure")
@@ -591,10 +549,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 		},
 		{
 			name: "scheduler returns nil result and nil error",
-			reqBodyMap: map[string]any{
-				"model":  model,
-				"prompt": "prompt for nil,nil scheduler return",
-			},
+			llmRequest: makeCompletionsReq(model, "prompt for nil,nil scheduler return"),
 			mockAdmissionController: &mockAdmissionController{admitErr: nil},
 			schedulerMockSetup: func(m *mockScheduler) {
 				m.scheduleResults = nil
@@ -656,7 +611,11 @@ func TestDirector_HandleRequest(t *testing.T) {
 				config = config.WithAdmissionPlugins(newMockAdmissionPlugin("test-admit-plugin", test.admitRequestDenialError))
 
 				locator := NewCachedPodLocator(context.Background(), NewDatastorePodLocator(ds), time.Minute)
-				director := NewDirectorWithConfig(ds, mockSched, test.mockAdmissionController, openai.NewOpenAIParser(), locator, config)
+				mockAdmit := test.mockAdmissionController
+				if mockAdmit == nil {
+					mockAdmit = &mockAdmissionController{}
+				}
+				director := NewDirectorWithConfig(ds, mockSched, mockAdmit, openai.NewOpenAIParser(), locator, config)
 				if test.name == "successful request with model rewrite" {
 					mockDs := &mockDatastore{
 						pods:     ds.PodList(datastore.AllPodsPredicate),
@@ -676,19 +635,40 @@ func TestDirector_HandleRequest(t *testing.T) {
 					TargetModelName: test.initialTargetModelName,
 				}
 				var err error
-				reqCtx.Request.RawBody, err = json.Marshal(test.reqBodyMap)
-				if err != nil {
-					t.Fatalf("Error parsing the reqBodyMap, err is %v", err)
+				var currentLLMRequest *fwkrh.LLMRequestBody
+				if test.llmRequest != nil {
+					// Clone to avoid state leakage across loop iterations due to mutation
+					currentLLMRequest = &fwkrh.LLMRequestBody{
+						Completions:     test.llmRequest.Completions,
+						ChatCompletions: test.llmRequest.ChatCompletions,
+					}
+					if test.llmRequest.ParsedBody != nil {
+						reqCtx.Request.RawBody, err = json.Marshal(test.llmRequest.ParsedBody)
+						if err != nil {
+							t.Fatalf("Error parsing the reqBodyMap, err is %v", err)
+						}
+						if _, ok := test.llmRequest.ParsedBody.(map[string]any); ok {
+							var parsedBody map[string]any
+							if err := json.Unmarshal(reqCtx.Request.RawBody, &parsedBody); err != nil {
+								t.Fatalf("Error unmarshalling into parsedBody, err is %v", err)
+							}
+							currentLLMRequest.ParsedBody = parsedBody
+						} else {
+							currentLLMRequest.ParsedBody = test.llmRequest.ParsedBody
+						}
+					}
 				}
 
 				// Add appropriate path header based on request body content for path-based API detection
-				if _, hasPrompt := test.reqBodyMap["prompt"]; hasPrompt {
-					reqCtx.Request.Headers[":path"] = "/v1/completions"
-				} else if _, hasMessages := test.reqBodyMap["messages"]; hasMessages {
-					reqCtx.Request.Headers[":path"] = "/v1/chat/completions"
+				if test.llmRequest != nil {
+					if test.llmRequest.Completions != nil {
+						reqCtx.Request.Headers[":path"] = "/v1/completions"
+					} else if test.llmRequest.ChatCompletions != nil {
+						reqCtx.Request.Headers[":path"] = "/v1/chat/completions"
+					}
 				}
 
-				returnedReqCtx, err := director.HandleRequest(ctx, reqCtx)
+				returnedReqCtx, err := director.HandleRequest(ctx, currentLLMRequest, reqCtx)
 
 				if test.wantErrCode != "" {
 					assert.Error(t, err, "HandleRequest() should have returned an error")

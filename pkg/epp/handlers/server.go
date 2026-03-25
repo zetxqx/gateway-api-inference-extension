@@ -40,7 +40,6 @@ import (
 	reqcommon "sigs.k8s.io/gateway-api-inference-extension/pkg/common/request"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
-	fwkrq "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
@@ -56,7 +55,7 @@ func NewStreamingServer(datastore Datastore, director Director, parser fwkrh.Par
 }
 
 type Director interface {
-	HandleRequest(ctx context.Context, reqCtx *RequestContext) (*RequestContext, error)
+	HandleRequest(ctx context.Context, llmRequest *fwkrh.LLMRequestBody, reqCtx *RequestContext) (*RequestContext, error)
 	HandleResponseHeader(ctx context.Context, reqCtx *RequestContext) *RequestContext
 	HandleResponseBody(ctx context.Context, reqCtx *RequestContext, endOfStream bool) *RequestContext
 	GetRandomEndpoint() *fwkdl.EndpointMetadata
@@ -89,7 +88,7 @@ type RequestContext struct {
 	RequestReceivedTimestamp  time.Time
 	ResponseCompleteTimestamp time.Time
 	RequestSize               int
-	Usage                     fwkrq.Usage
+	Usage                     fwkrh.Usage
 	ResponseSize              int
 	ResponseComplete          bool
 	ResponseStatusCode        string
@@ -238,7 +237,13 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				reqCtx.RequestSize = len(body)
 				body = []byte{}
 
-				reqCtx, err = s.director.HandleRequest(ctx, reqCtx)
+				var llmRequest *fwkrh.LLMRequestBody
+				llmRequest, err = s.parser.ParseRequest(ctx, reqCtx.Request.RawBody, reqCtx.Request.Headers)
+				if err != nil {
+					logger.V(1).Error(err, "Error parsing request")
+					break
+				}
+				reqCtx, err = s.director.HandleRequest(ctx, llmRequest, reqCtx)
 				if err != nil {
 					logger.V(1).Error(err, "Error handling request")
 					break

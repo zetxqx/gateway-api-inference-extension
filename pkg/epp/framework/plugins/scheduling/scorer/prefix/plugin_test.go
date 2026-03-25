@@ -30,6 +30,7 @@ import (
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	attrprefix "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/prefix"
 )
@@ -87,8 +88,8 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	req1 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "aaaaaa",
 			},
 		},
@@ -120,8 +121,8 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	req2 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model2",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "bbbbbb",
 			},
 		},
@@ -151,8 +152,8 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	req3 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "aaaabbbb",
 			},
 		},
@@ -182,8 +183,8 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	req4 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model-new",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "aaaabbbb",
 			},
 		},
@@ -212,8 +213,8 @@ func TestPrefixPluginCompletion(t *testing.T) {
 	req5 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "aaaabbbbcccc",
 			},
 		},
@@ -255,11 +256,11 @@ func TestPrefixPluginChatCompletions(t *testing.T) {
 	req1 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			ChatCompletions: &fwksched.ChatCompletionsRequest{
-				Messages: []fwksched.Message{
-					{Role: "user", Content: fwksched.Content{Raw: "hello world"}},
-					{Role: "assistant", Content: fwksched.Content{Raw: "hi there"}},
+		Body: &fwkrh.LLMRequestBody{
+			ChatCompletions: &fwkrh.ChatCompletionsRequest{
+				Messages: []fwkrh.Message{
+					{Role: "user", Content: fwkrh.Content{Raw: "hello world"}},
+					{Role: "assistant", Content: fwkrh.Content{Raw: "hi there"}},
 				},
 			},
 		},
@@ -292,11 +293,11 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	req1 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			ChatCompletions: &fwksched.ChatCompletionsRequest{
-				Messages: []fwksched.Message{
-					{Role: "system", Content: fwksched.Content{Raw: "You are a helpful assistant"}},
-					{Role: "user", Content: fwksched.Content{Raw: "Hello, how are you?"}},
+		Body: &fwkrh.LLMRequestBody{
+			ChatCompletions: &fwkrh.ChatCompletionsRequest{
+				Messages: []fwkrh.Message{
+					{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
+					{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
 				},
 			},
 		},
@@ -325,13 +326,13 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	req2 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			ChatCompletions: &fwksched.ChatCompletionsRequest{
-				Messages: []fwksched.Message{
-					{Role: "system", Content: fwksched.Content{Raw: "You are a helpful assistant"}},
-					{Role: "user", Content: fwksched.Content{Raw: "Hello, how are you?"}},
-					{Role: "assistant", Content: fwksched.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
-					{Role: "user", Content: fwksched.Content{Raw: "Can you explain how prefix caching works?"}},
+		Body: &fwkrh.LLMRequestBody{
+			ChatCompletions: &fwkrh.ChatCompletionsRequest{
+				Messages: []fwkrh.Message{
+					{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
+					{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
+					{Role: "assistant", Content: fwkrh.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
+					{Role: "user", Content: fwkrh.Content{Raw: "Can you explain how prefix caching works?"}},
 				},
 			},
 		},
@@ -358,15 +359,15 @@ func TestPrefixPluginChatCompletionsGrowth(t *testing.T) {
 	req3 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			ChatCompletions: &fwksched.ChatCompletionsRequest{
-				Messages: []fwksched.Message{
-					{Role: "system", Content: fwksched.Content{Raw: "You are a helpful assistant"}},
-					{Role: "user", Content: fwksched.Content{Raw: "Hello, how are you?"}},
-					{Role: "assistant", Content: fwksched.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
-					{Role: "user", Content: fwksched.Content{Raw: "Can you explain how prefix caching works?"}},
-					{Role: "assistant", Content: fwksched.Content{Raw: "Prefix caching is a technique where..."}},
-					{Role: "user", Content: fwksched.Content{Raw: "That's very helpful, thank you!"}},
+		Body: &fwkrh.LLMRequestBody{
+			ChatCompletions: &fwkrh.ChatCompletionsRequest{
+				Messages: []fwkrh.Message{
+					{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant"}},
+					{Role: "user", Content: fwkrh.Content{Raw: "Hello, how are you?"}},
+					{Role: "assistant", Content: fwkrh.Content{Raw: "I'm doing well, thank you! How can I help you today?"}},
+					{Role: "user", Content: fwkrh.Content{Raw: "Can you explain how prefix caching works?"}},
+					{Role: "assistant", Content: fwkrh.Content{Raw: "Prefix caching is a technique where..."}},
+					{Role: "user", Content: fwkrh.Content{Raw: "That's very helpful, thank you!"}},
 				},
 			},
 		},
@@ -420,8 +421,8 @@ func BenchmarkPrefixPluginStress(b *testing.B) {
 			req := &fwksched.LLMRequest{
 				RequestId:   uuid.NewString(),
 				TargetModel: "model-stress",
-				Body: &fwksched.LLMRequestBody{
-					Completions: &fwksched.CompletionsRequest{
+				Body: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
 						Prompt: prompt,
 					},
 				},
@@ -521,8 +522,8 @@ func TestPrefixPluginAutoTune(t *testing.T) {
 	req := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				// Length 128 chars.
 				// If AutoTune=true (block size 64): 2 blocks
 				// If AutoTune=false (block size 32): 4 blocks
@@ -630,8 +631,8 @@ func TestPrepareRequestData(t *testing.T) {
 	req1 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "aaaabbbb",
 			},
 		},
@@ -650,8 +651,8 @@ func TestPrepareRequestData(t *testing.T) {
 	req2 := &fwksched.LLMRequest{
 		RequestId:   uuid.NewString(),
 		TargetModel: "test-model1",
-		Body: &fwksched.LLMRequestBody{
-			Completions: &fwksched.CompletionsRequest{
+		Body: &fwkrh.LLMRequestBody{
+			Completions: &fwkrh.CompletionsRequest{
 				Prompt: "aaaacccc",
 			},
 		},
@@ -703,8 +704,8 @@ func BenchmarkPrefixPluginChatCompletionsStress(b *testing.B) {
 	for _, scenario := range scenarios {
 		b.Run(fmt.Sprintf("messages_%d_length_%d", scenario.messageCount, scenario.messageLength), func(b *testing.B) {
 			// Generate messages for this scenario
-			messages := make([]fwksched.Message, scenario.messageCount)
-			messages[0] = fwksched.Message{Role: "system", Content: fwksched.Content{Raw: "You are a helpful assistant."}}
+			messages := make([]fwkrh.Message, scenario.messageCount)
+			messages[0] = fwkrh.Message{Role: "system", Content: fwkrh.Content{Raw: "You are a helpful assistant."}}
 
 			for i := 1; i < scenario.messageCount; i++ {
 				role := "user"
@@ -712,7 +713,7 @@ func BenchmarkPrefixPluginChatCompletionsStress(b *testing.B) {
 					role = "assistant"
 				}
 				content := randomPrompt(scenario.messageLength)
-				messages[i] = fwksched.Message{Role: role, Content: fwksched.Content{Raw: content}}
+				messages[i] = fwkrh.Message{Role: role, Content: fwkrh.Content{Raw: content}}
 			}
 
 			endpoint := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
@@ -725,8 +726,8 @@ func BenchmarkPrefixPluginChatCompletionsStress(b *testing.B) {
 			req := &fwksched.LLMRequest{
 				RequestId:   uuid.NewString(),
 				TargetModel: "chat-model-stress",
-				Body: &fwksched.LLMRequestBody{
-					ChatCompletions: &fwksched.ChatCompletionsRequest{
+				Body: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
 						Messages: messages,
 					},
 				},

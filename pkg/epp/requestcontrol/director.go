@@ -81,7 +81,6 @@ func NewDirectorWithConfig(
 		admissionController:   admissionController,
 		podLocator:            podLocator,
 		requestControlPlugins: *config,
-		parser:                parser,
 		defaultPriority:       0, // define default priority explicitly
 	}
 }
@@ -105,7 +104,6 @@ type Director struct {
 	// no need to set this in the constructor, since the value we want is the default int val
 	// and value types cannot be nil
 	defaultPriority int
-	parser          fwkrh.Parser
 }
 
 // getInferenceObjective fetches the inferenceObjective from the datastore otherwise creates a new one based on reqCtx.
@@ -127,11 +125,11 @@ func (d *Director) getInferenceObjective(ctx context.Context, reqCtx *handlers.R
 
 // HandleRequest orchestrates the request lifecycle.
 // It always returns the requestContext even in the error case, as the request context is used in error handling.
-func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
+func (d *Director) HandleRequest(ctx context.Context, llmRequest *fwkrh.LLMRequestBody, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	logger := log.FromContext(ctx)
 
-	// Parse, mutate, and extract the request body
-	llmRequestBody, err := d.processRequestBody(ctx, reqCtx, d.parser)
+	// Mutate, and extract the request body
+	llmRequestBody, err := d.processRequestBody(ctx, reqCtx, llmRequest)
 	if err != nil {
 		return reqCtx, err
 	}
@@ -194,12 +192,7 @@ func (d *Director) HandleRequest(ctx context.Context, reqCtx *handlers.RequestCo
 	return reqCtx, nil
 }
 
-func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, parser fwkrh.Parser) (*fwksched.LLMRequestBody, error) {
-	llmRequestBody, err := parser.ParseRequest(ctx, reqCtx.Request.RawBody, reqCtx.Request.Headers)
-	if err != nil {
-		return nil, errcommon.Error{Code: errcommon.BadRequest, Msg: err.Error()}
-	}
-
+func (d *Director) processRequestBody(ctx context.Context, reqCtx *handlers.RequestContext, llmRequestBody *fwkrh.LLMRequestBody) (*fwkrh.LLMRequestBody, error) {
 	switch v := llmRequestBody.ParsedBody.(type) {
 	case proto.Message:
 		// Protos are not currently mutated, return as-is.
