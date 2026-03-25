@@ -28,6 +28,7 @@ import (
 
 	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers/openai"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/handlers"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metadata"
@@ -298,7 +299,7 @@ type testDirector struct {
 	requestHeaders map[string]string
 }
 
-func (ts *testDirector) HandleRequest(ctx context.Context, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
+func (ts *testDirector) HandleRequest(ctx context.Context, llmRequest *fwkrh.InferenceRequestBody, reqCtx *handlers.RequestContext) (*handlers.RequestContext, error) {
 	ts.requestHeaders = reqCtx.Request.Headers
 
 	bodyMap := make(map[string]any)

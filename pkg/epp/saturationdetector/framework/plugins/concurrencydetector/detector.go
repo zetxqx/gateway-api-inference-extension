@@ -159,7 +159,7 @@ func (d *Detector) Saturation(_ context.Context, candidateEndpoints []fwkdl.Endp
 func (d *Detector) Filter(
 	_ context.Context,
 	_ *framework.CycleState,
-	_ *framework.LLMRequest,
+	_ *framework.InferenceRequest,
 	endpoints []framework.Endpoint,
 ) []framework.Endpoint {
 	// Pre-allocate assuming most endpoints will pass the filter to minimize allocations.
@@ -189,7 +189,7 @@ func (d *Detector) Filter(
 
 // PreRequest increments the atomic in-flight counter for the target endpoint.
 // We assume the scheduling result is valid based on the Director's contract.
-func (d *Detector) PreRequest(_ context.Context, request *framework.LLMRequest, result *framework.SchedulingResult) {
+func (d *Detector) PreRequest(_ context.Context, request *framework.InferenceRequest, result *framework.SchedulingResult) {
 	eid := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().NamespacedName.String()
 	if *d.config.ConcurrencyMode == Tokens {
 		tokens := d.tokenEstimator.Estimate(request)
@@ -204,7 +204,7 @@ func (d *Detector) PreRequest(_ context.Context, request *framework.LLMRequest, 
 // TokenEstimator.Estimate returns 0 in that case (may contribute to drift).
 func (d *Detector) ResponseBody(
 	_ context.Context,
-	request *framework.LLMRequest,
+	request *framework.InferenceRequest,
 	resp *requestcontrol.Response,
 	targetEndpoint *fwkdl.EndpointMetadata,
 ) {

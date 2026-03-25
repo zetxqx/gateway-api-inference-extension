@@ -22,10 +22,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
-	fwkrc "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 )
 
@@ -49,7 +47,7 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 		name    string
 		headers map[string]string
 		body    map[string]any
-		want    *scheduling.LLMRequestBody
+		want    *fwkrh.InferenceRequestBody
 		wantErr bool
 	}{
 		{
@@ -59,9 +57,11 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"model":  "test",
 				"prompt": "test prompt",
 			},
-			want: &scheduling.LLMRequestBody{
-				Completions: &scheduling.CompletionsRequest{
-					Prompt: "test prompt",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
+						Prompt: "test prompt",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":  "test",
@@ -83,11 +83,13 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			want: &scheduling.LLMRequestBody{
-				ChatCompletions: &scheduling.ChatCompletionsRequest{
-					Messages: []scheduling.Message{
-						{Role: "system", Content: scheduling.Content{Raw: "this is a system message"}},
-						{Role: "user", Content: scheduling.Content{Raw: "hello"}},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "system", Content: fwkrh.Content{Raw: "this is a system message"}},
+							{Role: "user", Content: fwkrh.Content{Raw: "hello"}},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -131,25 +133,27 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			want: &scheduling.LLMRequestBody{
-				ChatCompletions: &scheduling.ChatCompletionsRequest{
-					Messages: []scheduling.Message{
-						{Role: "system", Content: scheduling.Content{
-							Structured: []scheduling.ContentBlock{
-								{
-									Text: "Describe this image in one sentence.",
-									Type: "text",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "system", Content: fwkrh.Content{
+								Structured: []fwkrh.ContentBlock{
+									{
+										Text: "Describe this image in one sentence.",
+										Type: "text",
+									},
 								},
-							},
-						}},
-						{Role: "user", Content: scheduling.Content{
-							Structured: []scheduling.ContentBlock{
-								{
-									Type:     "image_url",
-									ImageURL: scheduling.ImageBlock{Url: "https://example.com/images/dui.jpg."},
+							}},
+							{Role: "user", Content: fwkrh.Content{
+								Structured: []fwkrh.ContentBlock{
+									{
+										Type:     "image_url",
+										ImageURL: fwkrh.ImageBlock{Url: "https://example.com/images/dui.jpg."},
+									},
 								},
-							},
-						}},
+							}},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -204,21 +208,23 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 				},
 			},
-			want: &scheduling.LLMRequestBody{
-				ChatCompletions: &scheduling.ChatCompletionsRequest{
-					Messages: []scheduling.Message{
-						{Role: "user", Content: scheduling.Content{
-							Structured: []scheduling.ContentBlock{
-								{
-									Type:       "input_audio",
-									InputAudio: scheduling.AudioBlock{Data: "base64data", Format: "wav"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "user", Content: fwkrh.Content{
+								Structured: []fwkrh.ContentBlock{
+									{
+										Type:       "input_audio",
+										InputAudio: fwkrh.AudioBlock{Data: "base64data", Format: "wav"},
+									},
+									{
+										Type:     "video_url",
+										VideoURL: fwkrh.VideoBlock{Url: "https://example.com/video.mp4"},
+									},
 								},
-								{
-									Type:     "video_url",
-									VideoURL: scheduling.VideoBlock{Url: "https://example.com/video.mp4"},
-								},
-							},
-						}},
+							}},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -262,16 +268,18 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"add_generation_prompt":        true,
 				"chat_template_kwargs":         map[string]any{"key": "value"},
 			},
-			want: &scheduling.LLMRequestBody{
-				ChatCompletions: &scheduling.ChatCompletionsRequest{
-					Messages:                  []scheduling.Message{{Role: "user", Content: scheduling.Content{Raw: "hello"}}},
-					Tools:                     []any{map[string]any{"type": "function"}},
-					Documents:                 []any{map[string]any{"content": "doc"}},
-					ChatTemplate:              "custom template",
-					ReturnAssistantTokensMask: true,
-					ContinueFinalMessage:      true,
-					AddGenerationPrompt:       true,
-					ChatTemplateKWArgs:        map[string]any{"key": "value"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages:                  []fwkrh.Message{{Role: "user", Content: fwkrh.Content{Raw: "hello"}}},
+						Tools:                     []any{map[string]any{"type": "function"}},
+						Documents:                 []any{map[string]any{"content": "doc"}},
+						ChatTemplate:              "custom template",
+						ReturnAssistantTokensMask: true,
+						ContinueFinalMessage:      true,
+						AddGenerationPrompt:       true,
+						ChatTemplateKWArgs:        map[string]any{"key": "value"},
+					},
 				},
 				ParsedBody: map[string]any{
 					"model": "test",
@@ -443,10 +451,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"prompt":     "test prompt",
 				"cache_salt": "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 			},
-			want: &scheduling.LLMRequestBody{
-				Completions: &scheduling.CompletionsRequest{
-					Prompt:    "test prompt",
-					CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
+						Prompt:    "test prompt",
+						CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":      "test",
@@ -470,13 +480,15 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				},
 				"cache_salt": "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 			},
-			want: &scheduling.LLMRequestBody{
-				ChatCompletions: &scheduling.ChatCompletionsRequest{
-					Messages: []scheduling.Message{
-						{Role: "system", Content: scheduling.Content{Raw: "this is a system message"}},
-						{Role: "user", Content: scheduling.Content{Raw: "hello"}},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					ChatCompletions: &fwkrh.ChatCompletionsRequest{
+						Messages: []fwkrh.Message{
+							{Role: "system", Content: fwkrh.Content{Raw: "this is a system message"}},
+							{Role: "user", Content: fwkrh.Content{Raw: "hello"}},
+						},
+						CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 					},
-					CacheSalt: "Z3V2bmV3aGxza3ZubGFoZ3Zud3V3ZWZ2bmd0b3V2bnZmc2xpZ3RoZ2x2aQ==",
 				},
 				ParsedBody: map[string]any{
 					"model": "test",
@@ -500,10 +512,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"input":        "How do I check if a Python object is an instance of a class?",
 				"instructions": "You are a coding assistant that talks like a pirate.",
 			},
-			want: &scheduling.LLMRequestBody{
-				Responses: &scheduling.ResponsesRequest{
-					Input:        "How do I check if a Python object is an instance of a class?",
-					Instructions: "You are a coding assistant that talks like a pirate.",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Responses: &fwkrh.ResponsesRequest{
+						Input:        "How do I check if a Python object is an instance of a class?",
+						Instructions: "You are a coding assistant that talks like a pirate.",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":        "gpt-4o",
@@ -520,10 +534,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"input":      "test input",
 				"cache_salt": "abc123",
 			},
-			want: &scheduling.LLMRequestBody{
-				Responses: &scheduling.ResponsesRequest{
-					Input:     "test input",
-					CacheSalt: "abc123",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Responses: &fwkrh.ResponsesRequest{
+						Input:     "test input",
+						CacheSalt: "abc123",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":      "gpt-4o",
@@ -551,10 +567,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					{"type": "message", "role": "user", "content": "Hello"},
 				},
 			},
-			want: &scheduling.LLMRequestBody{
-				Conversations: &scheduling.ConversationsRequest{
-					Items: []scheduling.ConversationItem{
-						{Type: "message", Role: "user", Content: "Hello"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Conversations: &fwkrh.ConversationsRequest{
+						Items: []fwkrh.ConversationItem{
+							{Type: "message", Role: "user", Content: "Hello"},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -572,10 +590,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					{"type": "message", "role": "user", "content": "Hello"},
 				},
 			},
-			want: &scheduling.LLMRequestBody{
-				Conversations: &scheduling.ConversationsRequest{
-					Items: []scheduling.ConversationItem{
-						{Type: "message", Role: "user", Content: "Hello"},
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Conversations: &fwkrh.ConversationsRequest{
+						Items: []fwkrh.ConversationItem{
+							{Type: "message", Role: "user", Content: "Hello"},
+						},
 					},
 				},
 				ParsedBody: map[string]any{
@@ -593,9 +613,11 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 				"model":  "gpt-4o",
 				"prompt": "test prompt",
 			},
-			want: &scheduling.LLMRequestBody{
-				Completions: &scheduling.CompletionsRequest{
-					Prompt: "test prompt",
+			want: &fwkrh.InferenceRequestBody{
+				LLMRequestBody: &fwkrh.LLMRequestBody{
+					Completions: &fwkrh.CompletionsRequest{
+						Prompt: "test prompt",
+					},
 				},
 				ParsedBody: map[string]any{
 					"model":  "gpt-4o",
@@ -647,7 +669,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 				}
 			}`),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     10,
 					CompletionTokens: 20,
 					TotalTokens:      30,
@@ -665,7 +687,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 				}
 			}`),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     15,
 					CompletionTokens: 25,
 					TotalTokens:      40,
@@ -686,11 +708,11 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 				}
 			}`),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     100,
 					CompletionTokens: 50,
 					TotalTokens:      150,
-					PromptTokenDetails: &fwkrc.PromptTokenDetails{
+					PromptTokenDetails: &fwkrh.PromptTokenDetails{
 						CachedTokens: 40,
 					},
 				},
@@ -707,7 +729,7 @@ func TestOpenAIParser_ParseResponse(t *testing.T) {
 				}
 			}`),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     5,
 					CompletionTokens: 5,
 					TotalTokens:      10,
@@ -753,7 +775,7 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 			name:  "Single data chunk with usage",
 			chunk: []byte("data: {\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":10,\"total_tokens\":17}}\n"),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     7,
 					CompletionTokens: 10,
 					TotalTokens:      17,
@@ -764,9 +786,9 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 			name:  "Usage and DONE in the same multi-line response",
 			chunk: []byte("data: {\"usage\":{\"prompt_tokens\":10,\"prompt_token_details\":{\"cached_tokens\":10}}}\ndata: [DONE]"),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens: 10,
-					PromptTokenDetails: &fwkrc.PromptTokenDetails{
+					PromptTokenDetails: &fwkrh.PromptTokenDetails{
 						CachedTokens: 10,
 					},
 				},
@@ -797,7 +819,7 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 			name:  "ResponsesAPI streaming with full response",
 			chunk: []byte("event: response.completed\ndata: {\"response\":{\"id\":\"resp_8e38bd02b4f56572\",\"model\":\"Qwen/Qwen3-32B\",\"object\":\"response\",\"usage\":{\"input_tokens\":31,\"input_tokens_details\":{\"cached_tokens\":16},\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":34}},\"type\":\"response.completed\"}"),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     31,
 					CompletionTokens: 3,
 					TotalTokens:      34,
@@ -815,7 +837,7 @@ func TestOpenAIParser_ParseResponse_Streaming(t *testing.T) {
 			name:  "ResponsesAPI with multiple events extracts from completed",
 			chunk: []byte("event: response.output_text.delta\ndata: {\"delta\":\"Hello\",\"type\":\"response.output_text.delta\"}\n\nevent: response.completed\ndata: {\"response\":{\"usage\":{\"input_tokens\":39,\"output_tokens\":10,\"total_tokens\":49}},\"type\":\"response.completed\"}"),
 			want: &fwkrh.ParsedResponse{
-				Usage: &fwkrc.Usage{
+				Usage: &fwkrh.Usage{
 					PromptTokens:     39,
 					CompletionTokens: 10,
 					TotalTokens:      49,
