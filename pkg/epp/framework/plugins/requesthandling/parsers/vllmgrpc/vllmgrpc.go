@@ -170,7 +170,7 @@ func convertToLLMRequestBody(payload []byte) (*scheduling.LLMRequestBody, error)
 	default:
 		return nil, errors.New("not supported request inputType")
 	}
-	body.IsStreaming = pbReq.GetStream()
+	body.IsServerStreamingResponse = pbReq.GetStream()
 	return body, nil
 }
 

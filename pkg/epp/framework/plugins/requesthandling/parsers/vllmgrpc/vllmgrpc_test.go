@@ -164,7 +164,7 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 					},
 					Stream: true,
 				},
-				IsStreaming: true,
+				IsServerStreamingResponse: true,
 			},
 		},
 	}
