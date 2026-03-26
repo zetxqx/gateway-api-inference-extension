@@ -245,7 +245,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				}
 
 				if reqCtx.SchedulingRequest != nil && reqCtx.SchedulingRequest.Body != nil {
-					reqCtx.modelServerStreaming = reqCtx.SchedulingRequest.Body.IsServerStreamingResponse
+					reqCtx.modelServerStreaming = reqCtx.SchedulingRequest.Body.Stream
 				}
 
 				reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)

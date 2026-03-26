@@ -91,9 +91,9 @@ type LLMRequestBody struct {
 	// to be either a map[string]any (for HTTP/JSON) or a proto.Message (for gRPC).
 	ParsedBody any `json:"-"`
 
-	// IsServerStreamingResponse indicates whether the request specifies a streaming response (e.g., via a stream field).
+	// Stream indicates whether the request specifies a streaming response (e.g., via a stream field).
 	// This typically implies the model server's response will be streamed.
-	IsServerStreamingResponse bool `json:"-"`
+	Stream bool `json:"-"`
 }
 
 // PromptText returns a plain-text representation of the prompt from whichever

@@ -362,7 +362,7 @@ func (ts *testDirector) HandleRequest(ctx context.Context, reqCtx *handlers.Requ
 		Body: &scheduling.LLMRequestBody{},
 	}
 	if stream, ok := bodyMap["stream"].(bool); ok && stream {
-		reqCtx.SchedulingRequest.Body.IsServerStreamingResponse = true
+		reqCtx.SchedulingRequest.Body.Stream = true
 	}
 
 	return reqCtx, nil

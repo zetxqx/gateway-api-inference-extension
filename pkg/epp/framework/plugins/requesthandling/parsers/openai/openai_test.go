@@ -624,7 +624,7 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 					},
 					"stream": true,
 				},
-				IsServerStreamingResponse: true,
+				Stream: true,
 			},
 		},
 		// Embeddings API tests

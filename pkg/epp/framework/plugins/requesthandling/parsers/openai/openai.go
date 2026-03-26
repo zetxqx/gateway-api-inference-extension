@@ -98,7 +98,7 @@ func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers ma
 	}
 	extractedBody.ParsedBody = bodyMap
 	if stream, ok := bodyMap["stream"].(bool); ok && stream {
-		extractedBody.IsServerStreamingResponse = true
+		extractedBody.Stream = true
 	}
 	return extractedBody, nil
 }
