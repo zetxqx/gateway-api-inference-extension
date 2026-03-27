@@ -311,7 +311,7 @@ func (s *Plugin) scoreBucket(ctx context.Context, data []epData, scores map[fram
 		scores[d.endpoint] = w / float64(wMax)
 
 		logger.V(logutil.TRACE).Info("LatencyScorer: scored endpoint",
-			"endpoint", d.endpoint.GetMetadata().NamespacedName.Name,
+			"endpoint", d.endpoint.GetMetadata().Key.NamespacedName.Name,
 			"ttftHeadroom", d.ttftHeadroom, "tpotHeadroom", d.tpotHeadroom,
 			"nTTFT", nTTFT, "nTPOT", nTPOT, "combined", combined, "score", scores[d.endpoint])
 	}
@@ -359,7 +359,7 @@ func (s *Plugin) compositeScores(ctx context.Context, endpoints []framework.Endp
 
 		scores[ep] = score
 		logger.V(logutil.TRACE).Info("LatencyScorer: composite",
-			"endpoint", ep.GetMetadata().NamespacedName.Name,
+			"endpoint", ep.GetMetadata().Key.NamespacedName.Name,
 			"kvFree", kvFree, "relQueue", relQueue, "prefix", prefix, "score", score)
 	}
 

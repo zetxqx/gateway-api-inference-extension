@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
@@ -208,7 +209,7 @@ func TestInFlightLoadProducer_ConcurrencyStress(t *testing.T) {
 // --- Helpers ---
 
 func fullEndpointName(name string) string {
-	return types.NamespacedName{Name: name, Namespace: "default"}.String()
+	return fwkplugin.EndPointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}}.String()
 }
 
 func makeSchedulingResult(endpointName string) *schedulingtypes.SchedulingResult {
@@ -230,7 +231,7 @@ type stubSchedulingEndpoint struct {
 
 func newStubSchedulingEndpoint(name string) *stubSchedulingEndpoint {
 	return &stubSchedulingEndpoint{
-		metadata: &datalayer.EndpointMetadata{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}}},
 		attr:     datalayer.NewAttributes(),
 	}
 }

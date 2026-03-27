@@ -80,7 +80,7 @@ func (p *InFlightLoadProducer) ExtractEndpoint(ctx context.Context, event datala
 		return nil
 	}
 
-	id := event.Endpoint.GetMetadata().NamespacedName.String()
+	id := event.Endpoint.GetMetadata().Key.String()
 
 	p.DeleteEndpoint(id)
 	log.FromContext(ctx).V(logutil.DEFAULT).Info("Cleaned up in-flight load for deleted endpoint", "endpoint", id)
@@ -89,7 +89,7 @@ func (p *InFlightLoadProducer) ExtractEndpoint(ctx context.Context, event datala
 
 func (p *InFlightLoadProducer) PrepareRequestData(_ context.Context, _ *framework.InferenceRequest, endpoints []framework.Endpoint) error {
 	for _, e := range endpoints {
-		endpointID := e.GetMetadata().NamespacedName.String()
+		endpointID := e.GetMetadata().Key.String()
 		e.Put(attrconcurrency.InFlightLoadKey, &attrconcurrency.InFlightLoad{
 			Tokens:   p.tokenTracker.get(endpointID),
 			Requests: p.requestTracker.get(endpointID),
@@ -112,7 +112,7 @@ func (p *InFlightLoadProducer) PreRequest(_ context.Context, request *framework.
 		if endpoint == nil || endpoint.GetMetadata() == nil {
 			continue
 		}
-		eid := endpoint.GetMetadata().NamespacedName.String()
+		eid := endpoint.GetMetadata().Key.String()
 		p.requestTracker.inc(eid)
 		tokens := p.tokenEstimator.Estimate(request)
 		p.tokenTracker.add(eid, tokens)
@@ -162,7 +162,7 @@ func (p *InFlightLoadProducer) release(endpoint framework.Endpoint, request *fra
 	if endpoint == nil || endpoint.GetMetadata() == nil {
 		return
 	}
-	eid := endpoint.GetMetadata().NamespacedName.String()
+	eid := endpoint.GetMetadata().Key.String()
 	p.requestTracker.dec(eid)
 	tokens := p.tokenEstimator.Estimate(request)
 	p.tokenTracker.add(eid, -tokens)

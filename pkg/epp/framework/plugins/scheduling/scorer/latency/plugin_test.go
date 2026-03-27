@@ -23,13 +23,14 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	framework "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	attrlatency "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/latency"
 )
 
 func makeLatencyScorerEndpoint(name string, kvCache float64, queueSize, runningReqs int) framework.Endpoint {
 	return framework.NewEndpoint(
-		&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: name}},
+		&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: name}}},
 		&fwkdl.Metrics{
 			KVCacheUsagePercent: kvCache,
 			WaitingQueueSize:    queueSize,
@@ -179,7 +180,7 @@ func TestScoreHierarchicalBuckets(t *testing.T) {
 	// All should have non-zero scores (they're all in the negative tier).
 	for _, ep := range endpoints {
 		if scores[ep] == 0 {
-			t.Errorf("%s should have non-zero score", ep.GetMetadata().NamespacedName.Name)
+			t.Errorf("%s should have non-zero score", ep.GetMetadata().Key.NamespacedName.Name)
 		}
 	}
 

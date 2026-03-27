@@ -19,8 +19,6 @@ package utils
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
 
@@ -35,8 +33,8 @@ func (h *testHandle) Context() context.Context {
 	return h.ctx
 }
 
-func (h *testHandle) PodList() []types.NamespacedName {
-	return []types.NamespacedName{}
+func (h *testHandle) EndPointList() []plugin.EndPointKey {
+	return []plugin.EndPointKey{}
 }
 
 type testHandlePlugins struct {

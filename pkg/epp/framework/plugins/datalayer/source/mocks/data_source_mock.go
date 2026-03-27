@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
@@ -36,8 +35,8 @@ type MetricsDataSource struct {
 	mu        sync.RWMutex
 	typedName plugin.TypedName
 	CallCount int64
-	metrics   map[types.NamespacedName]*fwkdl.Metrics
-	errors    map[types.NamespacedName]error
+	metrics   map[plugin.EndPointKey]*fwkdl.Metrics
+	errors    map[plugin.EndPointKey]error
 }
 
 func NewDataSource(typedName plugin.TypedName) *MetricsDataSource {
@@ -57,14 +56,14 @@ func (fds *MetricsDataSource) ExtractorType() reflect.Type {
 }
 
 // SetMetrics replaces the metrics map in a thread-safe manner.
-func (fds *MetricsDataSource) SetMetrics(metrics map[types.NamespacedName]*fwkdl.Metrics) {
+func (fds *MetricsDataSource) SetMetrics(metrics map[plugin.EndPointKey]*fwkdl.Metrics) {
 	fds.mu.Lock()
 	defer fds.mu.Unlock()
 	fds.metrics = metrics
 }
 
 // SetErrors replaces the errors map in a thread-safe manner.
-func (fds *MetricsDataSource) SetErrors(errors map[types.NamespacedName]error) {
+func (fds *MetricsDataSource) SetErrors(errors map[plugin.EndPointKey]error) {
 	fds.mu.Lock()
 	defer fds.mu.Unlock()
 	fds.errors = errors
@@ -74,9 +73,9 @@ func (fds *MetricsDataSource) Poll(ctx context.Context, ep fwkdl.Endpoint) (any,
 	atomic.AddInt64(&fds.CallCount, 1)
 	fds.mu.RLock()
 	defer fds.mu.RUnlock()
-	nn := ep.GetMetadata().Clone().NamespacedName
-	if metrics, ok := fds.metrics[nn]; ok {
-		if _, ok := fds.errors[nn]; !ok {
+	key := ep.GetMetadata().Clone().Key
+	if metrics, ok := fds.metrics[key]; ok {
+		if _, ok := fds.errors[key]; !ok {
 			clone := metrics.Clone()
 			clone.UpdateTime = time.Now()
 			ep.UpdateMetrics(clone)

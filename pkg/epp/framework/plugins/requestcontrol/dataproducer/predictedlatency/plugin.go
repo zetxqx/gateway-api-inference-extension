@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
-	"k8s.io/apimachinery/pkg/types"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -67,10 +66,10 @@ const (
 type PredictedLatency struct {
 	typedName             plugin.TypedName
 	latencypredictor      latencypredictor.PredictorInterface
-	runningRequestLists   sync.Map                                      // Key: types.NamespacedName, Value: *requestPriorityQueue
+	runningRequestLists   sync.Map                                      // Key: plugin.EndPointKey, Value: *requestPriorityQueue
 	sloContextStore       *ttlcache.Cache[string, *predictedLatencyCtx] // TTL cache for request contexts
 	config                Config
-	prefillTokensInFlight sync.Map // Key: endpoint NamespacedName.String(), Value: *atomic.Int64
+	prefillTokensInFlight sync.Map // Key: pod EndPointKey.String(), Value: *atomic.Int64
 }
 
 // endpointCounter returns the atomic counter for the given endpoint key, creating it if necessary.
@@ -194,11 +193,11 @@ func NewPredictedLatency(config Config, predictor latencypredictor.PredictorInte
 		plCtx := item.Value()
 		predictedLatency.removeRequestFromQueue(item.Key(), plCtx)
 		if plCtx.prefillTargetMetadata != nil && plCtx.ttft == 0 && plCtx.prefillTokensAtDispatchOnPrefill > 0 {
-			prefillEndpointKey := plCtx.prefillTargetMetadata.NamespacedName.String()
+			prefillEndpointKey := plCtx.prefillTargetMetadata.Key.String()
 			predictedLatency.decrementEndpointCounter(&predictedLatency.prefillTokensInFlight, prefillEndpointKey, int64(plCtx.inputTokenCount))
 		}
 		if plCtx.targetMetadata != nil && plCtx.prefillTokensAtDispatch > 0 {
-			decodeEndpointKey := plCtx.targetMetadata.NamespacedName.String()
+			decodeEndpointKey := plCtx.targetMetadata.Key.String()
 			predictedLatency.decrementEndpointCounter(&predictedLatency.prefillTokensInFlight, decodeEndpointKey, int64(plCtx.inputTokenCount))
 		}
 	})
@@ -345,8 +344,8 @@ func (s *PredictedLatency) parseSLOHeaders(ctx context.Context, request *framewo
 // --- Running request queue helpers ---
 
 func (s *PredictedLatency) getEndpointMinTPOTSLO(endpoint framework.Endpoint) float64 {
-	endpointName := endpoint.GetMetadata().NamespacedName
-	if runningReqs := s.getRunningRequestList(endpointName); runningReqs != nil && runningReqs.GetSize() > 0 {
+	endpointKey := endpoint.GetMetadata().Key
+	if runningReqs := s.getRunningRequestList(endpointKey); runningReqs != nil && runningReqs.GetSize() > 0 {
 		if min := runningReqs.Peek(); min != nil {
 			return min.tpot
 		}
@@ -355,25 +354,25 @@ func (s *PredictedLatency) getEndpointMinTPOTSLO(endpoint framework.Endpoint) fl
 }
 
 func (s *PredictedLatency) getEndpointRunningRequestCount(endpoint framework.Endpoint) int {
-	endpointName := endpoint.GetMetadata().NamespacedName
-	if runningReqs := s.getRunningRequestList(endpointName); runningReqs != nil {
+	endpointKey := endpoint.GetMetadata().Key
+	if runningReqs := s.getRunningRequestList(endpointKey); runningReqs != nil {
 		return runningReqs.GetSize()
 	}
 	return 0
 }
 
-func (s *PredictedLatency) getRunningRequestList(endpointName types.NamespacedName) *requestPriorityQueue {
-	if value, ok := s.runningRequestLists.Load(endpointName); ok {
+func (s *PredictedLatency) getRunningRequestList(endpointKey plugin.EndPointKey) *requestPriorityQueue {
+	if value, ok := s.runningRequestLists.Load(endpointKey); ok {
 		return value.(*requestPriorityQueue)
 	}
 	return nil
 }
 
-func (s *PredictedLatency) removeRequestFromEndpoint(endpointName types.NamespacedName, requestID string) {
-	if queue := s.getRunningRequestList(endpointName); queue != nil {
+func (s *PredictedLatency) removeRequestFromEndpoint(endpointKey plugin.EndPointKey, requestID string) {
+	if queue := s.getRunningRequestList(endpointKey); queue != nil {
 		queue.Remove(requestID)
 		if queue.GetSize() == 0 {
-			s.runningRequestLists.Delete(endpointName)
+			s.runningRequestLists.Delete(endpointKey)
 		}
 	}
 }
@@ -382,9 +381,5 @@ func (s *PredictedLatency) removeRequestFromQueue(requestID string, ctx *predict
 	if ctx == nil || ctx.targetMetadata == nil {
 		return
 	}
-	endpointName := types.NamespacedName{
-		Name:      ctx.targetMetadata.NamespacedName.Name,
-		Namespace: ctx.targetMetadata.NamespacedName.Namespace,
-	}
-	s.removeRequestFromEndpoint(endpointName, requestID)
+	s.removeRequestFromEndpoint(ctx.targetMetadata.Key, requestID)
 }

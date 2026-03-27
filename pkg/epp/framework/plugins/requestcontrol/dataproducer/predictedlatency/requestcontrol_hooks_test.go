@@ -46,7 +46,7 @@ const (
 
 func createTestSchedulingResult(metadata *fwkdl.EndpointMetadata) *schedulingtypes.SchedulingResult {
 
-	mockPod := createTestEndpoint(metadata.NamespacedName.Name, kvUsage, runningRequests, waitingQueue)
+	mockPod := createTestEndpoint(metadata.GetNamespacedName().Name, kvUsage, runningRequests, waitingQueue)
 
 	return &schedulingtypes.SchedulingResult{
 		PrimaryProfileName: "default",
@@ -195,7 +195,7 @@ func TestPredictedLatency_PreRequest_Success(t *testing.T) {
 	router.setPredictedLatencyContextForRequest(request, predictedLatencyCtx)
 
 	// Initialize the request priority queue
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, newRequestPriorityQueue())
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, newRequestPriorityQueue())
 
 	beforeTime := time.Now()
 	router.PreRequest(ctx, request, schedulingResult)
@@ -231,7 +231,7 @@ func TestPredictedLatency_PreRequest_AddsToQueue(t *testing.T) {
 	router.PreRequest(ctx, request, schedulingResult)
 
 	// Verify queue was created and request was added
-	value, exists := router.runningRequestLists.Load(endpoint.GetMetadata().NamespacedName)
+	value, exists := router.runningRequestLists.Load(endpoint.GetMetadata().Key)
 	assert.True(t, exists, "Queue should be created for endpoint")
 	assert.NotNil(t, value)
 	queue := value.(*requestPriorityQueue)
@@ -264,7 +264,7 @@ func TestPredictedLatency_PreRequest_QueueAlreadyExists(t *testing.T) {
 	router.PreRequest(ctx, request2, schedulingResult)
 
 	// Verify both are in the same queue
-	value, exists := router.runningRequestLists.Load(endpoint.GetMetadata().NamespacedName)
+	value, exists := router.runningRequestLists.Load(endpoint.GetMetadata().Key)
 	assert.True(t, exists)
 	assert.NotNil(t, value)
 }
@@ -382,7 +382,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FirstToken(t *testing.T) {
 	// Initialize the queue and add the request
 	queue := newRequestPriorityQueue()
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 
 	beforeTime := time.Now()
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
@@ -469,7 +469,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_SubsequentTokens(t *testing
 	// Initialize the queue and add the request
 	queue := newRequestPriorityQueue()
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
@@ -495,7 +495,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_QueueNotFound(t 
 	router.setPredictedLatencyContextForRequest(request, predictedLatencyCtx)
 
 	// Create an EMPTY queue (not nil, but empty) to test queue.Remove behavior
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, newRequestPriorityQueue())
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, newRequestPriorityQueue())
 
 	// Should handle gracefully when request is not in queue
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
@@ -533,7 +533,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_Success(t *testi
 
 	// Create queue and add request
 	queue := newRequestPriorityQueue()
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
 
 	predictedLatencyCtx := newPredictedLatencyContext(request)
@@ -623,7 +623,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_WithMetrics(t *t
 
 	// Create queue
 	queue := newRequestPriorityQueue()
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
 
 	predictedLatencyCtx := newPredictedLatencyContext(request)
@@ -656,7 +656,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NoSLOs(t *testin
 
 	// Create queue
 	queue := newRequestPriorityQueue()
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 0)
 
 	predictedLatencyCtx := newPredictedLatencyContext(request)
@@ -697,7 +697,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken(t *testing.T) {
 	// Initialize the queue and add the request
 	queue := newRequestPriorityQueue()
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
@@ -730,7 +730,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_SingleChunk(t *testing.T) {
 	// Initialize the queue and add the request
 	queue := newRequestPriorityQueue()
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
@@ -763,7 +763,7 @@ func TestPredictedLatency_NonStreamingMode_ResponseBody_FinalToken(t *testing.T)
 	// Initialize the queue and add the request
 	queue := newRequestPriorityQueue()
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
@@ -843,9 +843,9 @@ func TestPredictedLatency_ResponseBody_NoOrphanDecrement_WhenPreRequestSkipped(t
 
 	queue := newRequestPriorityQueue()
 	queue.Add(request.Headers[reqcommon.RequestIdHeaderKey], 50.0)
-	router.runningRequestLists.Store(endpoint.GetMetadata().NamespacedName, queue)
+	router.runningRequestLists.Store(endpoint.GetMetadata().Key, queue)
 
-	decodePodKey := endpoint.GetMetadata().NamespacedName.String()
+	decodePodKey := endpoint.GetMetadata().Key.String()
 
 	router.ResponseBody(ctx, request, response, endpoint.GetMetadata())
 
@@ -1016,7 +1016,7 @@ func TestPredictedLatency_MultipleRequests_SamePod(t *testing.T) {
 	router.PreRequest(ctx, request3, schedulingResult)
 
 	// Verify queue has all requests
-	value, exists := router.runningRequestLists.Load(endpoint.GetMetadata().NamespacedName)
+	value, exists := router.runningRequestLists.Load(endpoint.GetMetadata().Key)
 	assert.True(t, exists)
 	assert.NotNil(t, value)
 }
@@ -1100,8 +1100,8 @@ func TestPredictedLatency_MultipleRequests_DifferentPods(t *testing.T) {
 	router.PreRequest(ctx, request2, schedulingResult2)
 
 	// Verify separate queues were created
-	value1, exists1 := router.runningRequestLists.Load(endpoint1.GetMetadata().NamespacedName)
-	value2, exists2 := router.runningRequestLists.Load(endpoint2.GetMetadata().NamespacedName)
+	value1, exists1 := router.runningRequestLists.Load(endpoint1.GetMetadata().Key)
+	value2, exists2 := router.runningRequestLists.Load(endpoint2.GetMetadata().Key)
 
 	assert.True(t, exists1)
 	assert.True(t, exists2)

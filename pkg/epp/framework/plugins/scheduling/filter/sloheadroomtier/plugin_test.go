@@ -24,13 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	framework "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	attrlatency "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/latency"
 )
 
 func makeEndpoint(name string, ttftHeadroom, tpotHeadroom float64, hasPrediction bool) framework.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
+		Key: fwkplugin.EndPointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
 	}
 	ep := framework.NewEndpoint(meta, &fwkdl.Metrics{}, fwkdl.NewAttributes())
 	if hasPrediction {
@@ -86,7 +87,7 @@ func TestFilter_BothTiers_SelectPositive(t *testing.T) {
 	}
 	result := p.Filter(context.Background(), nil, nil, endpoints)
 	assert.Equal(t, 2, len(result), "should select positive tier")
-	assert.Equal(t, "pos1", result[0].GetMetadata().NamespacedName.Name)
+	assert.Equal(t, "pos1", result[0].GetMetadata().Key.NamespacedName.Name)
 }
 
 func TestFilter_BothTiers_EpsilonExploreNeg(t *testing.T) {
@@ -97,7 +98,7 @@ func TestFilter_BothTiers_EpsilonExploreNeg(t *testing.T) {
 	}
 	result := p.Filter(context.Background(), nil, nil, endpoints)
 	assert.Equal(t, 1, len(result), "should select negative tier")
-	assert.Equal(t, "neg1", result[0].GetMetadata().NamespacedName.Name)
+	assert.Equal(t, "neg1", result[0].GetMetadata().Key.NamespacedName.Name)
 }
 
 func TestFilter_NoPredictionGoesToNegative(t *testing.T) {
@@ -109,7 +110,7 @@ func TestFilter_NoPredictionGoesToNegative(t *testing.T) {
 	result := p.Filter(context.Background(), nil, nil, endpoints)
 	// nopred goes to negative, epsilon selects negative
 	assert.Equal(t, 1, len(result))
-	assert.Equal(t, "nopred", result[0].GetMetadata().NamespacedName.Name)
+	assert.Equal(t, "nopred", result[0].GetMetadata().Key.NamespacedName.Name)
 }
 
 // Note: Deficit bucketing tests are in the slo-deficit-bucket-filter package.

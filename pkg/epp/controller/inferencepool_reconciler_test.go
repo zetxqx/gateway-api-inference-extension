@@ -121,7 +121,7 @@ func TestInferencePoolReconciler(t *testing.T) {
 			t.Errorf("Unexpected InferencePool reconcile error: %v", err)
 		}
 		endpointPool1 := pool.InferencePoolToEndpointPool(pool1)
-		if diff := diffStore(ds, diffStoreParams{wantPool: endpointPool1, wantEndpoints: []string{"pod1-rank-0", "pod2-rank-0"}}); diff != "" {
+		if diff := diffStore(ds, diffStoreParams{wantPool: endpointPool1, wantEndpoints: []string{"pod1", "pod2"}}); diff != "" {
 			t.Errorf("Unexpected diff (+got/-want): %s", diff)
 		}
 
@@ -139,7 +139,7 @@ func TestInferencePoolReconciler(t *testing.T) {
 			t.Errorf("Unexpected InferencePool reconcile error: %v", err)
 		}
 		newEndpointPool1 := pool.InferencePoolToEndpointPool(newPool1)
-		if diff := diffStore(ds, diffStoreParams{wantPool: newEndpointPool1, wantEndpoints: []string{"pod5-rank-0"}}); diff != "" {
+		if diff := diffStore(ds, diffStoreParams{wantPool: newEndpointPool1, wantEndpoints: []string{"pod5"}}); diff != "" {
 			t.Errorf("Unexpected diff (+got/-want): %s", diff)
 		}
 
@@ -155,7 +155,7 @@ func TestInferencePoolReconciler(t *testing.T) {
 			t.Errorf("Unexpected InferencePool reconcile error: %v", err)
 		}
 		newEndpointPool1 = pool.InferencePoolToEndpointPool(newPool1)
-		if diff := diffStore(ds, diffStoreParams{wantPool: newEndpointPool1, wantEndpoints: []string{"pod5-rank-0"}}); diff != "" {
+		if diff := diffStore(ds, diffStoreParams{wantPool: newEndpointPool1, wantEndpoints: []string{"pod5"}}); diff != "" {
 			t.Errorf("Unexpected diff (+got/-want): %s", diff)
 		}
 
@@ -193,7 +193,7 @@ func diffStore(store datastore.Datastore, params diffStoreParams) string {
 	}
 	gotEndpoints := []string{}
 	for _, em := range store.PodList(datastore.AllPodsPredicate) {
-		gotEndpoints = append(gotEndpoints, em.GetMetadata().NamespacedName.Name)
+		gotEndpoints = append(gotEndpoints, em.GetMetadata().GetNamespacedName().Name)
 	}
 	if diff := cmp.Diff(params.wantEndpoints, gotEndpoints, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
 		return "endpoints:" + diff

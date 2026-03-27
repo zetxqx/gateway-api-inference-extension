@@ -25,13 +25,14 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 )
 
 func TestPickMaxScorePicker(t *testing.T) {
-	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}, nil, nil)
-	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}, nil, nil)
-	endpoint3 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}, nil, nil)
+	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil)
+	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil)
+	endpoint3 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil)
 
 	tests := []struct {
 		name               string

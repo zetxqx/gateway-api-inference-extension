@@ -23,7 +23,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -32,7 +31,7 @@ import (
 
 func makePodMetric(name string, queueDepth int, kvUsage float64, updateTime time.Time) fwkdl.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: name, Namespace: "ns1"},
+		Key: fwkplugin.NewEndPointKey(name, "ns1", 8000),
 	}
 	metrics := fwkdl.NewMetrics()
 	metrics.WaitingQueueSize = queueDepth
@@ -48,7 +47,7 @@ func makeSchedulingEndpoint(
 	updateTime time.Time,
 ) schedulingtypes.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: name, Namespace: "ns1"},
+		Key: fwkplugin.NewEndPointKey(name, "ns1", 8000),
 	}
 	metrics := fwkdl.NewMetrics()
 	metrics.WaitingQueueSize = queueDepth
@@ -118,7 +117,7 @@ func TestUtilizationDetectorFactory(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			plugin, err := UtilizationDetectorFactory("test-util-detector", tc.configJSON, fwkplugin.NewEppHandle(t.Context(), func() []types.NamespacedName { return nil }))
+			plugin, err := UtilizationDetectorFactory("test-util-detector", tc.configJSON, fwkplugin.NewEppHandle(t.Context(), func() []fwkplugin.EndPointKey { return nil }))
 			if tc.wantError {
 				require.Error(t, err, "Expected initialization to fail on invalid configuration")
 				require.Nil(t, plugin, "Plugin must be nil when initialization fails")
@@ -134,7 +133,7 @@ func TestUtilizationDetectorFactory(t *testing.T) {
 func TestDetector_TypedName(t *testing.T) {
 	t.Parallel()
 	plugin, err := UtilizationDetectorFactory("test-plugin", []byte(`{}`), fwkplugin.NewEppHandle(
-		t.Context(), func() []types.NamespacedName { return nil }))
+		t.Context(), func() []fwkplugin.EndPointKey { return nil }))
 	require.NoError(t, err, "Plugin initialization should succeed")
 	require.Equal(t, "test-plugin", plugin.TypedName().Name,
 		"TypedName must match the name provided during initialization")
@@ -203,7 +202,7 @@ func TestDetector_Saturation(t *testing.T) {
 			name: "Single pod with nil metrics",
 			pods: []fwkdl.Endpoint{
 				fwkdl.NewEndpoint(&fwkdl.EndpointMetadata{
-					NamespacedName: types.NamespacedName{Name: "pod1", Namespace: "ns1"},
+					Key: fwkplugin.NewEndPointKey("pod1", "ns1", 0),
 				}, nil),
 			},
 			wantSaturation: 1.0,

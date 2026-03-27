@@ -33,7 +33,7 @@ type Plugin struct {
 	typedName plugin.TypedName
 }
 
-// compile-time type assertions
+// compile-time type assertion
 var (
 	_ framework.Scorer = &Plugin{}
 )

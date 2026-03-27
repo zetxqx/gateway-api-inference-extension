@@ -24,7 +24,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -127,7 +126,7 @@ func TestConcurrencyDetectorFactory(t *testing.T) {
 			t.Parallel()
 
 			plugin, err := ConcurrencyDetectorFactory("test-concurrency-detector",
-				tc.configJSON, fwkplugin.NewEppHandle(t.Context(), func() []types.NamespacedName { return nil }))
+				tc.configJSON, fwkplugin.NewEppHandle(t.Context(), func() []fwkplugin.EndPointKey { return nil }))
 			if tc.wantError {
 				require.Error(t, err, "Expected initialization to fail on invalid configuration")
 				require.Nil(t, plugin, "Plugin must be nil when initialization fails")
@@ -194,7 +193,8 @@ func TestDetector_Configuration(t *testing.T) {
 				newStubSchedulingEndpoint(reg, cleanEndpoint),
 			})
 			require.Len(t, kept, 1, "Filter should drop the overloaded endpoint")
-			require.Equal(t, cleanEndpoint, kept[0].GetMetadata().NamespacedName.Name)
+			require.Equal(t, cleanEndpoint, kept[0].GetMetadata().GetNamespacedName().Name,
+				"Filter should retain the clean fallback endpoint")
 		})
 	})
 }
@@ -203,7 +203,7 @@ func TestDetector_Configuration(t *testing.T) {
 func TestDetector_TypedName(t *testing.T) {
 	t.Parallel()
 	plugin, err := ConcurrencyDetectorFactory("test-plugin", []byte(`{}`), fwkplugin.NewEppHandle(
-		t.Context(), func() []types.NamespacedName { return nil }))
+		t.Context(), func() []fwkplugin.EndPointKey { return nil }))
 	require.NoError(t, err, "Plugin initialization should succeed")
 	require.Equal(t, "test-plugin", plugin.TypedName().Name)
 	require.Equal(t, "concurrency-detector", plugin.TypedName().Type)
@@ -541,7 +541,7 @@ func TestDetector_ConcurrencyStress(t *testing.T) {
 // --- Test Helpers & Mocks ---
 
 func simulatePreRequest(_ context.Context, reg *localRegistry, req *schedulingtypes.InferenceRequest, result *schedulingtypes.SchedulingResult) {
-	endpointName := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().NamespacedName.Name
+	endpointName := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().Key.NamespacedName.Name
 	id := fullEndpointName(endpointName)
 	reg.update(id, func(load *attrconcurrency.InFlightLoad) {
 		load.Requests++
@@ -555,7 +555,7 @@ func simulateResponseBody(_ context.Context, reg *localRegistry, req *scheduling
 	if metadata == nil || resp == nil || !resp.EndOfStream {
 		return
 	}
-	id := metadata.NamespacedName.String()
+	id := metadata.Key.String()
 	reg.update(id, func(load *attrconcurrency.InFlightLoad) {
 		load.Requests--
 		if req != nil {
@@ -589,7 +589,8 @@ func driveTokenLoad(_ context.Context, reg *localRegistry, _ *detector, endpoint
 }
 
 func fullEndpointName(name string) string {
-	return types.NamespacedName{Name: name, Namespace: "default"}.String()
+	key := fwkplugin.NewEndPointKey(name, "default", 8000)
+	return (&key).String()
 }
 
 func makeSchedulingResult(reg *localRegistry, endpointName string) *schedulingtypes.SchedulingResult {
@@ -631,7 +632,7 @@ func (e *liveEndpoint) Clone() datalayer.AttributeMap   { return e }
 func newFakeEndpoint(reg *localRegistry, name string) datalayer.Endpoint {
 	id := fullEndpointName(name)
 	return &liveEndpoint{
-		metadata: &datalayer.EndpointMetadata{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndPointKey(name, "default", 8000)},
 		reg:      reg,
 		id:       id,
 	}
@@ -647,7 +648,7 @@ type liveSchedulingEndpoint struct {
 
 func newStubSchedulingEndpoint(reg *localRegistry, name string) *liveSchedulingEndpoint {
 	return &liveSchedulingEndpoint{
-		metadata: &datalayer.EndpointMetadata{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndPointKey(name, "default", 8000)},
 		reg:      reg,
 		id:       fullEndpointName(name),
 	}

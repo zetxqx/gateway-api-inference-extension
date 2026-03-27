@@ -85,7 +85,7 @@ func (s *TokenLoadScorer) Score(ctx context.Context, _ *framework.CycleState, _ 
 	logger := log.FromContext(ctx)
 
 	for _, endpoint := range endpoints {
-		endpointID := endpoint.GetMetadata().NamespacedName.String()
+		endpointID := endpoint.GetMetadata().Key.String()
 		tokenLoad := 0.0
 
 		if val, ok := endpoint.Get(attrconcurrency.InFlightLoadKey); ok {

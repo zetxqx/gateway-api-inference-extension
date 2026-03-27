@@ -110,7 +110,7 @@ func (p *prepareData) CleanUpInactivePods(ctx context.Context, handle plugin.Han
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			podNames := handle.PodList()
+			podNames := handle.EndPointList()
 			activePods := make(map[ServerID]struct{}, len(podNames))
 			for _, nsn := range podNames {
 				activePods[ServerID(nsn)] = struct{}{}
@@ -148,7 +148,7 @@ func (p *prepareData) PrepareRequestData(ctx context.Context, request *framework
 	prefixCacheServers := p.matchLongestPrefix(ctx, hashes)
 
 	for _, pod := range pods {
-		matchLen := prefixCacheServers[ServerID(pod.GetMetadata().NamespacedName)]
+		matchLen := prefixCacheServers[ServerID(pod.GetMetadata().Key)]
 		pod.Put(attrprefix.PrefixCacheMatchInfoKey, attrprefix.NewPrefixCacheMatchInfo(matchLen, total, blockSize))
 	}
 
@@ -198,7 +198,7 @@ func (p *prepareData) PreRequest(ctx context.Context, request *framework.Inferen
 
 	// Record metrics.
 	total := len(state.PrefixHashes)
-	matchLen := state.PrefixCacheServers[ServerID(targetEndpoint.GetMetadata().NamespacedName)]
+	matchLen := state.PrefixCacheServers[ServerID(targetEndpoint.GetMetadata().Key)]
 	blockSize := p.GetBlockSize(primaryProfileResult.TargetEndpoints)
 	avgChars := averageCharactersPerToken
 	metrics.RecordPrefixCacheMatch(matchLen*blockSize*avgChars, total*blockSize*avgChars)
@@ -210,7 +210,7 @@ func (p *prepareData) makeserver(targetEndpoint framework.Endpoint) server {
 		gpuBlocks = targetEndpoint.GetMetrics().CacheNumBlocks
 	}
 	return server{
-		ServerID:       ServerID(targetEndpoint.GetMetadata().NamespacedName),
+		ServerID:       ServerID(targetEndpoint.GetMetadata().Key),
 		NumOfGPUBlocks: gpuBlocks,
 	}
 }

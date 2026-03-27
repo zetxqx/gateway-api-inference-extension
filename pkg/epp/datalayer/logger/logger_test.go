@@ -26,7 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -34,6 +33,7 @@ import (
 	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	poolutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/pool"
 )
@@ -76,10 +76,11 @@ func TestLogger(t *testing.T) {
 
 	logOutput := b.read()
 	assert.Contains(t, logOutput, "Refreshing Prometheus Metrics	{\"ReadyPods\": 2}")
-	assert.Contains(t, logOutput, "Current Pods and metrics gathered	{\"Fresh metrics\": \"[Metadata: {NamespacedName:default/pod1 PodName: Address:1.2.3.4:5678")
+	assert.Contains(t, logOutput, "Current Pods and metrics gathered")
+	assert.Contains(t, logOutput, "Metadata: {Key:default/pod1:0")
 	assert.Contains(t, logOutput, "Metrics: {ActiveModels:map[modelA:1] WaitingModels:map[modelB:2] MaxActiveModels:5")
 	assert.Contains(t, logOutput, "RunningRequestsSize:3 WaitingQueueSize:7 KVCacheUsagePercent:42.5 KvCacheMaxTokenCapacity:2048")
-	assert.Contains(t, logOutput, "Metadata: {NamespacedName:default/pod2 PodName: Address:1.2.3.4:5679")
+	assert.Contains(t, logOutput, "Metadata: {Key:default/pod2:0 PodName: Address:1.2.3.4:5679")
 	assert.Contains(t, logOutput, "\"Stale metrics\": \"[]\"")
 }
 
@@ -205,17 +206,11 @@ func (f *FakeOddMetricsDataStore) PodList(predicate func(fwkdl.Endpoint) bool) [
 }
 
 var pod1 = &fwkdl.EndpointMetadata{
-	NamespacedName: types.NamespacedName{
-		Name:      "pod1",
-		Namespace: "default",
-	},
+	Key:     plugin.NewEndPointKey("pod1", "default", 0),
 	Address: "1.2.3.4:5678",
 }
 var pod2 = &fwkdl.EndpointMetadata{
-	NamespacedName: types.NamespacedName{
-		Name:      "pod2",
-		Namespace: "default",
-	},
+	Key:     plugin.NewEndPointKey("pod2", "default", 0),
 	Address: "1.2.3.4:5679",
 }
 

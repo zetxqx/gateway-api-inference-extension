@@ -23,11 +23,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	// Import config for thresholds
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/picker"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/scheduling/picker/maxscore"
@@ -85,7 +85,7 @@ func TestSchedule(t *testing.T) {
 			// model being active, and has low KV cache.
 			input: []fwksched.Endpoint{
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod1", "ns", 8000)},
 					&fwkdl.Metrics{
 						WaitingQueueSize:    0,
 						KVCacheUsagePercent: 0.2,
@@ -96,7 +96,7 @@ func TestSchedule(t *testing.T) {
 						},
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod2", "ns", 8000)},
 					&fwkdl.Metrics{
 						WaitingQueueSize:    0,
 						KVCacheUsagePercent: 0.2,
@@ -107,7 +107,7 @@ func TestSchedule(t *testing.T) {
 						},
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod3", "ns", 8000)},
 					&fwkdl.Metrics{
 						WaitingQueueSize:    10,
 						KVCacheUsagePercent: 0.8,
@@ -123,7 +123,7 @@ func TestSchedule(t *testing.T) {
 						TargetEndpoints: []fwksched.Endpoint{
 							&fwksched.ScoredEndpoint{
 								Endpoint: fwksched.NewEndpoint(
-									&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}},
+									&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod2", "ns", 8000)},
 									&fwkdl.Metrics{
 										WaitingQueueSize:    0,
 										KVCacheUsagePercent: 0.2,

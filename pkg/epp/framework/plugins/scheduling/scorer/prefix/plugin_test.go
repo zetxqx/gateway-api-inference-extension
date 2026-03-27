@@ -21,24 +21,28 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	attrprefix "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/prefix"
 )
 
 func TestPrefixPluginScore(t *testing.T) {
-	p, _ := New(context.Background())
-	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}, fwkdl.NewMetrics(), nil)
-	endpoint1.Put(attrprefix.PrefixCacheMatchInfoKey, attrprefix.NewPrefixCacheMatchInfo(5, 10, 1))
+	plugin, err := New(context.Background())
+	assert.NoError(t, err)
 
-	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}, fwkdl.NewMetrics(), nil)
-	endpoint2.Put(attrprefix.PrefixCacheMatchInfoKey, attrprefix.NewPrefixCacheMatchInfo(2, 10, 1))
+	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod1", "default", 0)}, nil, nil)
+	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod2", "default", 0)}, nil, nil)
+
+	// Set prefix match info on endpoints
+	endpoint1.Put(attrprefix.PrefixCacheMatchInfoKey, attrprefix.NewPrefixCacheMatchInfo(1, 2, 16))
+	endpoint2.Put(attrprefix.PrefixCacheMatchInfoKey, attrprefix.NewPrefixCacheMatchInfo(0, 2, 16))
 
 	endpoints := []fwksched.Endpoint{endpoint1, endpoint2}
-	scores := p.Score(context.Background(), fwksched.NewCycleState(), nil, endpoints)
+
+	scores := plugin.Score(context.Background(), fwksched.NewCycleState(), nil, endpoints)
 
 	assert.Equal(t, 0.5, scores[endpoint1])
-	assert.Equal(t, 0.2, scores[endpoint2])
+	assert.Equal(t, 0.0, scores[endpoint2])
 }

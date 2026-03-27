@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	framework "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	attrlatency "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/latency"
 	attrprefix "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/prefix"
@@ -33,7 +34,7 @@ import (
 // (prefixMatch out of 100 total blocks) and predicted TTFT.
 func makeEndpoint(name string, prefixMatch int, ttft float64) framework.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
+		Key: fwkplugin.EndPointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
 	}
 	ep := framework.NewEndpoint(meta, &fwkdl.Metrics{}, fwkdl.NewAttributes())
 	if prefixMatch >= 0 {

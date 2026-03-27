@@ -30,10 +30,10 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/extractor/mocks"
 	httpds "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/source/http"
 )
@@ -102,9 +102,9 @@ func TestRuntimePollingDispatch(t *testing.T) {
 			t.Cleanup(cancel)
 
 			endpointMeta := &fwkdl.EndpointMetadata{
-				NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "test-ns"},
-				MetricsHost:    srv.Listener.Addr().String(),
-				Port:           "8000",
+				Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+				MetricsHost: srv.Listener.Addr().String(),
+				Port:        "8000",
 			}
 
 			ep := r.NewEndpoint(ctx, endpointMeta, nil)
@@ -154,9 +154,9 @@ func TestRuntimePollingMultipleExtractors(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "test-ns"},
-		MetricsHost:    srv.Listener.Addr().String(),
-		Port:           "8000",
+		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		MetricsHost: srv.Listener.Addr().String(),
+		Port:        "8000",
 	}
 
 	ep := r.NewEndpoint(ctx, endpointMeta, nil)
@@ -203,9 +203,9 @@ func TestRuntimePollingEndpointLifecycle(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "test-ns"},
-		MetricsHost:    srv.Listener.Addr().String(),
-		Port:           "8000",
+		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		MetricsHost: srv.Listener.Addr().String(),
+		Port:        "8000",
 	}
 
 	ep := r.NewEndpoint(ctx, endpointMeta, nil)
@@ -257,9 +257,9 @@ func TestRuntimePollingWithoutExtractors(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "test-ns"},
-		MetricsHost:    srv.Listener.Addr().String(),
-		Port:           "8000",
+		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		MetricsHost: srv.Listener.Addr().String(),
+		Port:        "8000",
 	}
 
 	ep := r.NewEndpoint(ctx, endpointMeta, nil)
@@ -296,9 +296,9 @@ func TestRuntimePollingHTTPError(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "test-ns"},
-		MetricsHost:    srv.Listener.Addr().String(),
-		Port:           "8000",
+		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		MetricsHost: srv.Listener.Addr().String(),
+		Port:        "8000",
 	}
 
 	ep := r.NewEndpoint(ctx, endpointMeta, nil)

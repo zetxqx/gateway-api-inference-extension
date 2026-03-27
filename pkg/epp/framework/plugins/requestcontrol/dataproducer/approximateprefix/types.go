@@ -19,7 +19,6 @@ package approximateprefix
 import (
 	"time"
 
-	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
 
@@ -44,12 +43,8 @@ type server struct {
 	NumOfGPUBlocks int
 }
 
-// ServerID is a unique identifier for a server, based on its NamespacedName.
-type ServerID k8stypes.NamespacedName
-
-func (s ServerID) String() string {
-	return k8stypes.NamespacedName(s).String()
-}
+// ServerID is a unique identifier for a server, based on its EndPointKey.
+type ServerID plugin.EndPointKey
 
 // SchedulingContextState is the state of this plugin to be used during a scheduling cycle.
 type SchedulingContextState struct {
