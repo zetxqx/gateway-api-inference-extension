@@ -20,16 +20,15 @@ import (
 	"context"
 	"testing"
 
-	k8stypes "k8s.io/apimachinery/pkg/types"
-
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	schedulingtypes "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	attrlatency "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/latency"
 )
 
 func makeLatencyAdmissionEndpoint(name string, kvCache float64, runningRequests int) schedulingtypes.Endpoint {
 	return schedulingtypes.NewEndpoint(
-		&fwkdl.EndpointMetadata{NamespacedName: k8stypes.NamespacedName{Name: name}},
+		&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey(name, "default", 8000)},
 		&fwkdl.Metrics{
 			KVCacheUsagePercent: kvCache,
 			RunningRequestsSize: runningRequests,

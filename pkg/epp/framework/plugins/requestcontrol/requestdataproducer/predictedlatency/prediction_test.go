@@ -23,14 +23,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	latencypredictor "sigs.k8s.io/gateway-api-inference-extension/sidecars/latencypredictorasync"
 )
 
 func createTestEndpointWithLabels(name string, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int, labels map[string]string) fwksched.Endpoint {
 	return fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
-		Labels:         labels,
+		Key: plugin.EndPointKey{
+			NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
+		},
+		Labels: labels,
 	}, &fwkdl.Metrics{
 		KVCacheUsagePercent: kvCacheUsage,
 		RunningRequestsSize: runningRequestsSize,

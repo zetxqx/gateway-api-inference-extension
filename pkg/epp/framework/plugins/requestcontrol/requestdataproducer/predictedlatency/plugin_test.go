@@ -28,6 +28,7 @@ import (
 
 	reqcommon "sigs.k8s.io/gateway-api-inference-extension/pkg/common/request"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwksched "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 	latencypredictor "sigs.k8s.io/gateway-api-inference-extension/sidecars/latencypredictorasync"
 	"sigs.k8s.io/gateway-api-inference-extension/test/utils"
@@ -100,9 +101,11 @@ func (m *mockPredictor) GetServerStatus(ctx context.Context) (*latencypredictor.
 
 func createTestEndpoint(name string, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int) fwksched.Endpoint {
 	return fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{
-			Name:      name,
-			Namespace: "default",
+		Key: plugin.EndPointKey{
+			NamespacedName: types.NamespacedName{
+				Name:      name,
+				Namespace: "default",
+			},
 		}},
 		&fwkdl.Metrics{
 			KVCacheUsagePercent: kvCacheUsage,
@@ -185,28 +188,22 @@ func TestPredictedLatency_GetPodRunningRequestCount(t *testing.T) {
 		{
 			name: "One running request",
 			setupRequests: func(r *PredictedLatency, p fwksched.Endpoint) {
-				podName := types.NamespacedName{
-					Name:      p.GetMetadata().NamespacedName.Name,
-					Namespace: p.GetMetadata().NamespacedName.Namespace,
-				}
+				endpointKey := p.GetMetadata().Key
 				queue := newRequestPriorityQueue()
 				queue.Add("req1", 0.04)
-				r.runningRequestLists.Store(podName, queue)
+				r.runningRequestLists.Store(endpointKey, queue)
 			},
 			expectedCount: 1,
 		},
 		{
 			name: "Multiple running requests",
 			setupRequests: func(r *PredictedLatency, p fwksched.Endpoint) {
-				endpointName := types.NamespacedName{
-					Name:      p.GetMetadata().NamespacedName.Name,
-					Namespace: p.GetMetadata().NamespacedName.Namespace,
-				}
+				endpointKey := p.GetMetadata().Key
 				queue := newRequestPriorityQueue()
 				queue.Add("req1", 0.04)
 				queue.Add("req2", 0.03)
 				queue.Add("req3", 0.05)
-				r.runningRequestLists.Store(endpointName, queue)
+				r.runningRequestLists.Store(endpointKey, queue)
 			},
 			expectedCount: 3,
 		},
@@ -241,28 +238,22 @@ func TestPredictedLatency_GetPodMinTPOTSLO(t *testing.T) {
 		{
 			name: "One running request",
 			setupRequests: func(r *PredictedLatency, e fwksched.Endpoint) {
-				endpointName := types.NamespacedName{
-					Name:      e.GetMetadata().NamespacedName.Name,
-					Namespace: e.GetMetadata().NamespacedName.Namespace,
-				}
+				endpointKey := e.GetMetadata().Key
 				queue := newRequestPriorityQueue()
 				queue.Add("req1", 0.04)
-				r.runningRequestLists.Store(endpointName, queue)
+				r.runningRequestLists.Store(endpointKey, queue)
 			},
 			expectedSLO: 0.04,
 		},
 		{
 			name: "Multiple running requests - should return minimum",
 			setupRequests: func(r *PredictedLatency, e fwksched.Endpoint) {
-				endpointName := types.NamespacedName{
-					Name:      e.GetMetadata().NamespacedName.Name,
-					Namespace: e.GetMetadata().NamespacedName.Namespace,
-				}
+				endpointKey := e.GetMetadata().Key
 				queue := newRequestPriorityQueue()
 				queue.Add("req1", 0.05)
 				queue.Add("req2", 0.03) // This is the minimum
 				queue.Add("req3", 0.04)
-				r.runningRequestLists.Store(endpointName, queue)
+				r.runningRequestLists.Store(endpointKey, queue)
 			},
 			expectedSLO: 0.03,
 		},
@@ -381,6 +372,7 @@ func TestSloContextStoreEviction(t *testing.T) {
 
 	requestID := "test-req-id"
 	endpointName := types.NamespacedName{Name: "test-model", Namespace: "default"}
+	endpointKey := plugin.EndPointKey{NamespacedName: endpointName}
 
 	req := &fwksched.LLMRequest{
 		Headers: map[string]string{
@@ -389,7 +381,7 @@ func TestSloContextStoreEviction(t *testing.T) {
 	}
 
 	metadata := &fwkdl.EndpointMetadata{
-		NamespacedName: endpointName,
+		Key: endpointKey,
 	}
 
 	sloCtx := newPredictedLatencyContext(req)
@@ -400,7 +392,7 @@ func TestSloContextStoreEviction(t *testing.T) {
 
 	queue := newRequestPriorityQueue()
 	queue.Add(requestID, sloCtx.avgTPOTSLO)
-	pl.runningRequestLists.Store(endpointName, queue)
+	pl.runningRequestLists.Store(endpointKey, queue)
 
 	assert.True(t, queue.Contains(requestID), "Request should be in queue initially")
 	item := pl.sloContextStore.Get(requestID)

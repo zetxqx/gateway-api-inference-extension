@@ -22,12 +22,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/types"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	eppmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/metrics"
 	poolutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/pool"
 )
@@ -77,12 +77,12 @@ func (f *fakeOddMetricsDataStore) PoolGet() (*datalayer.EndpointPool, error) {
 
 func (f *fakeOddMetricsDataStore) PodList(predicate func(fwkdl.Endpoint) bool) []fwkdl.Endpoint {
 	pod1 := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: "pod1", Namespace: "default"},
-		Address:        "1.2.3.4:5678",
+		Key:     plugin.NewEndPointKey("pod1", "default", 8000),
+		Address: "1.2.3.4:5678",
 	}
 	pod2 := &fwkdl.EndpointMetadata{
-		NamespacedName: types.NamespacedName{Name: "pod2", Namespace: "default"},
-		Address:        "1.2.3.4:5679",
+		Key:     plugin.NewEndPointKey("pod2", "default", 8000),
+		Address: "1.2.3.4:5679",
 	}
 	m1 := &fwkdl.Metrics{
 		RunningRequestsSize: 0,

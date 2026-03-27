@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/source/mocks"
 	poolutil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/pool"
 )
@@ -41,10 +42,11 @@ import (
 var (
 	pod1 = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "pod1",
+			Name:      "pod1-rank-0",
+			Namespace: "default",
 		},
 	}
-	pod1NamespacedName = types.NamespacedName{Name: pod1.Name + "-rank-0", Namespace: pod1.Namespace}
+	pod1NamespacedName = types.NamespacedName{Name: "pod1-rank-0", Namespace: pod1.Namespace}
 	pod1Metrics        = &fwkdl.Metrics{
 		WaitingQueueSize:    100,
 		KVCacheUsagePercent: 0.2,
@@ -72,8 +74,9 @@ func TestNoMetricsCollected(t *testing.T) {
 }
 
 func TestMetricsCollected(t *testing.T) {
-	metrics := map[types.NamespacedName]*fwkdl.Metrics{
-		pod1NamespacedName: pod1Metrics,
+	podKey := plugin.NewEndPointKey(pod1NamespacedName.Name, pod1NamespacedName.Namespace, 8000)
+	metrics := map[plugin.EndPointKey]*fwkdl.Metrics{
+		podKey: pod1Metrics,
 	}
 	period := time.Millisecond
 	factories := []datalayer.EndpointFactory{
