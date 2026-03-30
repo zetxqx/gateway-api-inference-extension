@@ -23,7 +23,9 @@
    Set the model server environment variable:
 
    ```bash
-   MODEL_SERVER=vllm  # sglang is also supported.
+   export MODEL_SERVER=vllm  # sglang is also supported.
+   export MODEL_SERVER_PROTOCOL=http # Change to grpc for gRPC
+   export TARGET_PORT=8000 # Change to 50051 for gRPC
    ```
 
 --8<-- "site-src/_includes/model-server-gpu.md"
@@ -49,6 +51,23 @@
     export INFERENCE_POOL_NAME=vllm-qwen3-32b
     export MODEL_NAME=Qwen/Qwen3-32B
     kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/sim-deployment.yaml
+    ```
+
+--8<-- "site-src/_includes/model-server-gpu-grpc.md"
+
+    ```bash
+    export INFERENCE_POOL_NAME=${MODEL_SERVER}-grpc-qwen3-32b
+    export MODEL_NAME=Qwen/Qwen3-32B
+    kubectl create secret generic hf-token --from-literal=token=$HF_TOKEN
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/${MODEL_SERVER}/gpu-grpc-deployment.yaml
+    ```
+
+--8<-- "site-src/_includes/model-server-sim-grpc.md"
+
+    ```bash
+    export INFERENCE_POOL_NAME=vllm-grpc-qwen3-32b
+    export MODEL_NAME=Qwen/Qwen3-32B
+    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/sim-grpc-deployment.yaml
     ```
 
 ### Install the Inference Extension CRDs
@@ -234,7 +253,42 @@ Deploy the sample InferenceObjective which allows you to specify priority of req
    kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferenceobjective.yaml
    ```
 
---8<-- "site-src/_includes/test.md"
+### Try it out
+
+   Wait until the gateway is ready.
+
+=== "HTTP"
+
+    ```bash
+    IP=$(kubectl get gateway/inference-gateway -o jsonpath='{.status.addresses[0].value}')
+    PORT=80
+
+    curl -i ${IP}:${PORT}/v1/completions -H 'Content-Type: application/json' -d '{
+    "model": "${MODEL_NAME}",
+    "prompt": "Write as if you were a critic: San Francisco",
+    "max_tokens": 100,
+    "temperature": 0
+    }'
+    ```
+
+=== "gRPC"
+
+    ```bash
+    IP=$(kubectl get gateway/inference-gateway -o jsonpath='{.status.addresses[0].value}')
+    PORT=80
+    
+    grpcurl -v -plaintext \
+      -proto pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/proto/vllm_engine.proto \
+      -d '{
+        "text": "Write as if you were a critic: San Francisco",
+        "sampling_params": {
+          "max_tokens": 100
+        },
+        "stream": true
+      }' \
+      ${IP}:${PORT} \
+      vllm.grpc.engine.VllmEngine/Generate
+    ```
 
 --8<-- "site-src/_includes/bbr.md"
 
@@ -252,7 +306,9 @@ If you wish to exercise that function, then retain the setup you have deployed s
       kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/inferenceobjective.yaml --ignore-not-found
       kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/cpu-deployment.yaml --ignore-not-found
       kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/${MODEL_SERVER}/gpu-deployment.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/${MODEL_SERVER}/gpu-grpc-deployment.yaml --ignore-not-found
       kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/sim-deployment.yaml --ignore-not-found
+      kubectl delete -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/raw/main/config/manifests/vllm/sim-grpc-deployment.yaml --ignore-not-found
       kubectl delete secret hf-token --ignore-not-found
       ```
 
