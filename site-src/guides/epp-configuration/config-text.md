@@ -9,7 +9,8 @@ At this time the YAML file based configuration allows for:
 3. The configuration of the saturation detector.
 4. The configuration of the Flow Control system.
 5. The configuration of the data layer.
-6. A set of feature gates that are used to enable experimental features.
+6. The configuration of the payload parser (used to understand requests and responses).
+7. A set of feature gates that are used to enable experimental features.
 
 The YAML file can either be specified as a path to a file or in-line as a parameter.
 
@@ -32,6 +33,8 @@ saturationDetector:
 data:
   ...
 flowControl:
+  ...
+parser:
   ...
 featureGates:
   ...
@@ -57,6 +60,8 @@ fairness. This section is described in more detail in the section
 
 The `data` section configures the data layer, which is used to gather information (such as metrics) used in making scheduling
 decisions. This section is described in more detail in the section [Data Layer configuration](#data-layer-configuration).
+
+The `parser` section configures the parser, which is used to understand the payload of requests and responses for features like prefix-cache aware routing and usage tracking. This section is described in more detail in the section [Parser Configuration](#parser-configuration).
 
 A complete configuration might look like this:
 ```yaml
@@ -509,15 +514,24 @@ list has the following field:
 **Note**: The names of the plugin instances mentioned above, refer to plugin instances defined in the plugins section
 of the configuration.
 
+<<<<<<< HEAD
 ### Minimal configuration (core vLLM metrics)
 
 The built-in `metrics-data-source` and `core-metrics-extractor` plugins collect the five vLLM Model
 Server Protocol metrics out of the box - no `parameters` are required:
+=======
+## Parser Configuration
+
+The `parser` section configures the parser to understand the request and response payloads. This is crucial for enabling advanced capabilities such as prefix-cache aware routing, request/response usage tracking, and other payload-specific processing. By default, if no parser is specified, the `openai-parser` is used, which supports the [OpenAI API](https://developers.openai.com/api/reference/overview).
+
+Here is an example configuration that uses the `vllmgrpc-parser`:
+>>>>>>> 5943afb7 (add parser doc)
 
 ```yaml
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
+<<<<<<< HEAD
   - type: metrics-data-source
   - type: core-metrics-extractor
 
@@ -646,6 +660,20 @@ deployment that doesn't load LoRA adapters.
 
 To eliminate the error entirely, disable the spec with an empty string as shown above.
 
+=======
+- name: maxScore
+  type: max-score-picker
+- name: vllmgrpcParser
+  type: vllmgrpc-parser
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: maxScore
+parser:
+  pluginRef: vllmgrpcParser
+```
+
+>>>>>>> 5943afb7 (add parser doc)
 ## Feature Gates
 
 The Feature Gates section allows for the enabling of experimental features of the IGW. These experimental
