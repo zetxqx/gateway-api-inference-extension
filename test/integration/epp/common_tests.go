@@ -26,7 +26,6 @@ import (
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	envoyTypePb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	reqcommon "sigs.k8s.io/gateway-api-inference-extension/pkg/common/request"
-	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/gen"
 	"sigs.k8s.io/gateway-api-inference-extension/test/integration"
 )
 
@@ -146,14 +145,8 @@ func buildRouteResponse(endpoint, targetModel, prompt string, stream bool) []*ex
 	)
 }
 
-func buildGRPCRouteResponse(endpoint, prompt, method string, stream bool) []*extProcPb.ProcessingResponse {
-	req := &pb.GenerateRequest{
-		Input: &pb.GenerateRequest_Text{
-			Text: prompt,
-		},
-		Stream: stream,
-	}
-	j, _ := integration.CreateGrpcPayload(req)
+func buildGRPCRouteResponse(endpoint, prompt, methodName string, stream bool) []*extProcPb.ProcessingResponse {
+	j, _ := integration.CreateGrpcPayload(integration.GRPCRequestProto(prompt, methodName, stream))
 
 	return integration.NewRequestBufferedResponse(
 		endpoint, j,
@@ -162,7 +155,7 @@ func buildGRPCRouteResponse(endpoint, prompt, method string, stream bool) []*ext
 			Key:      reqcommon.RequestIdHeaderKey,
 			RawValue: []byte("test-request-id"),
 		}},
-		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{Key: ":path", RawValue: []byte(method)}},
+		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{Key: ":path", RawValue: []byte(methodName)}},
 	)
 }
 

@@ -53,6 +53,8 @@ const (
 	headerKeyContentLength       = "Content-Length"
 	extprocConnSetupTimeout      = 10 * time.Second
 	extPorcConnSetupPollInterval = 50 * time.Millisecond
+	GenerateGRPCMethodName       = "/vllm.grpc.engine.VllmEngine/Generate"
+	EmbedGRPCMethodName          = "/vllm.grpc.engine.VllmEngine/Embed"
 )
 
 // --- Request Builders (Protocol Level) ---
@@ -179,38 +181,41 @@ func GenerateRequestWithStream(logger logr.Logger, prompt, model string, filterM
 	return generateRequestFromBytes(llmReq, filterMetadata)
 }
 
-func GenerateGRPCRequestWithStream(logger logr.Logger, prompt string, filterMetadata []string) *extProcPb.ProcessingRequest {
-	req := &pb.GenerateRequest{
-		Input: &pb.GenerateRequest_Text{
-			Text: prompt,
-		},
-		Stream: true,
+func GenerateGRPCRequest(logger logr.Logger, prompt, methodName string, stream bool, filterMetadata []string) *extProcPb.ProcessingRequest {
+	req := GRPCRequestProto(prompt, methodName, stream)
+	// Panic on marshal failure is acceptable in test helpers as it implies a bug in the test code itself.
+	payload, err := CreateGrpcPayload(req)
+	if err != nil {
+		panic(fmt.Errorf("failed to marshal LLM request: %w", err))
 	}
-	payload, _ := CreateGrpcPayload(req)
 	return generateRequestFromBytes(payload, filterMetadata)
 }
 
 func ReqGRPCLLMWithStream(logger logr.Logger, prompt, inferenceObjective, methodName string) []*extProcPb.ProcessingRequest {
 	requests := make([]*extProcPb.ProcessingRequest, 0, 2)
 	requests = append(requests, generateHeaders(inferenceObjective, "", nil, map[string]string{":path": methodName}))
-	requests = append(requests, GenerateGRPCRequestWithStream(logger, prompt, nil))
+	requests = append(requests, GenerateGRPCRequest(logger, prompt, methodName, true, nil))
 	return requests
 }
 
-func GenerateGRPCRequest(logger logr.Logger, prompt string, filterMetadata []string) *extProcPb.ProcessingRequest {
-	req := &pb.GenerateRequest{
-		Input: &pb.GenerateRequest_Text{
-			Text: prompt,
-		},
+func GRPCRequestProto(prompt, methodName string, stream bool) proto.Message {
+	var req proto.Message
+	switch methodName {
+	case GenerateGRPCMethodName:
+		req = &pb.GenerateRequest{
+			Input: &pb.GenerateRequest_Text{
+				Text: prompt,
+			},
+			Stream: stream,
+		}
+	case EmbedGRPCMethodName:
+		req = &pb.EmbedRequest{
+			Tokenized: &pb.TokenizedInput{
+				OriginalText: prompt,
+			},
+		}
 	}
-
-	// Panic on marshal failure is acceptable in test helpers as it implies a bug in the test code itself.
-	payload, err := CreateGrpcPayload(req)
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal LLM request: %w", err))
-	}
-
-	return generateRequestFromBytes(payload, filterMetadata)
+	return req
 }
 
 func generateRequestFromBytes(payload []byte, filterMetadata []string) *extProcPb.ProcessingRequest {
@@ -273,7 +278,7 @@ func GenerateStreamedGRPCRequestSet(
 	requests = append(requests, generateHeaders(inferenceObjective, "", filterMetadata, map[string]string{":path": methodName})) // GRPC payload does not need model and dose not support TargetModel.
 
 	// Body
-	requests = append(requests, GenerateGRPCRequest(logger, prompt, filterMetadata))
+	requests = append(requests, GenerateGRPCRequest(logger, prompt, methodName, false, filterMetadata))
 	return requests
 }
 

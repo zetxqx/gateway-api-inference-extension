@@ -53,7 +53,6 @@ schedulingProfiles:
 parser:
   pluginRef: vllmgrpc-parser
 `
-	generateGRPCMethodName = "/vllm.grpc.engine.VllmEngine/Generate"
 )
 
 func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
@@ -70,13 +69,27 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		// --- Standard Routing Logic ---
 		{
 			name:     "select lower queue and kv cache",
-			requests: integration.ReqGRPCLLM(logger, "test1", inferenceObjectiveWithPriority4, generateGRPCMethodName),
+			requests: integration.ReqGRPCLLM(logger, "test1", inferenceObjectiveWithPriority4, integration.GenerateGRPCMethodName),
 			pods: []podState{
 				P(0, 3, 0.2),
 				P(1, 0, 0.1), // Winner (Low Queue, Low KV)
 				P(2, 10, 0.2),
 			},
-			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test1", generateGRPCMethodName),
+			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test1", integration.GenerateGRPCMethodName),
+			wantMetrics: map[string]string{
+				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 4)),
+				"inference_pool_ready_pods":         cleanMetric(metricReadyPods(3)),
+			},
+		},
+		{
+			name:     "select lower queue and kv cache for embedRequest",
+			requests: integration.ReqGRPCLLM(logger, "test1", inferenceObjectiveWithPriority4, integration.EmbedGRPCMethodName),
+			pods: []podState{
+				P(0, 3, 0.2),
+				P(1, 0, 0.1), // Winner (Low Queue, Low KV)
+				P(2, 10, 0.2),
+			},
+			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test1", integration.EmbedGRPCMethodName),
 			wantMetrics: map[string]string{
 				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 4)),
 				"inference_pool_ready_pods":         cleanMetric(metricReadyPods(3)),
@@ -84,13 +97,13 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		},
 		{
 			name:     "select lower queue with streaming request",
-			requests: integration.ReqGRPCLLMWithStream(logger, "test-stream", inferenceObjectiveWithPriority4, generateGRPCMethodName),
+			requests: integration.ReqGRPCLLMWithStream(logger, "test-stream", inferenceObjectiveWithPriority4, integration.GenerateGRPCMethodName),
 			pods: []podState{
 				P(0, 3, 0.2),
 				P(1, 0, 0.1), // Winner
 				P(2, 10, 0.2),
 			},
-			wantResponses: ExpectGRPCRouteToWithStream("192.168.1.2:8000", "test-stream", generateGRPCMethodName),
+			wantResponses: ExpectGRPCRouteToWithStream("192.168.1.2:8000", "test-stream", integration.GenerateGRPCMethodName),
 			wantMetrics: map[string]string{
 				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 4)),
 				"inference_pool_ready_pods":         cleanMetric(metricReadyPods(3)),
@@ -98,13 +111,13 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		},
 		{
 			name:     "do not shed requests by default",
-			requests: integration.ReqGRPCLLM(logger, "test2", "", generateGRPCMethodName),
+			requests: integration.ReqGRPCLLM(logger, "test2", "", integration.GenerateGRPCMethodName),
 			pods: []podState{
 				P(0, 6, 0.2, "foo", "bar"), // Winner (Lowest saturated)
 				P(1, 0, 0.85, "foo"),
 				P(2, 10, 0.9, "foo"),
 			},
-			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test2", generateGRPCMethodName),
+			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test2", integration.GenerateGRPCMethodName),
 			wantMetrics: map[string]string{
 				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 0)),
 			},
@@ -114,7 +127,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		{
 			name: "invalid gRPC payload",
 			requests: integration.ReqRaw(
-				map[string]string{"hi": "mom", ":path": generateGRPCMethodName},
+				map[string]string{"hi": "mom", ":path": integration.GenerateGRPCMethodName},
 				"plain text not grpc payload style",
 			),
 			pods: []podState{
@@ -149,7 +162,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 					map[string]string{
 						"hi":                         "mom",
 						reqcommon.RequestIdHeaderKey: "test-request-id",
-						":path":                      generateGRPCMethodName,
+						":path":                      integration.GenerateGRPCMethodName,
 					},
 					string(gRPCPayload[0:len(gRPCPayload)/2]),
 					string(gRPCPayload[len(gRPCPayload)/2:]),
@@ -159,7 +172,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 				P(0, 4, 0.2, "foo", "bar"),
 				P(1, 4, 0.85, "foo"),
 			},
-			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test3", generateGRPCMethodName),
+			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test3", integration.GenerateGRPCMethodName),
 			wantMetrics: map[string]string{
 				"inference_objective_request_total": cleanMetric(metricReqTotal("", "", 0)),
 			},
@@ -177,27 +190,27 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			name: "subsetting: select best from subset",
 			// Only pods in the subset list are eligible.
 			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "",
-				[]string{"192.168.1.1:8000", "192.168.1.2:8000", "192.168.1.3:8000"}, generateGRPCMethodName),
+				[]string{"192.168.1.1:8000", "192.168.1.2:8000", "192.168.1.3:8000"}, integration.GenerateGRPCMethodName),
 			pods: []podState{
 				P(0, 0, 0.2, "foo"),
 				P(1, 0, 0.1, "foo", modelSQLLoraTarget), // Winner (Low Queue + Matches Subset)
 				P(2, 10, 0.2, "foo"),
 			},
-			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test2", generateGRPCMethodName),
+			wantResponses: ExpectGRPCRouteTo("192.168.1.2:8000", "test2", integration.GenerateGRPCMethodName),
 		},
 		{
 			name:     "subsetting: partial match",
-			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "", []string{"192.168.1.3:8000"}, generateGRPCMethodName),
+			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "", []string{"192.168.1.3:8000"}, integration.GenerateGRPCMethodName),
 			pods: []podState{
 				P(0, 0, 0.2, "foo"),
 				P(1, 0, 0.1, "foo", modelSQLLoraTarget),
 				P(2, 10, 0.2, "foo"), // Winner (Matches Subset, despite load)
 			},
-			wantResponses: ExpectGRPCRouteTo("192.168.1.3:8000", "test2", generateGRPCMethodName),
+			wantResponses: ExpectGRPCRouteTo("192.168.1.3:8000", "test2", integration.GenerateGRPCMethodName),
 		},
 		{
 			name:     "subsetting: no pods match",
-			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "", []string{"192.168.1.99:8000"}, generateGRPCMethodName),
+			requests: integration.GenerateStreamedGRPCRequestSet(logger, "test2", "", []string{"192.168.1.99:8000"}, integration.GenerateGRPCMethodName),
 			pods: []podState{
 				P(0, 0, 0.2, "foo"),
 				P(1, 0, 0.1, "foo", modelSQLLoraTarget),
@@ -310,7 +323,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 		{
 			name: "response streaming with token usage",
 			requests: func() []*extProcPb.ProcessingRequest {
-				reqs := integration.ReqGRPCLLMWithStream(logger, "test-stream", inferenceObjectiveWithPriority4, generateGRPCMethodName)
+				reqs := integration.ReqGRPCLLMWithStream(logger, "test-stream", inferenceObjectiveWithPriority4, integration.GenerateGRPCMethodName)
 
 				resp1 := &pb.GenerateResponse{
 					Response: &pb.GenerateResponse_Chunk{
@@ -364,7 +377,7 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			}(),
 			pods: []podState{P(0, 4, 0.2)},
 			wantResponses: func() []*extProcPb.ProcessingResponse {
-				reqs := ExpectGRPCRouteToWithStream("192.168.1.1:8000", "test-stream", generateGRPCMethodName)
+				reqs := ExpectGRPCRouteToWithStream("192.168.1.1:8000", "test-stream", integration.GenerateGRPCMethodName)
 
 				resp1 := &pb.GenerateResponse{
 					Response: &pb.GenerateResponse_Chunk{
