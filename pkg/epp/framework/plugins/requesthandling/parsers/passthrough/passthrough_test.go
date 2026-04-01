@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package noop
+package passthrough
 
 import (
 	"context"
@@ -24,8 +24,8 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/scheduling"
 )
 
-func TestNoopParser_ParseRequest(t *testing.T) {
-	parser := NewNoopParser()
+func TestPassthroughParser_ParseRequest(t *testing.T) {
+	parser := NewPassthroughParser()
 	ctx := context.Background()
 
 	tests := []struct {
@@ -65,8 +65,8 @@ func TestNoopParser_ParseRequest(t *testing.T) {
 	}
 }
 
-func TestNoopParser_ParseResponse(t *testing.T) {
-	parser := NewNoopParser()
+func TestPassthroughParser_ParseResponse(t *testing.T) {
+	parser := NewPassthroughParser()
 	ctx := context.Background()
 
 	got, err := parser.ParseResponse(ctx, []byte("hello"), map[string]string{}, false)

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package noop
+package passthrough
 
 import (
 	"context"
@@ -26,49 +26,49 @@ import (
 )
 
 const (
-	NoopParserType = "noop-parser"
+	PassthroughParserType = "passthrough-parser"
 )
 
 // compile-time type validation
-var _ fwkrh.Parser = &NoopParser{}
+var _ fwkrh.Parser = &PassthroughParser{}
 
-// NoopParser implements the fwkrh.Parser interface and does nothing.
-type NoopParser struct {
+// PassthroughParser implements the fwkrh.Parser interface and does nothing.
+type PassthroughParser struct {
 	typedName fwkplugin.TypedName
 }
 
-// NewNoopParser creates a new NoopParser.
-func NewNoopParser() *NoopParser {
-	return &NoopParser{
+// NewPassthroughParser creates a new PassthroughParser.
+func NewPassthroughParser() *PassthroughParser {
+	return &PassthroughParser{
 		typedName: fwkplugin.TypedName{
-			Type: NoopParserType,
-			Name: NoopParserType,
+			Type: PassthroughParserType,
+			Name: PassthroughParserType,
 		},
 	}
 }
 
 // TypedName returns the type and name tuple of this plugin instance.
-func (p *NoopParser) TypedName() fwkplugin.TypedName {
+func (p *PassthroughParser) TypedName() fwkplugin.TypedName {
 	return p.typedName
 }
 
-func NoopParserPluginFactory(name string, _ json.RawMessage, _ fwkplugin.Handle) (fwkplugin.Plugin, error) {
-	return NewNoopParser().WithName(name), nil
+func PassthroughParserPluginFactory(name string, _ json.RawMessage, _ fwkplugin.Handle) (fwkplugin.Plugin, error) {
+	return NewPassthroughParser().WithName(name), nil
 }
 
-func (p *NoopParser) WithName(name string) *NoopParser {
+func (p *PassthroughParser) WithName(name string) *PassthroughParser {
 	p.typedName.Name = name
 	return p
 }
 
 // ParseRequest converts the request to RawPayload.
-func (p *NoopParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error) {
+func (p *PassthroughParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*scheduling.LLMRequestBody, error) {
 	return &scheduling.LLMRequestBody{
 		Payload: scheduling.RawPayload(body),
 	}, nil
 }
 
 // ParseResponse does nothing and returns nil.
-func (p *NoopParser) ParseResponse(ctx context.Context, body []byte, headers map[string]string, isEnd bool) (*fwkrh.ParsedResponse, error) {
+func (p *PassthroughParser) ParseResponse(ctx context.Context, body []byte, headers map[string]string, isEnd bool) (*fwkrh.ParsedResponse, error) {
 	return nil, nil
 }

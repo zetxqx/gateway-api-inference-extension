@@ -133,36 +133,36 @@ func TestFullDuplexStreamed_KubeInferenceObjectiveRequest(t *testing.T) {
 					},
 				},
 				{
-					name: "noop parser success",
+					name: "passthrough parser success",
 					configText: `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
   - type: queue-scorer
   - type: kv-cache-utilization-scorer
-  - type: noop-parser
+  - type: passthrough-parser
 schedulingProfiles:
   - name: default
     plugins:
       - pluginRef: queue-scorer
       - pluginRef: kv-cache-utilization-scorer
 parser:
-  pluginRef: noop-parser
+  pluginRef: passthrough-parser
 `,
 					requests: integration.ReqRaw(
 						map[string]string{
 							"hi":                         "mom",
 							reqcommon.RequestIdHeaderKey: "test-request-id",
-							metadata.ObjectiveKey:        modelMyModel, // With noop parser, the objective key can still be used to specify priority.
+							metadata.ObjectiveKey:        modelMyModel, // With passthrough parser, the objective key can still be used to specify priority.
 						},
-						"noop-parser",
+						"passthrough-parser",
 					),
 					pods: []podState{
 						P(0, 3, 0.2),
 						P(1, 0, 0.1), // Winner
 						P(2, 10, 0.2),
 					},
-					wantResponses: ExpectNoOpRouteTo("192.168.1.2:8000", []byte("noop-parser")),
+					wantResponses: ExpectNoOpRouteTo("192.168.1.2:8000", []byte("passthrough-parser")),
 					wantMetrics: map[string]string{
 						"inference_objective_request_total": cleanMetric(metricReqTotal("", "", prio(2))),
 						"inference_pool_ready_pods":         cleanMetric(metricReadyPods(3)),
