@@ -1,11 +1,11 @@
 # Parsers
 
-This directory contains parser plugins used to parse and understand the payloads of requests and responses. This understanding is key for empowering features like prefix-cache aware routing and response usage tracking.
+This directory contains parser plugins used to parse and understand the payloads of requests and responses. This understanding is key for empowering features like prefix-cache aware request scheduling and response usage tracking.
 
 ## Supported Parsers
 
 *   **`openai-parser`**: The default parser, supporting the [OpenAI API](https://developers.openai.com/api/reference/overview). This is used when no parser is explicitly specified in the `EndpointPickerConfig`.
-*   **`vllmgrpc-parser`**: A parser designed to handle requests specifically for the vLLM gRPC API.
+*   **`vllmgrpc-parser`**: A parser designed to handle requests specifically for the [vLLM gRPC API](https://docs.vllm.ai/en/latest/api/vllm/entrypoints/grpc_server/).
 
 ## Configuration
 
