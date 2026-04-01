@@ -170,9 +170,9 @@ func ExpectRouteToWithStream(endpoint, targetModel, prompt string) []*extProcPb.
 	return buildRouteResponse(endpoint, targetModel, prompt, true)
 }
 
-// ExpectNoOpRouteTo asserts that the request was successfully routed to the specified endpoint and that the body was
-// not rewritten.
-func ExpectNoOpRouteTo(endpoint string, rawBytes []byte) []*extProcPb.ProcessingResponse {
+// ExpectPassthroughRouteTo asserts that the request was successfully routed to the specified endpoint and that the body was
+// not parsed.
+func ExpectPassthroughRouteTo(endpoint string, rawBytes []byte) []*extProcPb.ProcessingResponse {
 	return integration.NewRequestBufferedResponse(
 		endpoint, rawBytes,
 		&envoyCorev3.HeaderValueOption{Header: &envoyCorev3.HeaderValue{Key: "hi", RawValue: []byte("mom")}},
