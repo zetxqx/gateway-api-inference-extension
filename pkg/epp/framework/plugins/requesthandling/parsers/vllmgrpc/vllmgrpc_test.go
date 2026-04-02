@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	// Note: Adjust these imports if your local aliases differ
+	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkrc "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
@@ -372,6 +373,41 @@ func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ParseResponse() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestVllmGRPCParser_ValidateAppProtocol(t *testing.T) {
+	parser := NewVllmGRPCParser()
+
+	tests := []struct {
+		name        string
+		appProtocol v1.AppProtocol
+		wantErr     bool
+	}{
+		{
+			name:        "Valid AppProtocol h2c",
+			appProtocol: v1.AppProtocolH2C,
+			wantErr:     false,
+		},
+		{
+			name:        "Invalid AppProtocol http",
+			appProtocol: "http",
+			wantErr:     true,
+		},
+		{
+			name:        "Empty AppProtocol",
+			appProtocol: "",
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := parser.ValidateAppProtocol(tt.appProtocol)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ValidateAppProtocol() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

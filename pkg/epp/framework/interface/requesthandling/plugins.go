@@ -19,6 +19,7 @@ package requesthandle
 import (
 	"context"
 
+	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
@@ -42,4 +43,10 @@ type Parser interface {
 type ParsedResponse struct {
 	// Usage is only populate when the raw response has usage.
 	Usage *requestcontrol.Usage
+}
+
+// AppProtocolValidator is an optional interface that parsers can implement to perform early
+// validation of the AppProtocol.
+type AppProtocolValidator interface {
+	ValidateAppProtocol(appProtocol v1.AppProtocol) error
 }

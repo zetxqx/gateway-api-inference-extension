@@ -25,6 +25,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requestcontrol"
@@ -45,6 +46,7 @@ const (
 
 // compile-time type validation
 var _ fwkrh.Parser = &VllmGRPCParser{}
+var _ fwkrh.AppProtocolValidator = &VllmGRPCParser{}
 
 // VllmGRPCParser implements the fwkrh.Parser interface for vLLM gRPC.
 type VllmGRPCParser struct {
@@ -73,6 +75,13 @@ func (p *VllmGRPCParser) WithName(name string) *VllmGRPCParser {
 // TypedName returns the type and name tuple of this plugin instance.
 func (p *VllmGRPCParser) TypedName() fwkplugin.TypedName {
 	return p.typedName
+}
+
+func (p *VllmGRPCParser) ValidateAppProtocol(appProtocol v1.AppProtocol) error {
+	if appProtocol != v1.AppProtocolH2C {
+		return fmt.Errorf("gRPC parser requires %s appProtocol, but got %s", v1.AppProtocolH2C, appProtocol)
+	}
+	return nil
 }
 
 // ParseRequest parses the gRPC request body and headers and returns an LLMRequestBody.
