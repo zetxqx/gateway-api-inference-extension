@@ -31,6 +31,7 @@ import (
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	pooltuil "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/pool"
 )
 
@@ -41,6 +42,7 @@ type InferencePoolReconciler struct {
 	client.Reader
 	Datastore datastore.Datastore
 	PoolGKNN  common.GKNN
+	Validator fwkrh.AppProtocolValidator
 }
 
 func (c *InferencePoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -85,6 +87,23 @@ func (c *InferencePoolReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		endpointPool = pooltuil.AlphaInferencePoolToEndpointPool(pool)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported API group: %s", c.PoolGKNN.Group)
+	}
+
+	if c.Validator != nil {
+		var appProtocol v1.AppProtocol
+		switch p := obj.(type) {
+		case *v1.InferencePool:
+			appProtocol = p.Spec.AppProtocol
+		}
+		if appProtocol == "" {
+			appProtocol = v1.AppProtocolHTTP
+		}
+		if err := c.Validator.ValidateAppProtocol(appProtocol); err != nil {
+			logger.Error(err, "AppProtocol validation failed for InferencePool", "pool", req.NamespacedName, "appProtocol", appProtocol)
+			// Clear the existing inferencePool if the appProtocol is not supported.
+			c.Datastore.Clear()
+			return ctrl.Result{}, fmt.Errorf("appProtocol validation failed: %w", err)
+		}
 	}
 
 	if err := c.Datastore.PoolSet(ctx, c.Reader, endpointPool); err != nil {

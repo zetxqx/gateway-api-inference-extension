@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	backendmetrics "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/backend/metrics"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/pool"
 	utiltest "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/util/testing"
 )
@@ -375,4 +377,104 @@ func xDiffStore(store datastore.Datastore, params xDiffStoreParams) string {
 		return "models:" + diff
 	}
 	return ""
+}
+
+type mockValidator struct {
+	err error
+}
+
+func (m *mockValidator) ValidateAppProtocol(appProtocol v1.AppProtocol) error {
+	return m.err
+}
+
+func TestInferencePoolReconciler_Validation(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = v1.Install(scheme)
+
+	gvk := schema.GroupVersionKind{
+		Group:   v1.GroupVersion.Group,
+		Version: v1.GroupVersion.Version,
+		Kind:    "InferencePool",
+	}
+
+	tests := []struct {
+		name        string
+		poolExists  bool
+		validator   fwkrh.AppProtocolValidator
+		wantError   bool
+		wantCleared bool
+	}{
+		{
+			name:        "Success",
+			poolExists:  true,
+			validator:   &mockValidator{},
+			wantError:   false,
+			wantCleared: false,
+		},
+		{
+			name:        "Validation Failure (Mismatch)",
+			poolExists:  true,
+			validator:   &mockValidator{err: fmt.Errorf("bad appProtocol")},
+			wantError:   true,
+			wantCleared: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := utiltest.MakeInferencePool("pool1").
+				Namespace("default").
+				Selector(selector_v1).
+				TargetPorts(8080).
+				EndpointPickerRef("epp-service").ObjRef()
+			p.SetGroupVersionKind(gvk)
+
+			var objs []client.Object
+			if tt.poolExists {
+				objs = append(objs, p)
+			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+
+			ctx := context.Background()
+			period := time.Second
+			epf := datalayer.NewTestRuntime(t, period)
+			ds := datastore.NewDatastore(ctx, epf, 0)
+
+			if err := ds.PoolSet(ctx, fakeClient, &datalayer.EndpointPool{Name: "pool1"}); err != nil {
+				t.Fatalf("Failed to pre-populate datastore: %v", err)
+			}
+
+			gknn := common.GKNN{
+				NamespacedName: types.NamespacedName{Name: "pool1", Namespace: "default"},
+				GroupKind:      schema.GroupKind{Group: v1.GroupName, Kind: "InferencePool"},
+			}
+
+			reconciler := &InferencePoolReconciler{
+				Reader:    fakeClient,
+				Datastore: ds,
+				PoolGKNN:  gknn,
+				Validator: tt.validator,
+			}
+
+			req := ctrl.Request{NamespacedName: types.NamespacedName{Name: "pool1", Namespace: "default"}}
+
+			_, err := reconciler.Reconcile(ctx, req)
+			if (err != nil) != tt.wantError {
+				t.Errorf("Reconcile() error = %v, wantError %v", err, tt.wantError)
+			}
+
+			gotPool, _ := ds.PoolGet()
+			if tt.wantCleared {
+				if gotPool != nil {
+					t.Errorf("Expected datastore to be cleared, but got pool %v", gotPool)
+				}
+			} else {
+				if gotPool == nil {
+					t.Errorf("Expected datastore to NOT be cleared, but it was nil")
+				}
+			}
+		})
+	}
 }
