@@ -23,9 +23,8 @@
    Set the model server environment variable:
 
    ```bash
-   export MODEL_SERVER=vllm  # Options: vllm, sglang, triton-tensorrt-llm, trtllm-serve, 
+   export MODEL_SERVER=vllm  # Options: vllm, sglang, triton-tensorrt-llm, trtllm-serve
    export MODEL_SERVER_PROTOCOL=http # Options: http, grpc
-   export TARGET_PORT=8000 # Change to 50051 for gRPC
    ```
 
 --8<-- "site-src/_includes/model-server-gpu.md"

@@ -8,7 +8,6 @@
       --set provider.name=$GATEWAY_PROVIDER \
       --set inferencePool.modelServerType=${MODEL_SERVER} \
       --set inferencePool.modelServerProtocol=${MODEL_SERVER_PROTOCOL} \
-      --set "inferencePool.targetPorts[0].number=${TARGET_PORT}" \
       --set experimentalHttpRoute.enabled=true \
       --version $IGW_CHART_VERSION \
       oci://us-central1-docker.pkg.dev/k8s-staging-images/gateway-api-inference-extension/charts/inferencepool
