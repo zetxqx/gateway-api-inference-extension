@@ -240,6 +240,14 @@ You should see output listing the inference-related CRDs.
 
 --8<-- "site-src/_includes/epp-latest.md"
 
+??? note "Using Passthrough Parser for Custom Formats"
+    By default, EPP assumes requests follow the [OpenAI API format](https://developers.openai.com/api/reference/overview) (for HTTP) or vLLM [gRPC API format](https://docs.vllm.ai/en/latest/api/vllm/entrypoints/grpc_server/) (for gRPC). If your model server uses a different format, you can configure EPP to use a `passthrough-parser` which passes the request through without parsing. See the [parser framework readme](../../pkg/epp/framework/plugins/requesthandling/parsers/README.md) for more details.
+
+    To use it, set the parser in your Helm command:
+    `--set inferencePool.parser=passthrough-parser`
+
+    **Important Drawback**: Because the passthrough parser does not parse the payload, features that rely on payload parsing (such as the `prefix-cache-scorer`) cannot be used.
+
 ### Verify HttpRoute and InferencePool Status
 
 --8<-- "site-src/_includes/verify-status-latest.md"
