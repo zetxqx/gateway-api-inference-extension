@@ -94,9 +94,6 @@ var currentCodeExceptionMap = map[string][]string{
 		"sidecars/latencypredictorasync",
 		"test/utils",
 	},
-	"pkg/epp/framework/plugins/scheduling/scorer/prefix/indexer.go": {
-		"pkg/epp/metrics",
-	},
 	"pkg/epp/framework/plugins/scheduling/scorer/prefix/plugin.go": {
 		"pkg/epp/metrics",
 	},
@@ -123,6 +120,12 @@ var currentCodeExceptionMap = map[string][]string{
 	},
 	"pkg/epp/framework/plugins/requestcontrol/requestdataproducer/predictedlatency/training_test.go": {
 		"sidecars/latencypredictorasync",
+	},
+	"pkg/epp/framework/plugins/requestcontrol/dataproducer/approximateprefix/indexer.go": {
+		"pkg/epp/metrics",
+	},
+	"pkg/epp/framework/plugins/requestcontrol/dataproducer/approximateprefix/plugin.go": {
+		"pkg/epp/metrics",
 	},
 }
 
