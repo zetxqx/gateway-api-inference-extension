@@ -127,6 +127,15 @@ var currentCodeExceptionMap = map[string][]string{
 	"pkg/epp/framework/plugins/requestcontrol/dataproducer/approximateprefix/plugin.go": {
 		"pkg/epp/metrics",
 	},
+	"pkg/epp/framework/interface/requesthandling/plugins.go": {
+		"api/v1",
+	},
+	"pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/vllmgrpc.go": {
+		"api/v1",
+	},
+	"pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/vllmgrpc_test.go": {
+		"api/v1",
+	},
 }
 
 func init() {
