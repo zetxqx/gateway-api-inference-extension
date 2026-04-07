@@ -378,37 +378,13 @@ func TestVllmGRPCParser_ParseResponse(t *testing.T) {
 	}
 }
 
-func TestVllmGRPCParser_ValidateAppProtocol(t *testing.T) {
+func TestVllmGRPCParser_SupportedAppProtocols(t *testing.T) {
 	parser := NewVllmGRPCParser()
 
-	tests := []struct {
-		name        string
-		appProtocol v1.AppProtocol
-		wantErr     bool
-	}{
-		{
-			name:        "Valid AppProtocol h2c",
-			appProtocol: v1.AppProtocolH2C,
-			wantErr:     false,
-		},
-		{
-			name:        "Invalid AppProtocol http",
-			appProtocol: "http",
-			wantErr:     true,
-		},
-		{
-			name:        "Empty AppProtocol",
-			appProtocol: "",
-			wantErr:     true,
-		},
-	}
+	supported := parser.SupportedAppProtocols()
+	want := []v1.AppProtocol{v1.AppProtocolH2C}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := parser.ValidateAppProtocol(tt.appProtocol)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ValidateAppProtocol() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	if diff := cmp.Diff(want, supported); diff != "" {
+		t.Errorf("SupportedAppProtocols() mismatch (-want +got):\n%s", diff)
 	}
 }

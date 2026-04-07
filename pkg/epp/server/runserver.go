@@ -95,16 +95,10 @@ func NewDefaultExtProcServerRunner() *ExtProcServerRunner {
 func (r *ExtProcServerRunner) SetupWithManager(mgr ctrl.Manager) error {
 	// Create the controllers and register them with the manager
 	if r.ControllerCfg.startCrdReconcilers {
-		var validator fwkrh.AppProtocolValidator
-		if v, ok := r.Parser.(fwkrh.AppProtocolValidator); ok {
-			validator = v
-		}
-
 		if err := (&controller.InferencePoolReconciler{
 			Datastore: r.Datastore,
 			Reader:    mgr.GetClient(),
 			PoolGKNN:  r.GKNN,
-			Validator: validator,
 		}).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed setting up InferencePoolReconciler - %w", err)
 		}

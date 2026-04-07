@@ -45,8 +45,8 @@ type ParsedResponse struct {
 	Usage *requestcontrol.Usage
 }
 
-// AppProtocolValidator is an optional interface that parsers can implement to perform early
-// validation of the AppProtocol.
-type AppProtocolValidator interface {
-	ValidateAppProtocol(appProtocol v1.AppProtocol) error
+// AppProtocolSupporter is an optional interface that parsers can implement to specify
+// the list of supported protocols.
+type AppProtocolSupporter interface {
+	SupportedAppProtocols() []v1.AppProtocol
 }

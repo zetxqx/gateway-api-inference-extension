@@ -387,7 +387,11 @@ func (r *Runner) setup(ctx context.Context, cfg *rest.Config, opts *runserver.Op
 
 	// --- Add Runnables to Manager ---
 	// Register health server.
-	if err := registerHealthServer(mgr, ctrl.Log.WithName("health"), ds, opts.GRPCHealthPort, isLeader, opts.EnableLeaderElection); err != nil {
+	supporter, ok := r.parser.(fwkrh.AppProtocolSupporter)
+	if !ok {
+		setupLog.Info("Parser does not implement AppProtocolSupporter; protocol checks will be skipped in health server")
+	}
+	if err := registerHealthServer(mgr, ctrl.Log.WithName("health"), ds, opts.GRPCHealthPort, isLeader, opts.EnableLeaderElection, supporter); err != nil {
 		return nil, nil, err
 	}
 
@@ -631,13 +635,14 @@ func registerExtProcServer(mgr manager.Manager, runner *runserver.ExtProcServerR
 }
 
 // registerHealthServer adds the Health gRPC server as a Runnable to the given manager.
-func registerHealthServer(mgr manager.Manager, logger logr.Logger, ds datastore.Datastore, port int, isLeader *atomic.Bool, leaderElectionEnabled bool) error {
+func registerHealthServer(mgr manager.Manager, logger logr.Logger, ds datastore.Datastore, port int, isLeader *atomic.Bool, leaderElectionEnabled bool, supporter fwkrh.AppProtocolSupporter) error {
 	srv := grpc.NewServer()
 	healthPb.RegisterHealthServer(srv, &healthServer{
 		logger:                logger,
 		datastore:             ds,
 		isLeader:              isLeader,
 		leaderElectionEnabled: leaderElectionEnabled,
+		supporter:             supporter,
 	})
 	if err := mgr.Add(
 		runnable.NoLeaderElection(runnable.GRPCServer("health", srv, port))); err != nil {

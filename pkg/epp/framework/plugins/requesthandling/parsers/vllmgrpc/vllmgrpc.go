@@ -46,7 +46,7 @@ const (
 
 // compile-time type validation
 var _ fwkrh.Parser = &VllmGRPCParser{}
-var _ fwkrh.AppProtocolValidator = &VllmGRPCParser{}
+var _ fwkrh.AppProtocolSupporter = &VllmGRPCParser{}
 
 // VllmGRPCParser implements the fwkrh.Parser interface for vLLM gRPC.
 type VllmGRPCParser struct {
@@ -77,11 +77,8 @@ func (p *VllmGRPCParser) TypedName() fwkplugin.TypedName {
 	return p.typedName
 }
 
-func (p *VllmGRPCParser) ValidateAppProtocol(appProtocol v1.AppProtocol) error {
-	if appProtocol != v1.AppProtocolH2C {
-		return fmt.Errorf("gRPC parser requires %s appProtocol, but got %s", v1.AppProtocolH2C, appProtocol)
-	}
-	return nil
+func (p *VllmGRPCParser) SupportedAppProtocols() []v1.AppProtocol {
+	return []v1.AppProtocol{v1.AppProtocolH2C}
 }
 
 // ParseRequest parses the gRPC request body and headers and returns an LLMRequestBody.
