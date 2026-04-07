@@ -45,6 +45,7 @@ var (
 // globalExceptions are paths that are always allowed for all framework files.
 // These are utility packages that the framework is permitted to import.
 var globalExceptions = []string{
+	"api/v1",
 	"pkg/common/observability/logging",
 	"pkg/common/error",
 	"pkg/common/request",
@@ -126,15 +127,6 @@ var currentCodeExceptionMap = map[string][]string{
 	},
 	"pkg/epp/framework/plugins/requestcontrol/dataproducer/approximateprefix/plugin.go": {
 		"pkg/epp/metrics",
-	},
-	"pkg/epp/framework/interface/requesthandling/plugins.go": {
-		"api/v1",
-	},
-	"pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/vllmgrpc.go": {
-		"api/v1",
-	},
-	"pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/vllmgrpc_test.go": {
-		"api/v1",
 	},
 }
 

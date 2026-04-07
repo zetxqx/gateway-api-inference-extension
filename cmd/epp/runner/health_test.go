@@ -28,7 +28,6 @@ import (
 	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
-	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 )
 
 // Mock Datastore
@@ -168,7 +167,7 @@ func TestHealthServer_Check(t *testing.T) {
 			var isLeader atomic.Bool
 			isLeader.Store(tt.isLeader)
 
-			var supporter fwkrh.AppProtocolSupporter
+			var supporter appProtocolSupporter
 			if tt.supporter != nil {
 				supporter = tt.supporter
 			}

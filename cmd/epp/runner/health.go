@@ -30,15 +30,18 @@ import (
 	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/datastore"
-	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 )
+
+type appProtocolSupporter interface {
+	SupportedAppProtocols() []v1.AppProtocol
+}
 
 type healthServer struct {
 	logger                logr.Logger
 	datastore             datastore.Datastore
 	isLeader              *atomic.Bool
 	leaderElectionEnabled bool
-	supporter             fwkrh.AppProtocolSupporter
+	supporter             appProtocolSupporter
 }
 
 const (

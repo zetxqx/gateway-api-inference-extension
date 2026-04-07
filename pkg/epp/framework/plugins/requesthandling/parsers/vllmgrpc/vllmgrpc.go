@@ -46,7 +46,6 @@ const (
 
 // compile-time type validation
 var _ fwkrh.Parser = &VllmGRPCParser{}
-var _ fwkrh.AppProtocolSupporter = &VllmGRPCParser{}
 
 // VllmGRPCParser implements the fwkrh.Parser interface for vLLM gRPC.
 type VllmGRPCParser struct {

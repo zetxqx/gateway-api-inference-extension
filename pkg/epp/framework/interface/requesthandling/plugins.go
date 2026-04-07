@@ -38,15 +38,13 @@ type Parser interface {
 	// For non-streaming responses, this method is invoked exactly once with the full
 	// buffered response body and 'endOfStream' set to true.
 	ParseResponse(ctx context.Context, body []byte, headers map[string]string, endofStream bool) (*ParsedResponse, error)
+
+	// SupportedAppProtocols returns the list of supported protocols.
+	// Returning an empty list means it supports all protocols.
+	SupportedAppProtocols() []v1.AppProtocol
 }
 
 type ParsedResponse struct {
 	// Usage is only populate when the raw response has usage.
 	Usage *requestcontrol.Usage
-}
-
-// AppProtocolSupporter is an optional interface that parsers can implement to specify
-// the list of supported protocols.
-type AppProtocolSupporter interface {
-	SupportedAppProtocols() []v1.AppProtocol
 }
