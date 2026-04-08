@@ -170,6 +170,29 @@ func (p *SchedulerProfile) runScorerPlugins(ctx context.Context, request *fwksch
 	}
 	logger.V(logutil.VERBOSE).Info("Completed running scorer plugins successfully")
 
+	// Calculate total active requests to compute the load balancing factor
+	totalActiveRequests := 0
+	for _, endpoint := range endpoints {
+		metrics := endpoint.GetMetrics()
+		if metrics != nil {
+			totalActiveRequests += metrics.RunningRequestsSize
+		}
+	}
+
+	// Apply balancing factor if there are any active requests
+	if totalActiveRequests > 0 {
+		for endpoint, totalScore := range weightedScorePerEndpoint {
+			activeRequests := 0
+			metrics := endpoint.GetMetrics()
+			if metrics != nil {
+				activeRequests = metrics.RunningRequestsSize
+			}
+			balancingFactor := 1.0 - (float64(activeRequests) / float64(totalActiveRequests))
+			weightedScorePerEndpoint[endpoint] = totalScore * balancingFactor
+			logger.V(logutil.DEBUG).Info("Applied load balancing factor", "endpoint", endpoint.GetMetadata().NamespacedName, "balancingFactor", balancingFactor, "newScore", weightedScorePerEndpoint[endpoint])
+		}
+	}
+
 	return weightedScorePerEndpoint
 }
 
