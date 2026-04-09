@@ -299,21 +299,29 @@ Picks pod(s) from the list of candidates based on weighted random sampling using
 
 ### Flow Control Plugins (Policies)
 
-These plugins are referenced within the `flowControl` section (Priority Bands).
+These plugins are referenced within the `flowControl` section (Priority Bands). This section includes policies for **[fairness](../../../pkg/epp/framework/plugins/flowcontrol/fairness/README.md)** and ordering.
 
-#### GlobalStrictFairnessPolicy
+#### [GlobalStrictFairnessPolicy](../../../pkg/epp/framework/plugins/flowcontrol/fairness/globalstrict/README.md)
 
-A specialized Fairness Policy that ignores flow isolation and serves all requests in a single global FIFO order (strict prioritization). This is the default Fairness Policy.
+A Fairness Policy that ignores flow isolation and serves all requests in a single global order, delegating the actual ordering to the configured `OrderingPolicy`. It acts effectively as a single global queue per priority band.
 
-- *Type*: global-strict-fairness-policy
-- *Parameters*: none
+- **Unit of Fairness**: None (Greedy)
+- **Type**: `global-strict-fairness-policy`
+- **Parameters**: none
 
-#### RoundRobinFairnessPolicy
+> [!NOTE]
+> This policy prioritizes absolute ordering over fairness. A single flow with a burst of high-priority traffic can starve others.
 
-A Fairness Policy that ensures fair sharing of capacity between different flows (e.g., different models or LoRA adapters) by cycling through them in a round-robin fashion.
+#### [RoundRobinFairnessPolicy](../../../pkg/epp/framework/plugins/flowcontrol/fairness/roundrobin/README.md)
 
-- *Type*: round-robin-fairness-policy
-- *Parameters*: none
+A Fairness Policy that guarantees fair sharing of dispatch opportunities between different flows (e.g., different models or LoRA adapters) by cycling through active flows one by one.
+
+- **Unit of Fairness**: Dispatch Attempts
+- **Type**: `round-robin-fairness-policy`
+- **Parameters**: none
+
+> [!NOTE]
+> While this policy prevents starvation, it may introduce global ordering violations, as a newer request in an under-served flow might be dispatched before an older request in a heavily loaded flow.
 
 #### FCFSOrderingPolicy
 
