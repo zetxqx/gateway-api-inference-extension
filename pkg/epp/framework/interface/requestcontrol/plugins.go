@@ -72,7 +72,7 @@ type DataProducer interface {
 	PrepareRequestData(ctx context.Context, request *types.InferenceRequest, pods []types.Endpoint) error
 }
 
-// Admitter is called by the director after the prepare data phase and before scheduling.
+// Admitter is called by the director after the data producer and before scheduling.
 // When a request has to go through multiple Admitter,
 // the request is admitted only if all plugins say that the request should be admitted.
 type Admitter interface {
