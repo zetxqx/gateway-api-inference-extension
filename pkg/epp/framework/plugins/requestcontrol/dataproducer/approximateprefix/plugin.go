@@ -39,7 +39,7 @@ const (
 
 var (
 	_ requestcontrol.DataProducer = &prepareData{}
-	_ requestcontrol.PreRequest        = &prepareData{}
+	_ requestcontrol.PreRequest   = &prepareData{}
 )
 
 // prepareData is a plugin that prepares data consumed by approx prefix cache aware scheduling.
