@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fake-vllm
+  labels:
+    app: fake-vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fake-vllm
+  template:
+    metadata:
+      labels:
+        app: fake-vllm
+    spec:
+      containers:
+      - name: fake-vllm
+        image: us-central1-docker.pkg.dev/bobzetian-gke-dev/bobinference/fake-vllm:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 50051
+          name: grpc
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        livenessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 50051
+          initialDelaySeconds: 2
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fake-vllm
+spec:
+  selector:
+    app: fake-vllm
+  ports:
+  - port: 50051
+    targetPort: 50051
+    name: grpc
+  type: ClusterIP
