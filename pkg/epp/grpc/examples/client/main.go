@@ -51,8 +51,8 @@ func main() {
 	targetAddress := flag.String("target-address", "", "The target Pod address to send requests to")
 	flag.Parse()
 
-	conn := insecureConn(*targetAddress)
-	// conn := secureConn(*targetAddress)
+	// conn := insecureConn(*targetAddress)
+	conn := secureConn(*targetAddress)
 	defer conn.Close()
 
 	c := vllm.NewVllmEngineClient(conn)
@@ -60,7 +60,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	getModelInfo(ctx, c)
+	// getModelInfo(ctx, c)
 
 	// Initialize Tokenizer
 	tokenizer := NewTokenizer()
@@ -81,19 +81,24 @@ func getModelInfo(ctx context.Context, c vllm.VllmEngineClient) {
 
 func generateNonStreaming(ctx context.Context, c vllm.VllmEngineClient, t *Tokenizer) {
 	fmt.Println("\n--- Generate (Non-Streaming) ---")
-	maxTokens := int32(50)
+	maxTokens := uint32(50)
 	req := &vllm.GenerateRequest{
 		RequestId: "req-non-stream",
-		Tokenized: &vllm.TokenizedInput{
-			OriginalText: "Hello, world!",
-			InputIds:     []uint32{1, 2, 3, 4, 5}, // Dummy tokens
+		Input: &vllm.GenerateRequest_Text{
+			Text: "Hello, World!",
 		},
+		// Tokenized: &vllm.TokenizedInput{
+		// 	OriginalText: "Hello, world!",
+		// 	InputIds:     []uint32{1, 2, 3, 4, 5}, // Dummy tokens
+		// },
 		SamplingParams: &vllm.SamplingParams{
-			Temperature: 0.7,
-			MaxTokens:   &maxTokens,
+			MaxTokens: &maxTokens,
 		},
 		Stream: false,
 	}
+	ctx = metadata.AppendToOutgoingContext(ctx,
+		"x-inference-objective", "mymodel",
+	)
 
 	stream, err := c.Generate(ctx, req)
 	if err != nil {
@@ -118,8 +123,6 @@ func generateNonStreaming(ctx context.Context, c vllm.VllmEngineClient, t *Token
 		fmt.Printf("Complete Response (IDs): %v\n", r.Complete.OutputIds)
 		fmt.Printf("Complete Response (Text): %s\n", t.Detokenize(r.Complete.OutputIds))
 		fmt.Printf("Finish Reason: %s\n", r.Complete.FinishReason)
-	case *vllm.GenerateResponse_Error:
-		fmt.Printf("Error Response: %s\n", r.Error.Message)
 	case *vllm.GenerateResponse_Chunk:
 		fmt.Printf("Unexpected Chunk Response in non-streaming mode: %v\n", r.Chunk)
 	default:
@@ -135,16 +138,19 @@ func generateNonStreaming(ctx context.Context, c vllm.VllmEngineClient, t *Token
 
 func generateStreaming(ctx context.Context, c vllm.VllmEngineClient, t *Tokenizer) {
 	fmt.Println("\n--- Generate (Streaming) ---")
-	maxTokens := int32(50)
+	maxTokens := uint32(50)
 	req := &vllm.GenerateRequest{
 		RequestId: "req-stream",
-		Tokenized: &vllm.TokenizedInput{
-			OriginalText: "Tell me a story.",
-			InputIds:     []uint32{10, 11, 12, 13}, // Dummy tokens
+		Input: &vllm.GenerateRequest_Text{
+			Text: "Hello, World!",
 		},
+		// Tokenized: &vllm.TokenizedInput{
+		// 	OriginalText: "Tell me a story.",
+		// 	InputIds:     []uint32{10, 11, 12, 13}, // Dummy tokens
+		// },
 		SamplingParams: &vllm.SamplingParams{
-			Temperature: 0.7,
-			MaxTokens:   &maxTokens,
+			// Temperature: 0.7,
+			MaxTokens: &maxTokens,
 		},
 		Stream: true,
 	}
@@ -169,9 +175,6 @@ func generateStreaming(ctx context.Context, c vllm.VllmEngineClient, t *Tokenize
 		case *vllm.GenerateResponse_Chunk:
 			text := t.Detokenize(r.Chunk.TokenIds)
 			fmt.Printf("Received chunk: %v -> \"%s\"\n", r.Chunk.TokenIds, text)
-		case *vllm.GenerateResponse_Error:
-			fmt.Printf("Received error: %s\n", r.Error.Message)
-			return
 		case *vllm.GenerateResponse_Complete:
 			// Depending on vLLM version/implementation, might send a final complete message or just end.
 			fmt.Printf("Stream completed with final info: %v\n", r.Complete)

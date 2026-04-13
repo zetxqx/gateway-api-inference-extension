@@ -24,21 +24,21 @@ const (
 // Sampling parameters for text generation
 type SamplingParams struct {
 	state                      protoimpl.MessageState `protogen:"open.v1"`
-	Temperature                float32                `protobuf:"fixed32,1,opt,name=temperature,proto3" json:"temperature,omitempty"`
+	Temperature                *float32               `protobuf:"fixed32,1,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
 	TopP                       float32                `protobuf:"fixed32,2,opt,name=top_p,json=topP,proto3" json:"top_p,omitempty"`
-	TopK                       int32                  `protobuf:"varint,3,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
+	TopK                       uint32                 `protobuf:"varint,3,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
 	MinP                       float32                `protobuf:"fixed32,4,opt,name=min_p,json=minP,proto3" json:"min_p,omitempty"`
 	FrequencyPenalty           float32                `protobuf:"fixed32,5,opt,name=frequency_penalty,json=frequencyPenalty,proto3" json:"frequency_penalty,omitempty"`
 	PresencePenalty            float32                `protobuf:"fixed32,6,opt,name=presence_penalty,json=presencePenalty,proto3" json:"presence_penalty,omitempty"`
 	RepetitionPenalty          float32                `protobuf:"fixed32,7,opt,name=repetition_penalty,json=repetitionPenalty,proto3" json:"repetition_penalty,omitempty"`
-	MaxTokens                  *int32                 `protobuf:"varint,8,opt,name=max_tokens,json=maxTokens,proto3,oneof" json:"max_tokens,omitempty"`
-	MinTokens                  int32                  `protobuf:"varint,9,opt,name=min_tokens,json=minTokens,proto3" json:"min_tokens,omitempty"`
+	MaxTokens                  *uint32                `protobuf:"varint,8,opt,name=max_tokens,json=maxTokens,proto3,oneof" json:"max_tokens,omitempty"`
+	MinTokens                  uint32                 `protobuf:"varint,9,opt,name=min_tokens,json=minTokens,proto3" json:"min_tokens,omitempty"`
 	Stop                       []string               `protobuf:"bytes,10,rep,name=stop,proto3" json:"stop,omitempty"`
 	StopTokenIds               []uint32               `protobuf:"varint,11,rep,packed,name=stop_token_ids,json=stopTokenIds,proto3" json:"stop_token_ids,omitempty"`
 	SkipSpecialTokens          bool                   `protobuf:"varint,12,opt,name=skip_special_tokens,json=skipSpecialTokens,proto3" json:"skip_special_tokens,omitempty"`
 	SpacesBetweenSpecialTokens bool                   `protobuf:"varint,13,opt,name=spaces_between_special_tokens,json=spacesBetweenSpecialTokens,proto3" json:"spaces_between_special_tokens,omitempty"`
 	IgnoreEos                  bool                   `protobuf:"varint,14,opt,name=ignore_eos,json=ignoreEos,proto3" json:"ignore_eos,omitempty"`
-	N                          int32                  `protobuf:"varint,15,opt,name=n,proto3" json:"n,omitempty"` // Number of parallel samples
+	N                          uint32                 `protobuf:"varint,15,opt,name=n,proto3" json:"n,omitempty"` // Number of parallel samples
 	// Logprobs configuration
 	Logprobs       *int32 `protobuf:"varint,22,opt,name=logprobs,proto3,oneof" json:"logprobs,omitempty"`                                   // Number of log probabilities per output token (-1 for all)
 	PromptLogprobs *int32 `protobuf:"varint,23,opt,name=prompt_logprobs,json=promptLogprobs,proto3,oneof" json:"prompt_logprobs,omitempty"` // Number of log probabilities per prompt token (-1 for all)
@@ -64,7 +64,7 @@ type SamplingParams struct {
 
 func (x *SamplingParams) Reset() {
 	*x = SamplingParams{}
-	mi := &file_vllm_proto_msgTypes[0]
+	mi := &file_vllm_engine_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -76,7 +76,7 @@ func (x *SamplingParams) String() string {
 func (*SamplingParams) ProtoMessage() {}
 
 func (x *SamplingParams) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[0]
+	mi := &file_vllm_engine_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -89,12 +89,12 @@ func (x *SamplingParams) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SamplingParams.ProtoReflect.Descriptor instead.
 func (*SamplingParams) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{0}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *SamplingParams) GetTemperature() float32 {
-	if x != nil {
-		return x.Temperature
+	if x != nil && x.Temperature != nil {
+		return *x.Temperature
 	}
 	return 0
 }
@@ -106,7 +106,7 @@ func (x *SamplingParams) GetTopP() float32 {
 	return 0
 }
 
-func (x *SamplingParams) GetTopK() int32 {
+func (x *SamplingParams) GetTopK() uint32 {
 	if x != nil {
 		return x.TopK
 	}
@@ -141,14 +141,14 @@ func (x *SamplingParams) GetRepetitionPenalty() float32 {
 	return 0
 }
 
-func (x *SamplingParams) GetMaxTokens() int32 {
+func (x *SamplingParams) GetMaxTokens() uint32 {
 	if x != nil && x.MaxTokens != nil {
 		return *x.MaxTokens
 	}
 	return 0
 }
 
-func (x *SamplingParams) GetMinTokens() int32 {
+func (x *SamplingParams) GetMinTokens() uint32 {
 	if x != nil {
 		return x.MinTokens
 	}
@@ -190,7 +190,7 @@ func (x *SamplingParams) GetIgnoreEos() bool {
 	return false
 }
 
-func (x *SamplingParams) GetN() int32 {
+func (x *SamplingParams) GetN() uint32 {
 	if x != nil {
 		return x.N
 	}
@@ -350,7 +350,7 @@ type ChoiceConstraint struct {
 
 func (x *ChoiceConstraint) Reset() {
 	*x = ChoiceConstraint{}
-	mi := &file_vllm_proto_msgTypes[1]
+	mi := &file_vllm_engine_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +362,7 @@ func (x *ChoiceConstraint) String() string {
 func (*ChoiceConstraint) ProtoMessage() {}
 
 func (x *ChoiceConstraint) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[1]
+	mi := &file_vllm_engine_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +375,7 @@ func (x *ChoiceConstraint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChoiceConstraint.ProtoReflect.Descriptor instead.
 func (*ChoiceConstraint) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{1}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ChoiceConstraint) GetChoices() []string {
@@ -396,7 +396,7 @@ type TokenizedInput struct {
 
 func (x *TokenizedInput) Reset() {
 	*x = TokenizedInput{}
-	mi := &file_vllm_proto_msgTypes[2]
+	mi := &file_vllm_engine_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -408,7 +408,7 @@ func (x *TokenizedInput) String() string {
 func (*TokenizedInput) ProtoMessage() {}
 
 func (x *TokenizedInput) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[2]
+	mi := &file_vllm_engine_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -421,7 +421,7 @@ func (x *TokenizedInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TokenizedInput.ProtoReflect.Descriptor instead.
 func (*TokenizedInput) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{2}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *TokenizedInput) GetOriginalText() string {
@@ -441,19 +441,24 @@ func (x *TokenizedInput) GetInputIds() []uint32 {
 type GenerateRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	RequestId string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
-	// Pre-tokenized input (required)
-	Tokenized *TokenizedInput `protobuf:"bytes,2,opt,name=tokenized,proto3" json:"tokenized,omitempty"`
+	// Prompt input
+	//
+	// Types that are valid to be assigned to Input:
+	//
+	//	*GenerateRequest_Tokenized
+	//	*GenerateRequest_Text
+	Input isGenerateRequest_Input `protobuf_oneof:"input"`
 	// Generation parameters (includes logprobs config)
-	SamplingParams *SamplingParams `protobuf:"bytes,3,opt,name=sampling_params,json=samplingParams,proto3" json:"sampling_params,omitempty"`
+	SamplingParams *SamplingParams `protobuf:"bytes,4,opt,name=sampling_params,json=samplingParams,proto3" json:"sampling_params,omitempty"`
 	// Streaming
-	Stream        bool `protobuf:"varint,4,opt,name=stream,proto3" json:"stream,omitempty"`
+	Stream        bool `protobuf:"varint,5,opt,name=stream,proto3" json:"stream,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GenerateRequest) Reset() {
 	*x = GenerateRequest{}
-	mi := &file_vllm_proto_msgTypes[3]
+	mi := &file_vllm_engine_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +470,7 @@ func (x *GenerateRequest) String() string {
 func (*GenerateRequest) ProtoMessage() {}
 
 func (x *GenerateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[3]
+	mi := &file_vllm_engine_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -478,7 +483,7 @@ func (x *GenerateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateRequest.ProtoReflect.Descriptor instead.
 func (*GenerateRequest) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{3}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GenerateRequest) GetRequestId() string {
@@ -488,11 +493,29 @@ func (x *GenerateRequest) GetRequestId() string {
 	return ""
 }
 
-func (x *GenerateRequest) GetTokenized() *TokenizedInput {
+func (x *GenerateRequest) GetInput() isGenerateRequest_Input {
 	if x != nil {
-		return x.Tokenized
+		return x.Input
 	}
 	return nil
+}
+
+func (x *GenerateRequest) GetTokenized() *TokenizedInput {
+	if x != nil {
+		if x, ok := x.Input.(*GenerateRequest_Tokenized); ok {
+			return x.Tokenized
+		}
+	}
+	return nil
+}
+
+func (x *GenerateRequest) GetText() string {
+	if x != nil {
+		if x, ok := x.Input.(*GenerateRequest_Text); ok {
+			return x.Text
+		}
+	}
+	return ""
 }
 
 func (x *GenerateRequest) GetSamplingParams() *SamplingParams {
@@ -509,14 +532,28 @@ func (x *GenerateRequest) GetStream() bool {
 	return false
 }
 
+type isGenerateRequest_Input interface {
+	isGenerateRequest_Input()
+}
+
+type GenerateRequest_Tokenized struct {
+	Tokenized *TokenizedInput `protobuf:"bytes,2,opt,name=tokenized,proto3,oneof"`
+}
+
+type GenerateRequest_Text struct {
+	Text string `protobuf:"bytes,3,opt,name=text,proto3,oneof"`
+}
+
+func (*GenerateRequest_Tokenized) isGenerateRequest_Input() {}
+
+func (*GenerateRequest_Text) isGenerateRequest_Input() {}
+
 type GenerateResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	RequestId string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Response:
 	//
 	//	*GenerateResponse_Chunk
 	//	*GenerateResponse_Complete
-	//	*GenerateResponse_Error
 	Response      isGenerateResponse_Response `protobuf_oneof:"response"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -524,7 +561,7 @@ type GenerateResponse struct {
 
 func (x *GenerateResponse) Reset() {
 	*x = GenerateResponse{}
-	mi := &file_vllm_proto_msgTypes[4]
+	mi := &file_vllm_engine_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -536,7 +573,7 @@ func (x *GenerateResponse) String() string {
 func (*GenerateResponse) ProtoMessage() {}
 
 func (x *GenerateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[4]
+	mi := &file_vllm_engine_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -549,14 +586,7 @@ func (x *GenerateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateResponse.ProtoReflect.Descriptor instead.
 func (*GenerateResponse) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *GenerateResponse) GetRequestId() string {
-	if x != nil {
-		return x.RequestId
-	}
-	return ""
+	return file_vllm_engine_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GenerateResponse) GetResponse() isGenerateResponse_Response {
@@ -584,50 +614,35 @@ func (x *GenerateResponse) GetComplete() *GenerateComplete {
 	return nil
 }
 
-func (x *GenerateResponse) GetError() *GenerateError {
-	if x != nil {
-		if x, ok := x.Response.(*GenerateResponse_Error); ok {
-			return x.Error
-		}
-	}
-	return nil
-}
-
 type isGenerateResponse_Response interface {
 	isGenerateResponse_Response()
 }
 
 type GenerateResponse_Chunk struct {
-	Chunk *GenerateStreamChunk `protobuf:"bytes,2,opt,name=chunk,proto3,oneof"` // For streaming
+	Chunk *GenerateStreamChunk `protobuf:"bytes,1,opt,name=chunk,proto3,oneof"` // For streaming
 }
 
 type GenerateResponse_Complete struct {
-	Complete *GenerateComplete `protobuf:"bytes,3,opt,name=complete,proto3,oneof"` // For final/non-streaming
-}
-
-type GenerateResponse_Error struct {
-	Error *GenerateError `protobuf:"bytes,4,opt,name=error,proto3,oneof"` // For errors
+	Complete *GenerateComplete `protobuf:"bytes,2,opt,name=complete,proto3,oneof"` // For final/non-streaming
 }
 
 func (*GenerateResponse_Chunk) isGenerateResponse_Response() {}
 
 func (*GenerateResponse_Complete) isGenerateResponse_Response() {}
 
-func (*GenerateResponse_Error) isGenerateResponse_Response() {}
-
 type GenerateStreamChunk struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	TokenIds         []uint32               `protobuf:"varint,1,rep,packed,name=token_ids,json=tokenIds,proto3" json:"token_ids,omitempty"` // Incremental tokens
-	PromptTokens     int32                  `protobuf:"varint,2,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
-	CompletionTokens int32                  `protobuf:"varint,3,opt,name=completion_tokens,json=completionTokens,proto3" json:"completion_tokens,omitempty"`
-	CachedTokens     int32                  `protobuf:"varint,4,opt,name=cached_tokens,json=cachedTokens,proto3" json:"cached_tokens,omitempty"`
+	PromptTokens     uint32                 `protobuf:"varint,2,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
+	CompletionTokens uint32                 `protobuf:"varint,3,opt,name=completion_tokens,json=completionTokens,proto3" json:"completion_tokens,omitempty"`
+	CachedTokens     uint32                 `protobuf:"varint,4,opt,name=cached_tokens,json=cachedTokens,proto3" json:"cached_tokens,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GenerateStreamChunk) Reset() {
 	*x = GenerateStreamChunk{}
-	mi := &file_vllm_proto_msgTypes[5]
+	mi := &file_vllm_engine_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -639,7 +654,7 @@ func (x *GenerateStreamChunk) String() string {
 func (*GenerateStreamChunk) ProtoMessage() {}
 
 func (x *GenerateStreamChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[5]
+	mi := &file_vllm_engine_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -652,7 +667,7 @@ func (x *GenerateStreamChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateStreamChunk.ProtoReflect.Descriptor instead.
 func (*GenerateStreamChunk) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{5}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GenerateStreamChunk) GetTokenIds() []uint32 {
@@ -662,21 +677,21 @@ func (x *GenerateStreamChunk) GetTokenIds() []uint32 {
 	return nil
 }
 
-func (x *GenerateStreamChunk) GetPromptTokens() int32 {
+func (x *GenerateStreamChunk) GetPromptTokens() uint32 {
 	if x != nil {
 		return x.PromptTokens
 	}
 	return 0
 }
 
-func (x *GenerateStreamChunk) GetCompletionTokens() int32 {
+func (x *GenerateStreamChunk) GetCompletionTokens() uint32 {
 	if x != nil {
 		return x.CompletionTokens
 	}
 	return 0
 }
 
-func (x *GenerateStreamChunk) GetCachedTokens() int32 {
+func (x *GenerateStreamChunk) GetCachedTokens() uint32 {
 	if x != nil {
 		return x.CachedTokens
 	}
@@ -687,16 +702,16 @@ type GenerateComplete struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	OutputIds        []uint32               `protobuf:"varint,1,rep,packed,name=output_ids,json=outputIds,proto3" json:"output_ids,omitempty"`  // All output tokens
 	FinishReason     string                 `protobuf:"bytes,2,opt,name=finish_reason,json=finishReason,proto3" json:"finish_reason,omitempty"` // "stop", "length", "abort"
-	PromptTokens     int32                  `protobuf:"varint,3,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
-	CompletionTokens int32                  `protobuf:"varint,4,opt,name=completion_tokens,json=completionTokens,proto3" json:"completion_tokens,omitempty"`
-	CachedTokens     int32                  `protobuf:"varint,5,opt,name=cached_tokens,json=cachedTokens,proto3" json:"cached_tokens,omitempty"`
+	PromptTokens     uint32                 `protobuf:"varint,3,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
+	CompletionTokens uint32                 `protobuf:"varint,4,opt,name=completion_tokens,json=completionTokens,proto3" json:"completion_tokens,omitempty"`
+	CachedTokens     uint32                 `protobuf:"varint,5,opt,name=cached_tokens,json=cachedTokens,proto3" json:"cached_tokens,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GenerateComplete) Reset() {
 	*x = GenerateComplete{}
-	mi := &file_vllm_proto_msgTypes[6]
+	mi := &file_vllm_engine_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -708,7 +723,7 @@ func (x *GenerateComplete) String() string {
 func (*GenerateComplete) ProtoMessage() {}
 
 func (x *GenerateComplete) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[6]
+	mi := &file_vllm_engine_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -721,7 +736,7 @@ func (x *GenerateComplete) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateComplete.ProtoReflect.Descriptor instead.
 func (*GenerateComplete) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{6}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GenerateComplete) GetOutputIds() []uint32 {
@@ -738,85 +753,25 @@ func (x *GenerateComplete) GetFinishReason() string {
 	return ""
 }
 
-func (x *GenerateComplete) GetPromptTokens() int32 {
+func (x *GenerateComplete) GetPromptTokens() uint32 {
 	if x != nil {
 		return x.PromptTokens
 	}
 	return 0
 }
 
-func (x *GenerateComplete) GetCompletionTokens() int32 {
+func (x *GenerateComplete) GetCompletionTokens() uint32 {
 	if x != nil {
 		return x.CompletionTokens
 	}
 	return 0
 }
 
-func (x *GenerateComplete) GetCachedTokens() int32 {
+func (x *GenerateComplete) GetCachedTokens() uint32 {
 	if x != nil {
 		return x.CachedTokens
 	}
 	return 0
-}
-
-type GenerateError struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Message        string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	HttpStatusCode string                 `protobuf:"bytes,2,opt,name=http_status_code,json=httpStatusCode,proto3" json:"http_status_code,omitempty"`
-	Details        string                 `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *GenerateError) Reset() {
-	*x = GenerateError{}
-	mi := &file_vllm_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateError) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateError) ProtoMessage() {}
-
-func (x *GenerateError) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateError.ProtoReflect.Descriptor instead.
-func (*GenerateError) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *GenerateError) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *GenerateError) GetHttpStatusCode() string {
-	if x != nil {
-		return x.HttpStatusCode
-	}
-	return ""
-}
-
-func (x *GenerateError) GetDetails() string {
-	if x != nil {
-		return x.Details
-	}
-	return ""
 }
 
 type EmbedRequest struct {
@@ -829,7 +784,7 @@ type EmbedRequest struct {
 
 func (x *EmbedRequest) Reset() {
 	*x = EmbedRequest{}
-	mi := &file_vllm_proto_msgTypes[8]
+	mi := &file_vllm_engine_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -841,7 +796,7 @@ func (x *EmbedRequest) String() string {
 func (*EmbedRequest) ProtoMessage() {}
 
 func (x *EmbedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[8]
+	mi := &file_vllm_engine_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -854,7 +809,7 @@ func (x *EmbedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmbedRequest.ProtoReflect.Descriptor instead.
 func (*EmbedRequest) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{8}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *EmbedRequest) GetRequestId() string {
@@ -872,20 +827,17 @@ func (x *EmbedRequest) GetTokenized() *TokenizedInput {
 }
 
 type EmbedResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	RequestId string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
-	// Types that are valid to be assigned to Response:
-	//
-	//	*EmbedResponse_Complete
-	//	*EmbedResponse_Error
-	Response      isEmbedResponse_Response `protobuf_oneof:"response"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Embedding     []float32              `protobuf:"fixed32,1,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`
+	PromptTokens  uint32                 `protobuf:"varint,2,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
+	EmbeddingDim  uint32                 `protobuf:"varint,3,opt,name=embedding_dim,json=embeddingDim,proto3" json:"embedding_dim,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EmbedResponse) Reset() {
 	*x = EmbedResponse{}
-	mi := &file_vllm_proto_msgTypes[9]
+	mi := &file_vllm_engine_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -897,7 +849,7 @@ func (x *EmbedResponse) String() string {
 func (*EmbedResponse) ProtoMessage() {}
 
 func (x *EmbedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[9]
+	mi := &file_vllm_engine_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -910,167 +862,28 @@ func (x *EmbedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmbedResponse.ProtoReflect.Descriptor instead.
 func (*EmbedResponse) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{9}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *EmbedResponse) GetRequestId() string {
-	if x != nil {
-		return x.RequestId
-	}
-	return ""
-}
-
-func (x *EmbedResponse) GetResponse() isEmbedResponse_Response {
-	if x != nil {
-		return x.Response
-	}
-	return nil
-}
-
-func (x *EmbedResponse) GetComplete() *EmbedComplete {
-	if x != nil {
-		if x, ok := x.Response.(*EmbedResponse_Complete); ok {
-			return x.Complete
-		}
-	}
-	return nil
-}
-
-func (x *EmbedResponse) GetError() *EmbedError {
-	if x != nil {
-		if x, ok := x.Response.(*EmbedResponse_Error); ok {
-			return x.Error
-		}
-	}
-	return nil
-}
-
-type isEmbedResponse_Response interface {
-	isEmbedResponse_Response()
-}
-
-type EmbedResponse_Complete struct {
-	Complete *EmbedComplete `protobuf:"bytes,2,opt,name=complete,proto3,oneof"`
-}
-
-type EmbedResponse_Error struct {
-	Error *EmbedError `protobuf:"bytes,3,opt,name=error,proto3,oneof"`
-}
-
-func (*EmbedResponse_Complete) isEmbedResponse_Response() {}
-
-func (*EmbedResponse_Error) isEmbedResponse_Response() {}
-
-type EmbedComplete struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Embedding     []float32              `protobuf:"fixed32,1,rep,packed,name=embedding,proto3" json:"embedding,omitempty"`
-	PromptTokens  int32                  `protobuf:"varint,2,opt,name=prompt_tokens,json=promptTokens,proto3" json:"prompt_tokens,omitempty"`
-	EmbeddingDim  int32                  `protobuf:"varint,3,opt,name=embedding_dim,json=embeddingDim,proto3" json:"embedding_dim,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EmbedComplete) Reset() {
-	*x = EmbedComplete{}
-	mi := &file_vllm_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EmbedComplete) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EmbedComplete) ProtoMessage() {}
-
-func (x *EmbedComplete) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EmbedComplete.ProtoReflect.Descriptor instead.
-func (*EmbedComplete) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *EmbedComplete) GetEmbedding() []float32 {
+func (x *EmbedResponse) GetEmbedding() []float32 {
 	if x != nil {
 		return x.Embedding
 	}
 	return nil
 }
 
-func (x *EmbedComplete) GetPromptTokens() int32 {
+func (x *EmbedResponse) GetPromptTokens() uint32 {
 	if x != nil {
 		return x.PromptTokens
 	}
 	return 0
 }
 
-func (x *EmbedComplete) GetEmbeddingDim() int32 {
+func (x *EmbedResponse) GetEmbeddingDim() uint32 {
 	if x != nil {
 		return x.EmbeddingDim
 	}
 	return 0
-}
-
-type EmbedError struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	Code          string                 `protobuf:"bytes,2,opt,name=code,proto3" json:"code,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *EmbedError) Reset() {
-	*x = EmbedError{}
-	mi := &file_vllm_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EmbedError) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EmbedError) ProtoMessage() {}
-
-func (x *EmbedError) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EmbedError.ProtoReflect.Descriptor instead.
-func (*EmbedError) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *EmbedError) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-func (x *EmbedError) GetCode() string {
-	if x != nil {
-		return x.Code
-	}
-	return ""
 }
 
 type HealthCheckRequest struct {
@@ -1081,7 +894,7 @@ type HealthCheckRequest struct {
 
 func (x *HealthCheckRequest) Reset() {
 	*x = HealthCheckRequest{}
-	mi := &file_vllm_proto_msgTypes[12]
+	mi := &file_vllm_engine_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1093,7 +906,7 @@ func (x *HealthCheckRequest) String() string {
 func (*HealthCheckRequest) ProtoMessage() {}
 
 func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[12]
+	mi := &file_vllm_engine_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1106,7 +919,7 @@ func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{12}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{9}
 }
 
 type HealthCheckResponse struct {
@@ -1119,7 +932,7 @@ type HealthCheckResponse struct {
 
 func (x *HealthCheckResponse) Reset() {
 	*x = HealthCheckResponse{}
-	mi := &file_vllm_proto_msgTypes[13]
+	mi := &file_vllm_engine_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1131,7 +944,7 @@ func (x *HealthCheckResponse) String() string {
 func (*HealthCheckResponse) ProtoMessage() {}
 
 func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[13]
+	mi := &file_vllm_engine_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1144,7 +957,7 @@ func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthCheckResponse) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{13}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *HealthCheckResponse) GetHealthy() bool {
@@ -1163,15 +976,14 @@ func (x *HealthCheckResponse) GetMessage() string {
 
 type AbortRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
-	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestIds    []string               `protobuf:"bytes,1,rep,name=request_ids,json=requestIds,proto3" json:"request_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AbortRequest) Reset() {
 	*x = AbortRequest{}
-	mi := &file_vllm_proto_msgTypes[14]
+	mi := &file_vllm_engine_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1183,7 +995,7 @@ func (x *AbortRequest) String() string {
 func (*AbortRequest) ProtoMessage() {}
 
 func (x *AbortRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[14]
+	mi := &file_vllm_engine_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1196,34 +1008,25 @@ func (x *AbortRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AbortRequest.ProtoReflect.Descriptor instead.
 func (*AbortRequest) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{14}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *AbortRequest) GetRequestId() string {
+func (x *AbortRequest) GetRequestIds() []string {
 	if x != nil {
-		return x.RequestId
+		return x.RequestIds
 	}
-	return ""
-}
-
-func (x *AbortRequest) GetReason() string {
-	if x != nil {
-		return x.Reason
-	}
-	return ""
+	return nil
 }
 
 type AbortResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AbortResponse) Reset() {
 	*x = AbortResponse{}
-	mi := &file_vllm_proto_msgTypes[15]
+	mi := &file_vllm_engine_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1235,7 +1038,7 @@ func (x *AbortResponse) String() string {
 func (*AbortResponse) ProtoMessage() {}
 
 func (x *AbortResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[15]
+	mi := &file_vllm_engine_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1248,21 +1051,7 @@ func (x *AbortResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AbortResponse.ProtoReflect.Descriptor instead.
 func (*AbortResponse) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *AbortResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *AbortResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
+	return file_vllm_engine_proto_rawDescGZIP(), []int{12}
 }
 
 type GetModelInfoRequest struct {
@@ -1273,7 +1062,7 @@ type GetModelInfoRequest struct {
 
 func (x *GetModelInfoRequest) Reset() {
 	*x = GetModelInfoRequest{}
-	mi := &file_vllm_proto_msgTypes[16]
+	mi := &file_vllm_engine_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1285,7 +1074,7 @@ func (x *GetModelInfoRequest) String() string {
 func (*GetModelInfoRequest) ProtoMessage() {}
 
 func (x *GetModelInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[16]
+	mi := &file_vllm_engine_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1298,15 +1087,15 @@ func (x *GetModelInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModelInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetModelInfoRequest) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{16}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{13}
 }
 
 type GetModelInfoResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	ModelPath        string                 `protobuf:"bytes,1,opt,name=model_path,json=modelPath,proto3" json:"model_path,omitempty"`
 	IsGeneration     bool                   `protobuf:"varint,2,opt,name=is_generation,json=isGeneration,proto3" json:"is_generation,omitempty"`
-	MaxContextLength int32                  `protobuf:"varint,3,opt,name=max_context_length,json=maxContextLength,proto3" json:"max_context_length,omitempty"`
-	VocabSize        int32                  `protobuf:"varint,4,opt,name=vocab_size,json=vocabSize,proto3" json:"vocab_size,omitempty"`
+	MaxContextLength uint32                 `protobuf:"varint,3,opt,name=max_context_length,json=maxContextLength,proto3" json:"max_context_length,omitempty"`
+	VocabSize        uint32                 `protobuf:"varint,4,opt,name=vocab_size,json=vocabSize,proto3" json:"vocab_size,omitempty"`
 	SupportsVision   bool                   `protobuf:"varint,5,opt,name=supports_vision,json=supportsVision,proto3" json:"supports_vision,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -1314,7 +1103,7 @@ type GetModelInfoResponse struct {
 
 func (x *GetModelInfoResponse) Reset() {
 	*x = GetModelInfoResponse{}
-	mi := &file_vllm_proto_msgTypes[17]
+	mi := &file_vllm_engine_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1326,7 +1115,7 @@ func (x *GetModelInfoResponse) String() string {
 func (*GetModelInfoResponse) ProtoMessage() {}
 
 func (x *GetModelInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[17]
+	mi := &file_vllm_engine_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1339,7 +1128,7 @@ func (x *GetModelInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModelInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetModelInfoResponse) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{17}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetModelInfoResponse) GetModelPath() string {
@@ -1356,14 +1145,14 @@ func (x *GetModelInfoResponse) GetIsGeneration() bool {
 	return false
 }
 
-func (x *GetModelInfoResponse) GetMaxContextLength() int32 {
+func (x *GetModelInfoResponse) GetMaxContextLength() uint32 {
 	if x != nil {
 		return x.MaxContextLength
 	}
 	return 0
 }
 
-func (x *GetModelInfoResponse) GetVocabSize() int32 {
+func (x *GetModelInfoResponse) GetVocabSize() uint32 {
 	if x != nil {
 		return x.VocabSize
 	}
@@ -1385,7 +1174,7 @@ type GetServerInfoRequest struct {
 
 func (x *GetServerInfoRequest) Reset() {
 	*x = GetServerInfoRequest{}
-	mi := &file_vllm_proto_msgTypes[18]
+	mi := &file_vllm_engine_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +1186,7 @@ func (x *GetServerInfoRequest) String() string {
 func (*GetServerInfoRequest) ProtoMessage() {}
 
 func (x *GetServerInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[18]
+	mi := &file_vllm_engine_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,12 +1199,12 @@ func (x *GetServerInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetServerInfoRequest) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{18}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{15}
 }
 
 type GetServerInfoResponse struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
-	ActiveRequests       int32                  `protobuf:"varint,1,opt,name=active_requests,json=activeRequests,proto3" json:"active_requests,omitempty"`
+	ActiveRequests       uint32                 `protobuf:"varint,1,opt,name=active_requests,json=activeRequests,proto3" json:"active_requests,omitempty"`
 	IsPaused             bool                   `protobuf:"varint,2,opt,name=is_paused,json=isPaused,proto3" json:"is_paused,omitempty"`
 	LastReceiveTimestamp float64                `protobuf:"fixed64,3,opt,name=last_receive_timestamp,json=lastReceiveTimestamp,proto3" json:"last_receive_timestamp,omitempty"`
 	UptimeSeconds        float64                `protobuf:"fixed64,4,opt,name=uptime_seconds,json=uptimeSeconds,proto3" json:"uptime_seconds,omitempty"`
@@ -1426,7 +1215,7 @@ type GetServerInfoResponse struct {
 
 func (x *GetServerInfoResponse) Reset() {
 	*x = GetServerInfoResponse{}
-	mi := &file_vllm_proto_msgTypes[19]
+	mi := &file_vllm_engine_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1227,7 @@ func (x *GetServerInfoResponse) String() string {
 func (*GetServerInfoResponse) ProtoMessage() {}
 
 func (x *GetServerInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_vllm_proto_msgTypes[19]
+	mi := &file_vllm_engine_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,10 +1240,10 @@ func (x *GetServerInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetServerInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetServerInfoResponse) Descriptor() ([]byte, []int) {
-	return file_vllm_proto_rawDescGZIP(), []int{19}
+	return file_vllm_engine_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *GetServerInfoResponse) GetActiveRequests() int32 {
+func (x *GetServerInfoResponse) GetActiveRequests() uint32 {
 	if x != nil {
 		return x.ActiveRequests
 	}
@@ -1489,24 +1278,23 @@ func (x *GetServerInfoResponse) GetServerType() string {
 	return ""
 }
 
-var File_vllm_proto protoreflect.FileDescriptor
+var File_vllm_engine_proto protoreflect.FileDescriptor
 
-const file_vllm_proto_rawDesc = "" +
+const file_vllm_engine_proto_rawDesc = "" +
 	"\n" +
-	"\n" +
-	"vllm.proto\x12\x10vllm.grpc.engine\"\xc5\t\n" +
-	"\x0eSamplingParams\x12 \n" +
-	"\vtemperature\x18\x01 \x01(\x02R\vtemperature\x12\x13\n" +
+	"\x11vllm_engine.proto\x12\x10vllm.grpc.engine\"\xda\t\n" +
+	"\x0eSamplingParams\x12%\n" +
+	"\vtemperature\x18\x01 \x01(\x02H\x01R\vtemperature\x88\x01\x01\x12\x13\n" +
 	"\x05top_p\x18\x02 \x01(\x02R\x04topP\x12\x13\n" +
-	"\x05top_k\x18\x03 \x01(\x05R\x04topK\x12\x13\n" +
+	"\x05top_k\x18\x03 \x01(\rR\x04topK\x12\x13\n" +
 	"\x05min_p\x18\x04 \x01(\x02R\x04minP\x12+\n" +
 	"\x11frequency_penalty\x18\x05 \x01(\x02R\x10frequencyPenalty\x12)\n" +
 	"\x10presence_penalty\x18\x06 \x01(\x02R\x0fpresencePenalty\x12-\n" +
 	"\x12repetition_penalty\x18\a \x01(\x02R\x11repetitionPenalty\x12\"\n" +
 	"\n" +
-	"max_tokens\x18\b \x01(\x05H\x01R\tmaxTokens\x88\x01\x01\x12\x1d\n" +
+	"max_tokens\x18\b \x01(\rH\x02R\tmaxTokens\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"min_tokens\x18\t \x01(\x05R\tminTokens\x12\x12\n" +
+	"min_tokens\x18\t \x01(\rR\tminTokens\x12\x12\n" +
 	"\x04stop\x18\n" +
 	" \x03(\tR\x04stop\x12$\n" +
 	"\x0estop_token_ids\x18\v \x03(\rR\fstopTokenIds\x12.\n" +
@@ -1514,14 +1302,14 @@ const file_vllm_proto_rawDesc = "" +
 	"\x1dspaces_between_special_tokens\x18\r \x01(\bR\x1aspacesBetweenSpecialTokens\x12\x1d\n" +
 	"\n" +
 	"ignore_eos\x18\x0e \x01(\bR\tignoreEos\x12\f\n" +
-	"\x01n\x18\x0f \x01(\x05R\x01n\x12\x1f\n" +
-	"\blogprobs\x18\x16 \x01(\x05H\x02R\blogprobs\x88\x01\x01\x12,\n" +
-	"\x0fprompt_logprobs\x18\x17 \x01(\x05H\x03R\x0epromptLogprobs\x88\x01\x01\x12\x17\n" +
-	"\x04seed\x18\x18 \x01(\x05H\x04R\x04seed\x88\x01\x01\x12:\n" +
+	"\x01n\x18\x0f \x01(\rR\x01n\x12\x1f\n" +
+	"\blogprobs\x18\x16 \x01(\x05H\x03R\blogprobs\x88\x01\x01\x12,\n" +
+	"\x0fprompt_logprobs\x18\x17 \x01(\x05H\x04R\x0epromptLogprobs\x88\x01\x01\x12\x17\n" +
+	"\x04seed\x18\x18 \x01(\x05H\x05R\x04seed\x88\x01\x01\x12:\n" +
 	"\x1ainclude_stop_str_in_output\x18\x19 \x01(\bR\x16includeStopStrInOutput\x12N\n" +
 	"\n" +
 	"logit_bias\x18\x1a \x03(\v2/.vllm.grpc.engine.SamplingParams.LogitBiasEntryR\tlogitBias\x129\n" +
-	"\x16truncate_prompt_tokens\x18\x1b \x01(\x05H\x05R\x14truncatePromptTokens\x88\x01\x01\x12!\n" +
+	"\x16truncate_prompt_tokens\x18\x1b \x01(\x05H\x06R\x14truncatePromptTokens\x88\x01\x01\x12!\n" +
 	"\vjson_schema\x18\x10 \x01(\tH\x00R\n" +
 	"jsonSchema\x12\x16\n" +
 	"\x05regex\x18\x11 \x01(\tH\x00R\x05regex\x12\x1a\n" +
@@ -1534,7 +1322,8 @@ const file_vllm_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\x05R\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x02R\x05value:\x028\x01B\f\n" +
 	"\n" +
-	"constraintB\r\n" +
+	"constraintB\x0e\n" +
+	"\f_temperatureB\r\n" +
 	"\v_max_tokensB\v\n" +
 	"\t_logprobsB\x12\n" +
 	"\x10_prompt_logprobsB\a\n" +
@@ -1544,79 +1333,60 @@ const file_vllm_proto_rawDesc = "" +
 	"\achoices\x18\x01 \x03(\tR\achoices\"R\n" +
 	"\x0eTokenizedInput\x12#\n" +
 	"\roriginal_text\x18\x01 \x01(\tR\foriginalText\x12\x1b\n" +
-	"\tinput_ids\x18\x02 \x03(\rR\binputIds\"\xd3\x01\n" +
+	"\tinput_ids\x18\x02 \x03(\rR\binputIds\"\xf4\x01\n" +
 	"\x0fGenerateRequest\x12\x1d\n" +
 	"\n" +
-	"request_id\x18\x01 \x01(\tR\trequestId\x12>\n" +
-	"\ttokenized\x18\x02 \x01(\v2 .vllm.grpc.engine.TokenizedInputR\ttokenized\x12I\n" +
-	"\x0fsampling_params\x18\x03 \x01(\v2 .vllm.grpc.engine.SamplingParamsR\x0esamplingParams\x12\x16\n" +
-	"\x06stream\x18\x04 \x01(\bR\x06stream\"\xf7\x01\n" +
-	"\x10GenerateResponse\x12\x1d\n" +
-	"\n" +
-	"request_id\x18\x01 \x01(\tR\trequestId\x12=\n" +
-	"\x05chunk\x18\x02 \x01(\v2%.vllm.grpc.engine.GenerateStreamChunkH\x00R\x05chunk\x12@\n" +
-	"\bcomplete\x18\x03 \x01(\v2\".vllm.grpc.engine.GenerateCompleteH\x00R\bcomplete\x127\n" +
-	"\x05error\x18\x04 \x01(\v2\x1f.vllm.grpc.engine.GenerateErrorH\x00R\x05errorB\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12@\n" +
+	"\ttokenized\x18\x02 \x01(\v2 .vllm.grpc.engine.TokenizedInputH\x00R\ttokenized\x12\x14\n" +
+	"\x04text\x18\x03 \x01(\tH\x00R\x04text\x12I\n" +
+	"\x0fsampling_params\x18\x04 \x01(\v2 .vllm.grpc.engine.SamplingParamsR\x0esamplingParams\x12\x16\n" +
+	"\x06stream\x18\x05 \x01(\bR\x06streamB\a\n" +
+	"\x05input\"\x9f\x01\n" +
+	"\x10GenerateResponse\x12=\n" +
+	"\x05chunk\x18\x01 \x01(\v2%.vllm.grpc.engine.GenerateStreamChunkH\x00R\x05chunk\x12@\n" +
+	"\bcomplete\x18\x02 \x01(\v2\".vllm.grpc.engine.GenerateCompleteH\x00R\bcompleteB\n" +
 	"\n" +
 	"\bresponse\"\xa9\x01\n" +
 	"\x13GenerateStreamChunk\x12\x1b\n" +
 	"\ttoken_ids\x18\x01 \x03(\rR\btokenIds\x12#\n" +
-	"\rprompt_tokens\x18\x02 \x01(\x05R\fpromptTokens\x12+\n" +
-	"\x11completion_tokens\x18\x03 \x01(\x05R\x10completionTokens\x12#\n" +
-	"\rcached_tokens\x18\x04 \x01(\x05R\fcachedTokens\"\xcd\x01\n" +
+	"\rprompt_tokens\x18\x02 \x01(\rR\fpromptTokens\x12+\n" +
+	"\x11completion_tokens\x18\x03 \x01(\rR\x10completionTokens\x12#\n" +
+	"\rcached_tokens\x18\x04 \x01(\rR\fcachedTokens\"\xcd\x01\n" +
 	"\x10GenerateComplete\x12\x1d\n" +
 	"\n" +
 	"output_ids\x18\x01 \x03(\rR\toutputIds\x12#\n" +
 	"\rfinish_reason\x18\x02 \x01(\tR\ffinishReason\x12#\n" +
-	"\rprompt_tokens\x18\x03 \x01(\x05R\fpromptTokens\x12+\n" +
-	"\x11completion_tokens\x18\x04 \x01(\x05R\x10completionTokens\x12#\n" +
-	"\rcached_tokens\x18\x05 \x01(\x05R\fcachedTokens\"m\n" +
-	"\rGenerateError\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12(\n" +
-	"\x10http_status_code\x18\x02 \x01(\tR\x0ehttpStatusCode\x12\x18\n" +
-	"\adetails\x18\x03 \x01(\tR\adetails\"m\n" +
+	"\rprompt_tokens\x18\x03 \x01(\rR\fpromptTokens\x12+\n" +
+	"\x11completion_tokens\x18\x04 \x01(\rR\x10completionTokens\x12#\n" +
+	"\rcached_tokens\x18\x05 \x01(\rR\fcachedTokens\"m\n" +
 	"\fEmbedRequest\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\tR\trequestId\x12>\n" +
-	"\ttokenized\x18\x02 \x01(\v2 .vllm.grpc.engine.TokenizedInputR\ttokenized\"\xaf\x01\n" +
-	"\rEmbedResponse\x12\x1d\n" +
-	"\n" +
-	"request_id\x18\x01 \x01(\tR\trequestId\x12=\n" +
-	"\bcomplete\x18\x02 \x01(\v2\x1f.vllm.grpc.engine.EmbedCompleteH\x00R\bcomplete\x124\n" +
-	"\x05error\x18\x03 \x01(\v2\x1c.vllm.grpc.engine.EmbedErrorH\x00R\x05errorB\n" +
-	"\n" +
-	"\bresponse\"w\n" +
-	"\rEmbedComplete\x12\x1c\n" +
+	"\ttokenized\x18\x02 \x01(\v2 .vllm.grpc.engine.TokenizedInputR\ttokenized\"w\n" +
+	"\rEmbedResponse\x12\x1c\n" +
 	"\tembedding\x18\x01 \x03(\x02R\tembedding\x12#\n" +
-	"\rprompt_tokens\x18\x02 \x01(\x05R\fpromptTokens\x12#\n" +
-	"\rembedding_dim\x18\x03 \x01(\x05R\fembeddingDim\":\n" +
-	"\n" +
-	"EmbedError\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12\x12\n" +
-	"\x04code\x18\x02 \x01(\tR\x04code\"\x14\n" +
+	"\rprompt_tokens\x18\x02 \x01(\rR\fpromptTokens\x12#\n" +
+	"\rembedding_dim\x18\x03 \x01(\rR\fembeddingDim\"\x14\n" +
 	"\x12HealthCheckRequest\"I\n" +
 	"\x13HealthCheckResponse\x12\x18\n" +
 	"\ahealthy\x18\x01 \x01(\bR\ahealthy\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"E\n" +
-	"\fAbortRequest\x12\x1d\n" +
-	"\n" +
-	"request_id\x18\x01 \x01(\tR\trequestId\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason\"C\n" +
-	"\rAbortResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x15\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"/\n" +
+	"\fAbortRequest\x12\x1f\n" +
+	"\vrequest_ids\x18\x01 \x03(\tR\n" +
+	"requestIds\"\x0f\n" +
+	"\rAbortResponse\"\x15\n" +
 	"\x13GetModelInfoRequest\"\xd0\x01\n" +
 	"\x14GetModelInfoResponse\x12\x1d\n" +
 	"\n" +
 	"model_path\x18\x01 \x01(\tR\tmodelPath\x12#\n" +
 	"\ris_generation\x18\x02 \x01(\bR\fisGeneration\x12,\n" +
-	"\x12max_context_length\x18\x03 \x01(\x05R\x10maxContextLength\x12\x1d\n" +
+	"\x12max_context_length\x18\x03 \x01(\rR\x10maxContextLength\x12\x1d\n" +
 	"\n" +
-	"vocab_size\x18\x04 \x01(\x05R\tvocabSize\x12'\n" +
+	"vocab_size\x18\x04 \x01(\rR\tvocabSize\x12'\n" +
 	"\x0fsupports_vision\x18\x05 \x01(\bR\x0esupportsVision\"\x16\n" +
 	"\x14GetServerInfoRequest\"\xdb\x01\n" +
 	"\x15GetServerInfoResponse\x12'\n" +
-	"\x0factive_requests\x18\x01 \x01(\x05R\x0eactiveRequests\x12\x1b\n" +
+	"\x0factive_requests\x18\x01 \x01(\rR\x0eactiveRequests\x12\x1b\n" +
 	"\tis_paused\x18\x02 \x01(\bR\bisPaused\x124\n" +
 	"\x16last_receive_timestamp\x18\x03 \x01(\x01R\x14lastReceiveTimestamp\x12%\n" +
 	"\x0euptime_seconds\x18\x04 \x01(\x01R\ruptimeSeconds\x12\x1f\n" +
@@ -1629,22 +1399,22 @@ const file_vllm_proto_rawDesc = "" +
 	"\vHealthCheck\x12$.vllm.grpc.engine.HealthCheckRequest\x1a%.vllm.grpc.engine.HealthCheckResponse\x12H\n" +
 	"\x05Abort\x12\x1e.vllm.grpc.engine.AbortRequest\x1a\x1f.vllm.grpc.engine.AbortResponse\x12]\n" +
 	"\fGetModelInfo\x12%.vllm.grpc.engine.GetModelInfoRequest\x1a&.vllm.grpc.engine.GetModelInfoResponse\x12`\n" +
-	"\rGetServerInfo\x12&.vllm.grpc.engine.GetServerInfoRequest\x1a'.vllm.grpc.engine.GetServerInfoResponseB\x13Z\x11igw/gen/vllm;vllmb\x06proto3"
+	"\rGetServerInfo\x12&.vllm.grpc.engine.GetServerInfoRequest\x1a'.vllm.grpc.engine.GetServerInfoResponseB=Z;sigs.k8s.io/gateway-api-inference-extension/pkg/epp/api/genb\x06proto3"
 
 var (
-	file_vllm_proto_rawDescOnce sync.Once
-	file_vllm_proto_rawDescData []byte
+	file_vllm_engine_proto_rawDescOnce sync.Once
+	file_vllm_engine_proto_rawDescData []byte
 )
 
-func file_vllm_proto_rawDescGZIP() []byte {
-	file_vllm_proto_rawDescOnce.Do(func() {
-		file_vllm_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_vllm_proto_rawDesc), len(file_vllm_proto_rawDesc)))
+func file_vllm_engine_proto_rawDescGZIP() []byte {
+	file_vllm_engine_proto_rawDescOnce.Do(func() {
+		file_vllm_engine_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_vllm_engine_proto_rawDesc), len(file_vllm_engine_proto_rawDesc)))
 	})
-	return file_vllm_proto_rawDescData
+	return file_vllm_engine_proto_rawDescData
 }
 
-var file_vllm_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
-var file_vllm_proto_goTypes = []any{
+var file_vllm_engine_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_vllm_engine_proto_goTypes = []any{
 	(*SamplingParams)(nil),        // 0: vllm.grpc.engine.SamplingParams
 	(*ChoiceConstraint)(nil),      // 1: vllm.grpc.engine.ChoiceConstraint
 	(*TokenizedInput)(nil),        // 2: vllm.grpc.engine.TokenizedInput
@@ -1652,57 +1422,51 @@ var file_vllm_proto_goTypes = []any{
 	(*GenerateResponse)(nil),      // 4: vllm.grpc.engine.GenerateResponse
 	(*GenerateStreamChunk)(nil),   // 5: vllm.grpc.engine.GenerateStreamChunk
 	(*GenerateComplete)(nil),      // 6: vllm.grpc.engine.GenerateComplete
-	(*GenerateError)(nil),         // 7: vllm.grpc.engine.GenerateError
-	(*EmbedRequest)(nil),          // 8: vllm.grpc.engine.EmbedRequest
-	(*EmbedResponse)(nil),         // 9: vllm.grpc.engine.EmbedResponse
-	(*EmbedComplete)(nil),         // 10: vllm.grpc.engine.EmbedComplete
-	(*EmbedError)(nil),            // 11: vllm.grpc.engine.EmbedError
-	(*HealthCheckRequest)(nil),    // 12: vllm.grpc.engine.HealthCheckRequest
-	(*HealthCheckResponse)(nil),   // 13: vllm.grpc.engine.HealthCheckResponse
-	(*AbortRequest)(nil),          // 14: vllm.grpc.engine.AbortRequest
-	(*AbortResponse)(nil),         // 15: vllm.grpc.engine.AbortResponse
-	(*GetModelInfoRequest)(nil),   // 16: vllm.grpc.engine.GetModelInfoRequest
-	(*GetModelInfoResponse)(nil),  // 17: vllm.grpc.engine.GetModelInfoResponse
-	(*GetServerInfoRequest)(nil),  // 18: vllm.grpc.engine.GetServerInfoRequest
-	(*GetServerInfoResponse)(nil), // 19: vllm.grpc.engine.GetServerInfoResponse
-	nil,                           // 20: vllm.grpc.engine.SamplingParams.LogitBiasEntry
+	(*EmbedRequest)(nil),          // 7: vllm.grpc.engine.EmbedRequest
+	(*EmbedResponse)(nil),         // 8: vllm.grpc.engine.EmbedResponse
+	(*HealthCheckRequest)(nil),    // 9: vllm.grpc.engine.HealthCheckRequest
+	(*HealthCheckResponse)(nil),   // 10: vllm.grpc.engine.HealthCheckResponse
+	(*AbortRequest)(nil),          // 11: vllm.grpc.engine.AbortRequest
+	(*AbortResponse)(nil),         // 12: vllm.grpc.engine.AbortResponse
+	(*GetModelInfoRequest)(nil),   // 13: vllm.grpc.engine.GetModelInfoRequest
+	(*GetModelInfoResponse)(nil),  // 14: vllm.grpc.engine.GetModelInfoResponse
+	(*GetServerInfoRequest)(nil),  // 15: vllm.grpc.engine.GetServerInfoRequest
+	(*GetServerInfoResponse)(nil), // 16: vllm.grpc.engine.GetServerInfoResponse
+	nil,                           // 17: vllm.grpc.engine.SamplingParams.LogitBiasEntry
 }
-var file_vllm_proto_depIdxs = []int32{
-	20, // 0: vllm.grpc.engine.SamplingParams.logit_bias:type_name -> vllm.grpc.engine.SamplingParams.LogitBiasEntry
+var file_vllm_engine_proto_depIdxs = []int32{
+	17, // 0: vllm.grpc.engine.SamplingParams.logit_bias:type_name -> vllm.grpc.engine.SamplingParams.LogitBiasEntry
 	1,  // 1: vllm.grpc.engine.SamplingParams.choice:type_name -> vllm.grpc.engine.ChoiceConstraint
 	2,  // 2: vllm.grpc.engine.GenerateRequest.tokenized:type_name -> vllm.grpc.engine.TokenizedInput
 	0,  // 3: vllm.grpc.engine.GenerateRequest.sampling_params:type_name -> vllm.grpc.engine.SamplingParams
 	5,  // 4: vllm.grpc.engine.GenerateResponse.chunk:type_name -> vllm.grpc.engine.GenerateStreamChunk
 	6,  // 5: vllm.grpc.engine.GenerateResponse.complete:type_name -> vllm.grpc.engine.GenerateComplete
-	7,  // 6: vllm.grpc.engine.GenerateResponse.error:type_name -> vllm.grpc.engine.GenerateError
-	2,  // 7: vllm.grpc.engine.EmbedRequest.tokenized:type_name -> vllm.grpc.engine.TokenizedInput
-	10, // 8: vllm.grpc.engine.EmbedResponse.complete:type_name -> vllm.grpc.engine.EmbedComplete
-	11, // 9: vllm.grpc.engine.EmbedResponse.error:type_name -> vllm.grpc.engine.EmbedError
-	3,  // 10: vllm.grpc.engine.VllmEngine.Generate:input_type -> vllm.grpc.engine.GenerateRequest
-	8,  // 11: vllm.grpc.engine.VllmEngine.Embed:input_type -> vllm.grpc.engine.EmbedRequest
-	12, // 12: vllm.grpc.engine.VllmEngine.HealthCheck:input_type -> vllm.grpc.engine.HealthCheckRequest
-	14, // 13: vllm.grpc.engine.VllmEngine.Abort:input_type -> vllm.grpc.engine.AbortRequest
-	16, // 14: vllm.grpc.engine.VllmEngine.GetModelInfo:input_type -> vllm.grpc.engine.GetModelInfoRequest
-	18, // 15: vllm.grpc.engine.VllmEngine.GetServerInfo:input_type -> vllm.grpc.engine.GetServerInfoRequest
-	4,  // 16: vllm.grpc.engine.VllmEngine.Generate:output_type -> vllm.grpc.engine.GenerateResponse
-	9,  // 17: vllm.grpc.engine.VllmEngine.Embed:output_type -> vllm.grpc.engine.EmbedResponse
-	13, // 18: vllm.grpc.engine.VllmEngine.HealthCheck:output_type -> vllm.grpc.engine.HealthCheckResponse
-	15, // 19: vllm.grpc.engine.VllmEngine.Abort:output_type -> vllm.grpc.engine.AbortResponse
-	17, // 20: vllm.grpc.engine.VllmEngine.GetModelInfo:output_type -> vllm.grpc.engine.GetModelInfoResponse
-	19, // 21: vllm.grpc.engine.VllmEngine.GetServerInfo:output_type -> vllm.grpc.engine.GetServerInfoResponse
-	16, // [16:22] is the sub-list for method output_type
-	10, // [10:16] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	2,  // 6: vllm.grpc.engine.EmbedRequest.tokenized:type_name -> vllm.grpc.engine.TokenizedInput
+	3,  // 7: vllm.grpc.engine.VllmEngine.Generate:input_type -> vllm.grpc.engine.GenerateRequest
+	7,  // 8: vllm.grpc.engine.VllmEngine.Embed:input_type -> vllm.grpc.engine.EmbedRequest
+	9,  // 9: vllm.grpc.engine.VllmEngine.HealthCheck:input_type -> vllm.grpc.engine.HealthCheckRequest
+	11, // 10: vllm.grpc.engine.VllmEngine.Abort:input_type -> vllm.grpc.engine.AbortRequest
+	13, // 11: vllm.grpc.engine.VllmEngine.GetModelInfo:input_type -> vllm.grpc.engine.GetModelInfoRequest
+	15, // 12: vllm.grpc.engine.VllmEngine.GetServerInfo:input_type -> vllm.grpc.engine.GetServerInfoRequest
+	4,  // 13: vllm.grpc.engine.VllmEngine.Generate:output_type -> vllm.grpc.engine.GenerateResponse
+	8,  // 14: vllm.grpc.engine.VllmEngine.Embed:output_type -> vllm.grpc.engine.EmbedResponse
+	10, // 15: vllm.grpc.engine.VllmEngine.HealthCheck:output_type -> vllm.grpc.engine.HealthCheckResponse
+	12, // 16: vllm.grpc.engine.VllmEngine.Abort:output_type -> vllm.grpc.engine.AbortResponse
+	14, // 17: vllm.grpc.engine.VllmEngine.GetModelInfo:output_type -> vllm.grpc.engine.GetModelInfoResponse
+	16, // 18: vllm.grpc.engine.VllmEngine.GetServerInfo:output_type -> vllm.grpc.engine.GetServerInfoResponse
+	13, // [13:19] is the sub-list for method output_type
+	7,  // [7:13] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_vllm_proto_init() }
-func file_vllm_proto_init() {
-	if File_vllm_proto != nil {
+func init() { file_vllm_engine_proto_init() }
+func file_vllm_engine_proto_init() {
+	if File_vllm_engine_proto != nil {
 		return
 	}
-	file_vllm_proto_msgTypes[0].OneofWrappers = []any{
+	file_vllm_engine_proto_msgTypes[0].OneofWrappers = []any{
 		(*SamplingParams_JsonSchema)(nil),
 		(*SamplingParams_Regex)(nil),
 		(*SamplingParams_Grammar)(nil),
@@ -1710,30 +1474,29 @@ func file_vllm_proto_init() {
 		(*SamplingParams_JsonObject)(nil),
 		(*SamplingParams_Choice)(nil),
 	}
-	file_vllm_proto_msgTypes[4].OneofWrappers = []any{
+	file_vllm_engine_proto_msgTypes[3].OneofWrappers = []any{
+		(*GenerateRequest_Tokenized)(nil),
+		(*GenerateRequest_Text)(nil),
+	}
+	file_vllm_engine_proto_msgTypes[4].OneofWrappers = []any{
 		(*GenerateResponse_Chunk)(nil),
 		(*GenerateResponse_Complete)(nil),
-		(*GenerateResponse_Error)(nil),
-	}
-	file_vllm_proto_msgTypes[9].OneofWrappers = []any{
-		(*EmbedResponse_Complete)(nil),
-		(*EmbedResponse_Error)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vllm_proto_rawDesc), len(file_vllm_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_vllm_engine_proto_rawDesc), len(file_vllm_engine_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_vllm_proto_goTypes,
-		DependencyIndexes: file_vllm_proto_depIdxs,
-		MessageInfos:      file_vllm_proto_msgTypes,
+		GoTypes:           file_vllm_engine_proto_goTypes,
+		DependencyIndexes: file_vllm_engine_proto_depIdxs,
+		MessageInfos:      file_vllm_engine_proto_msgTypes,
 	}.Build()
-	File_vllm_proto = out.File
-	file_vllm_proto_goTypes = nil
-	file_vllm_proto_depIdxs = nil
+	File_vllm_engine_proto = out.File
+	file_vllm_engine_proto_goTypes = nil
+	file_vllm_engine_proto_depIdxs = nil
 }

@@ -29,6 +29,10 @@ type FakeVllmEngineServer struct {
 	vllm.UnimplementedVllmEngineServer
 }
 
+func (s *FakeVllmEngineServer) GetModelInfo(context.Context, *vllm.GetModelInfoRequest) (*vllm.GetModelInfoResponse, error) {
+	return &vllm.GetModelInfoResponse{ModelPath: "QwenQwen"}, nil
+}
+
 // Generate implements the Generate method for both streaming and non-streaming mode.
 // If req.Stream is true, it sends several chunks before a final complete response.
 // If req.Stream is false, it sends only a final complete response.

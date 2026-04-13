@@ -305,9 +305,9 @@ func (s *extProcServer) Process(stream extProcPb.ExternalProcessor_ProcessServer
 						if payload, ok := parseGrpcPayload(requestBodyBuffer); ok {
 							req := &pb.GenerateRequest{}
 							if err := proto.Unmarshal(payload, req); err == nil {
-								tokenCount := len(req.Tokenized.InputIds)
-								originalText := req.Tokenized.OriginalText
-								log.Printf("[Parser] Success: GenerateRequest (Tokens: %d) originalText: %s\n", tokenCount, originalText)
+								// tokenCount := len(req.Tokenized.InputIds)
+								// originalText := req.Tokenized.OriginalText
+								// log.Printf("[Parser] Success: GenerateRequest (Tokens: %d) originalText: %s\n", tokenCount, originalText)
 							} else {
 								log.Printf("[Parser] Error unmarshalling GenerateRequest: %v\n", err)
 							}
@@ -641,6 +641,12 @@ func main() {
 			enableHttpConvert: *enableHttpConvert,
 		})
 
+		// Register health check for Envoy
+		healthServer := health.NewServer()
+		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+		healthServer.SetServingStatus("envoy.service.ext_proc.v3.ExternalProcessor", grpc_health_v1.HealthCheckResponse_SERVING)
+		grpc_health_v1.RegisterHealthServer(s, healthServer)
+
 		log.Println("ExtProc listening on :9002")
 		if err := s.Serve(lis); err != nil {
 			log.Printf("ExtProc server error: %v", err)
@@ -663,6 +669,7 @@ func main() {
 
 		healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		healthServer.SetServingStatus("inference-extension", grpc_health_v1.HealthCheckResponse_SERVING)
+		healthServer.SetServingStatus("envoy.service.ext_proc.v3.ExternalProcessor", grpc_health_v1.HealthCheckResponse_SERVING)
 
 		grpc_health_v1.RegisterHealthServer(s, healthServer)
 
@@ -793,17 +800,20 @@ type Message struct {
 }
 
 func convertToGenerateRequest(request ChatCompletionRequest) *pb.GenerateRequest {
-	tokenizer := NewTokenizer()
-	maxToken := int32(50)
+	// tokenizer := NewTokenizer()
+	maxToken := uint32(50)
 	return &pb.GenerateRequest{
 		RequestId: "fake-request-id",
-		Tokenized: &pb.TokenizedInput{
-			OriginalText: request.Messages[0].Content,
-			InputIds:     tokenizer.Tokenize(request.Messages[0].Content),
+		Input: &pb.GenerateRequest_Text{
+			Text: request.Messages[0].Content,
 		},
+		// Tokenized: &pb.TokenizedInput{
+		// 	OriginalText: request.Messages[0].Content,
+		// 	InputIds:     tokenizer.Tokenize(request.Messages[0].Content),
+		// },
 		SamplingParams: &pb.SamplingParams{
-			Temperature: 0.7,
-			MaxTokens:   &maxToken,
+			// Temperature: 0.7,
+			MaxTokens: &maxToken,
 		},
 		Stream: request.Stream,
 	}

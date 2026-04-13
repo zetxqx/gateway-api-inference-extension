@@ -331,5 +331,5 @@ var VllmEngine_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "vllm.proto",
+	Metadata: "vllm_engine.proto",
 }
