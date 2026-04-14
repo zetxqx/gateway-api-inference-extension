@@ -18,7 +18,6 @@ package vllmgrpc
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,13 +28,12 @@ import (
 	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers"
 	pb "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers/vllmgrpc/api/gen"
 )
 
 const (
 	VllmGRPCParserType = "vllmgrpc-parser"
-
-	gRPCPayloadHeaderLen = 5
 
 	methodPathKey    = ":path"
 	vllmGeneratePath = "/vllm.grpc.engine.VllmEngine/Generate"
@@ -166,7 +164,7 @@ func requestControlUsage(promptToken, completionToken, cachedToken int) *fwkrh.U
 }
 
 func toGenerateResponse(payload []byte, resp *pb.GenerateResponse) error {
-	parsedPayload, compressed, err := parseGrpcPayload(payload)
+	parsedPayload, compressed, err := parsers.ParseGrpcPayload(payload)
 	if err != nil {
 		return errors.New("not able to parse payload")
 	}
@@ -206,27 +204,8 @@ func convertToInferenceRequestBody(payload []byte) (*fwkrh.InferenceRequestBody,
 	return body, nil
 }
 
-// parseGrpcPayload extracts the message payload and its compression status from a gRPC frame.
-// A standard gRPC frame consists of a 1-byte compression flag, a 4-byte message length,
-// and the actual message payload.
-func parseGrpcPayload(data []byte) ([]byte, bool, error) {
-	if len(data) < gRPCPayloadHeaderLen {
-		return nil, false, fmt.Errorf("invalid gRPC frame: expected at least %d bytes for header, got %d", gRPCPayloadHeaderLen, len(data))
-	}
-
-	// gRPC frame header: [Compression Flag (1 byte)] [Message Length (4 bytes)]
-	// Compression Flag 0 = uncompressed, 1 = compressed
-	isCompressed := data[0] == 1
-	msgLen := binary.BigEndian.Uint32(data[1:5])
-
-	if uint32(len(data)) < gRPCPayloadHeaderLen+msgLen {
-		return nil, false, fmt.Errorf("incomplete gRPC payload: header indicates %d bytes, but only %d bytes are available", msgLen, uint32(len(data))-gRPCPayloadHeaderLen)
-	}
-	return data[gRPCPayloadHeaderLen : gRPCPayloadHeaderLen+msgLen], isCompressed, nil
-}
-
 func toGenerateRequest(payload []byte, req *pb.GenerateRequest) error {
-	parsedPayload, compressed, err := parseGrpcPayload(payload)
+	parsedPayload, compressed, err := parsers.ParseGrpcPayload(payload)
 	if err != nil {
 		return errors.New("not able to parse payload")
 	}
@@ -258,7 +237,7 @@ func convertEmbedToInferenceRequestBody(payload []byte) (*fwkrh.InferenceRequest
 }
 
 func toEmbedRequest(payload []byte, req *pb.EmbedRequest) error {
-	parsedPayload, compressed, err := parseGrpcPayload(payload)
+	parsedPayload, compressed, err := parsers.ParseGrpcPayload(payload)
 	if err != nil {
 		return errors.New("not able to parse payload")
 	}
@@ -270,7 +249,7 @@ func toEmbedRequest(payload []byte, req *pb.EmbedRequest) error {
 }
 
 func toEmbedResponse(payload []byte, resp *pb.EmbedResponse) error {
-	parsedPayload, compressed, err := parseGrpcPayload(payload)
+	parsedPayload, compressed, err := parsers.ParseGrpcPayload(payload)
 	if err != nil {
 		return errors.New("not able to parse payload")
 	}
