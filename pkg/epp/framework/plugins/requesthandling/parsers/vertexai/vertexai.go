@@ -24,7 +24,9 @@ import (
 
 	"cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 	"google.golang.org/protobuf/proto"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	logutil "sigs.k8s.io/gateway-api-inference-extension/pkg/common/observability/logging"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requesthandling/parsers"
@@ -75,7 +77,8 @@ func (p *VertexAIParser) WithName(name string) *VertexAIParser {
 
 // ParseRequest parses the gRPC request body and headers and returns an InferenceRequestBody.
 func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.InferenceRequestBody, error) {
-	path := headers[":path"]
+	logger := log.FromContext(ctx)
+	path := headers[parsers.MethodPathKey]
 
 	switch {
 	case strings.HasSuffix(path, chatCompletionsMethod):
@@ -103,7 +106,17 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 			headersCopy[k] = v
 		}
 		headersCopy[":path"] = "/v1/chat/completions"
-		return openAIParser.ParseRequest(ctx, jsonBytes, headersCopy)
+		inferenceRequestBody, err := openAIParser.ParseRequest(ctx, jsonBytes, headersCopy)
+		if err != nil {
+			return nil, fmt.Errorf("parsing ChatCompletionsRequest: %w", err)
+		}
+		inferenceRequestBody.Payload = fwkrh.PayloadProto{Message: req}
+		if inferenceRequestBody.ChatCompletions != nil {
+			logger.V(logutil.DEBUG).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions.Messages)
+		} else {
+			logger.V(logutil.DEBUG).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions)
+		}
+		return inferenceRequestBody, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported gRPC path: %s", path)
