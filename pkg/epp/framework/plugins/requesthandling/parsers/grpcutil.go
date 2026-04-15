@@ -23,6 +23,7 @@ import (
 
 const (
 	gRPCPayloadHeaderLen = 5
+	MethodPathKey        = ":path"
 )
 
 // ParseGrpcPayload extracts the message payload and its compression status from a gRPC frame.

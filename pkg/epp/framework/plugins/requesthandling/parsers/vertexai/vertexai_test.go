@@ -24,6 +24,7 @@ import (
 	"cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/proto"
+	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 )
 
 func TestParseRequest_ChatCompletions(t *testing.T) {
@@ -57,6 +58,17 @@ func TestParseRequest_ChatCompletions(t *testing.T) {
 	}
 	if !req.Stream {
 		t.Error("Expected Stream to be true")
+	}
+
+	if req.Payload == nil {
+		t.Fatal("Expected Payload to be populated")
+	}
+	payloadProto, ok := req.Payload.(fwkrh.PayloadProto)
+	if !ok {
+		t.Fatal("Expected Payload to be of type fwkrh.PayloadProto")
+	}
+	if !proto.Equal(payloadProto.Message, reqMsg) {
+		t.Errorf("Expected Payload Message to be %v, got %v", reqMsg, payloadProto.Message)
 	}
 }
 
