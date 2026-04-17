@@ -298,9 +298,18 @@ func convertEmbedToInferenceRequestBody(payload []byte) (*fwkrh.InferenceRequest
 	}
 	var body *fwkrh.InferenceRequestBody
 	if pbReq.Tokenized != nil {
+		var tokenIDs []int
+		if pbReq.GetTokenized().InputIds != nil {
+			tokenIDs = make([]int, len(pbReq.GetTokenized().InputIds))
+			for i, v := range pbReq.GetTokenized().InputIds {
+				tokenIDs[i] = int(v)
+			}
+		}
 		body = &fwkrh.InferenceRequestBody{
 			Embeddings: &fwkrh.EmbeddingsRequest{
-				Input: pbReq.GetTokenized().OriginalText,
+				Input: fwkrh.EmbeddingsInput{
+					TokenIDs: tokenIDs,
+				},
 			},
 			Payload: fwkrh.PayloadProto{Message: pbReq},
 		}

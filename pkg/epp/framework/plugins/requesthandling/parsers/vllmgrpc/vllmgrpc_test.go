@@ -126,7 +126,9 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			want: &fwkrh.InferenceRequestBody{
 				Completions: &fwkrh.CompletionsRequest{
-					Prompt: fwkrh.Prompt{Raw: "Tokenized hello"},
+					Prompt: fwkrh.Prompt{
+						TokenIDs: []int{1, 2, 3},
+					},
 				},
 				Payload: fwkrh.PayloadProto{
 					Message: &pb.GenerateRequest{
@@ -282,17 +284,21 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			reqMsg: &pb.EmbedRequest{
 				Tokenized: &pb.TokenizedInput{
 					OriginalText: "Embed this",
+					InputIds:     []uint32{4, 5, 6},
 				},
 			},
 			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Embed"},
 			want: &fwkrh.InferenceRequestBody{
 				Embeddings: &fwkrh.EmbeddingsRequest{
-					Input: "Embed this",
+					Input: fwkrh.EmbeddingsInput{
+						TokenIDs: []int{4, 5, 6},
+					},
 				},
 				Payload: fwkrh.PayloadProto{
 					Message: &pb.EmbedRequest{
 						Tokenized: &pb.TokenizedInput{
 							OriginalText: "Embed this",
+							InputIds:     []uint32{4, 5, 6},
 						},
 					},
 				},
