@@ -376,7 +376,7 @@ func (h *TestHarness) WithPods(pods []podState) *TestHarness {
 
 	// Build metrics map.
 	for _, p := range pods {
-		metricsKeyName := fmt.Sprintf("pod-%d-rank-0", p.index)
+		metricsKeyName := fmt.Sprintf("pod-%d", p.index)
 		activeModelsMap := make(map[string]int)
 		for _, m := range p.activeModels {
 			activeModelsMap[m] = 1
