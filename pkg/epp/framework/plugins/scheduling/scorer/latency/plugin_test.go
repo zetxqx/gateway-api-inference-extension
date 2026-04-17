@@ -30,7 +30,7 @@ import (
 
 func makeLatencyScorerEndpoint(name string, kvCache float64, queueSize, runningReqs int) framework.Endpoint {
 	return framework.NewEndpoint(
-		&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: name}}},
+		&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: name}}},
 		&fwkdl.Metrics{
 			KVCacheUsagePercent: kvCache,
 			WaitingQueueSize:    queueSize,

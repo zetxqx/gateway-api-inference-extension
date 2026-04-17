@@ -28,7 +28,7 @@ import (
 
 func makeLatencyAdmissionEndpoint(name string, kvCache float64, runningRequests int) schedulingtypes.Endpoint {
 	return schedulingtypes.NewEndpoint(
-		&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey(name, "default", 8000)},
+		&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey(name, "default", 8000)},
 		&fwkdl.Metrics{
 			KVCacheUsagePercent: kvCache,
 			RunningRequestsSize: runningRequests,

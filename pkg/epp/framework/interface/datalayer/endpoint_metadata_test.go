@@ -50,7 +50,7 @@ var (
 		},
 	}
 	expected = &EndpointMetadata{
-		Key:     plugin.NewEndPointKey(name, namespace, 8000),
+		Key:     plugin.NewEndpointKey(name, namespace, 8000),
 		Address: podip,
 		Labels:  labels,
 	}
@@ -69,7 +69,7 @@ func TestEndpointMetadataClone(t *testing.T) {
 
 func TestEndpointMetadataString(t *testing.T) {
 	endpointMetadata := EndpointMetadata{
-		Key: plugin.EndPointKey{
+		Key: plugin.EndpointKey{
 			NamespacedName: types.NamespacedName{
 				Name:      pod.Name,
 				Namespace: pod.Namespace,

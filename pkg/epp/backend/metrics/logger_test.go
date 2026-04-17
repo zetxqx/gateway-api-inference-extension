@@ -77,11 +77,11 @@ func (f *fakeOddMetricsDataStore) PoolGet() (*datalayer.EndpointPool, error) {
 
 func (f *fakeOddMetricsDataStore) PodList(predicate func(fwkdl.Endpoint) bool) []fwkdl.Endpoint {
 	pod1 := &fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("pod1", "default", 8000),
+		Key:     plugin.NewEndpointKey("pod1", "default", 8000),
 		Address: "1.2.3.4:5678",
 	}
 	pod2 := &fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("pod2", "default", 8000),
+		Key:     plugin.NewEndpointKey("pod2", "default", 8000),
 		Address: "1.2.3.4:5679",
 	}
 	m1 := &fwkdl.Metrics{

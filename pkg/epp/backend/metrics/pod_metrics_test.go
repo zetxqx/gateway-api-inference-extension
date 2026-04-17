@@ -32,7 +32,7 @@ import (
 
 var (
 	pod1Info = &fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("default", "pod1", 9999),
+		Key:     plugin.NewEndpointKey("default", "pod1", 9999),
 		PodName: "pod1",
 	}
 	initial = &MetricsState{
@@ -57,7 +57,7 @@ func TestMetricsRefresh(t *testing.T) {
 
 	// Use SetRes to simulate an update of metrics from the pod.
 	// Verify that the metrics are updated.
-	pmc.SetRes(map[plugin.EndPointKey]*MetricsState{pod1Info.Key: initial})
+	pmc.SetRes(map[plugin.EndpointKey]*MetricsState{pod1Info.Key: initial})
 	condition := func(collect *assert.CollectT) {
 		assert.True(collect, cmp.Equal(pm.GetMetrics(), initial, cmpopts.IgnoreFields(MetricsState{}, "UpdateTime")))
 	}

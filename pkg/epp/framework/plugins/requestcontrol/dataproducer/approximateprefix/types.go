@@ -44,7 +44,7 @@ type server struct {
 }
 
 // ServerID is a unique identifier for a server, based on its EndPointKey.
-type ServerID plugin.EndPointKey
+type ServerID plugin.EndpointKey
 
 // SchedulingContextState is the state of this plugin to be used during a scheduling cycle.
 type SchedulingContextState struct {

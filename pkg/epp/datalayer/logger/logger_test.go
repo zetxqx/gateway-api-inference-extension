@@ -206,11 +206,11 @@ func (f *FakeOddMetricsDataStore) PodList(predicate func(fwkdl.Endpoint) bool) [
 }
 
 var pod1 = &fwkdl.EndpointMetadata{
-	Key:     plugin.NewEndPointKey("pod1", "default", 0),
+	Key:     plugin.NewEndpointKey("pod1", "default", 0),
 	Address: "1.2.3.4:5678",
 }
 var pod2 = &fwkdl.EndpointMetadata{
-	Key:     plugin.NewEndPointKey("pod2", "default", 0),
+	Key:     plugin.NewEndpointKey("pod2", "default", 0),
 	Address: "1.2.3.4:5679",
 }
 

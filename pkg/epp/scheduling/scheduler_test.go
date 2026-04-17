@@ -85,7 +85,7 @@ func TestSchedule(t *testing.T) {
 			// model being active, and has low KV cache.
 			input: []fwksched.Endpoint{
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod1", "ns", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod1", "ns", 8000)},
 					&fwkdl.Metrics{
 						WaitingQueueSize:    0,
 						KVCacheUsagePercent: 0.2,
@@ -96,7 +96,7 @@ func TestSchedule(t *testing.T) {
 						},
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod2", "ns", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod2", "ns", 8000)},
 					&fwkdl.Metrics{
 						WaitingQueueSize:    0,
 						KVCacheUsagePercent: 0.2,
@@ -107,7 +107,7 @@ func TestSchedule(t *testing.T) {
 						},
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod3", "ns", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod3", "ns", 8000)},
 					&fwkdl.Metrics{
 						WaitingQueueSize:    10,
 						KVCacheUsagePercent: 0.8,
@@ -123,7 +123,7 @@ func TestSchedule(t *testing.T) {
 						TargetEndpoints: []fwksched.Endpoint{
 							&fwksched.ScoredEndpoint{
 								Endpoint: fwksched.NewEndpoint(
-									&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod2", "ns", 8000)},
+									&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod2", "ns", 8000)},
 									&fwkdl.Metrics{
 										WaitingQueueSize:    0,
 										KVCacheUsagePercent: 0.2,

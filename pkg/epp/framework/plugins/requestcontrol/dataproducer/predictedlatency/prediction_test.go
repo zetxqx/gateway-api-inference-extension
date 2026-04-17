@@ -30,7 +30,7 @@ import (
 
 func createTestEndpointWithLabels(name string, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int, labels map[string]string) fwksched.Endpoint {
 	return fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
-		Key: plugin.EndPointKey{
+		Key: plugin.EndpointKey{
 			NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
 		},
 		Labels: labels,

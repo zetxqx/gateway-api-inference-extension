@@ -581,7 +581,7 @@ func TestFetchMetrics(t *testing.T) {
 		Address:     "127.0.0.1",
 		Port:        "9999",
 		MetricsHost: "127.0.0.1:9999",
-		Key:         plugin.NewEndPointKey("test", "pod", 9999),
+		Key:         plugin.NewEndpointKey("test", "pod", 9999),
 	}
 	existing := &MetricsState{}
 	// No MetricMapping needed for this basic test

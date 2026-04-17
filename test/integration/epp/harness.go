@@ -150,7 +150,7 @@ func WithDataLayer() HarnessOption {
 // metricsBackend abstracts how pod metrics are injected into the test environment.
 // The standard harness uses FakePodMetricsClient; the datalayer harness uses a mock DataSource.
 type metricsBackend interface {
-	SetPodMetrics(m map[plugin.EndPointKey]*fwkdl.Metrics)
+	SetPodMetrics(m map[plugin.EndpointKey]*fwkdl.Metrics)
 }
 
 // fakePmcBackend wraps FakePodMetricsClient to implement metricsBackend.
@@ -158,7 +158,7 @@ type fakePmcBackend struct {
 	fakePmc *backendmetrics.FakePodMetricsClient
 }
 
-func (b *fakePmcBackend) SetPodMetrics(m map[plugin.EndPointKey]*fwkdl.Metrics) {
+func (b *fakePmcBackend) SetPodMetrics(m map[plugin.EndpointKey]*fwkdl.Metrics) {
 	b.fakePmc.SetRes(m)
 }
 
@@ -168,7 +168,7 @@ type mockDataSourceBackend struct {
 	fakePmc        *backendmetrics.FakePodMetricsClient
 }
 
-func (b *mockDataSourceBackend) SetPodMetrics(m map[plugin.EndPointKey]*fwkdl.Metrics) {
+func (b *mockDataSourceBackend) SetPodMetrics(m map[plugin.EndpointKey]*fwkdl.Metrics) {
 	b.mockDataSource.SetMetrics(m)
 	b.fakePmc.SetRes(m)
 }
@@ -372,7 +372,7 @@ func (h *TestHarness) WithBaseResources() *TestHarness {
 // WithPods creates pod objects in the API server and configures the metrics backend.
 func (h *TestHarness) WithPods(pods []podState) *TestHarness {
 	h.t.Helper()
-	metricsMap := make(map[plugin.EndPointKey]*fwkdl.Metrics)
+	metricsMap := make(map[plugin.EndpointKey]*fwkdl.Metrics)
 
 	// Build metrics map.
 	for _, p := range pods {
@@ -382,7 +382,7 @@ func (h *TestHarness) WithPods(pods []podState) *TestHarness {
 			activeModelsMap[m] = 1
 		}
 
-		metricsMap[plugin.NewEndPointKey(metricsKeyName, h.Namespace, 8000)] = &fwkdl.Metrics{
+		metricsMap[plugin.NewEndpointKey(metricsKeyName, h.Namespace, 8000)] = &fwkdl.Metrics{
 			WaitingQueueSize:    p.queueSize,
 			KVCacheUsagePercent: p.kvCacheUsage,
 			ActiveModels:        activeModelsMap,

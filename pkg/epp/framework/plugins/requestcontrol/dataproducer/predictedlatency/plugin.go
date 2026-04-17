@@ -361,14 +361,14 @@ func (s *PredictedLatency) getEndpointRunningRequestCount(endpoint framework.End
 	return 0
 }
 
-func (s *PredictedLatency) getRunningRequestList(endpointKey plugin.EndPointKey) *requestPriorityQueue {
+func (s *PredictedLatency) getRunningRequestList(endpointKey plugin.EndpointKey) *requestPriorityQueue {
 	if value, ok := s.runningRequestLists.Load(endpointKey); ok {
 		return value.(*requestPriorityQueue)
 	}
 	return nil
 }
 
-func (s *PredictedLatency) removeRequestFromEndpoint(endpointKey plugin.EndPointKey, requestID string) {
+func (s *PredictedLatency) removeRequestFromEndpoint(endpointKey plugin.EndpointKey, requestID string) {
 	if queue := s.getRunningRequestList(endpointKey); queue != nil {
 		queue.Remove(requestID)
 		if queue.GetSize() == 0 {

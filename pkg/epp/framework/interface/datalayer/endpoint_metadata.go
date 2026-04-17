@@ -26,7 +26,7 @@ import (
 
 // EndpointMetadata represents the relevant Kubernetes Pod state of an inference server.
 type EndpointMetadata struct {
-	Key         plugin.EndPointKey
+	Key         plugin.EndpointKey
 	PodName     string
 	Address     string
 	Port        string
@@ -51,7 +51,7 @@ func (p *EndpointMetadata) Clone() *EndpointMetadata {
 	clonedLabels := make(map[string]string, len(p.Labels))
 	maps.Copy(clonedLabels, p.Labels)
 	return &EndpointMetadata{
-		Key: plugin.EndPointKey{
+		Key: plugin.EndpointKey{
 			NamespacedName: types.NamespacedName{
 				Name:      p.Key.NamespacedName.Name,
 				Namespace: p.Key.NamespacedName.Namespace,

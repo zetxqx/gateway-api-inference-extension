@@ -31,7 +31,7 @@ func TestFactory(t *testing.T) {
 	runtime := NewTestRuntime(t, 100*time.Millisecond)
 
 	pod1 := &fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("pod1", "default", 5678),
+		Key:     plugin.NewEndpointKey("pod1", "default", 5678),
 		Address: "1.2.3.4:5678",
 	}
 	endpoint1 := runtime.NewEndpoint(context.Background(), pod1, nil)
@@ -41,7 +41,7 @@ func TestFactory(t *testing.T) {
 	assert.Nil(t, dup, "expected to fail to create a duplicate collector")
 
 	pod2 := &fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("pod2", "default", 5679),
+		Key:     plugin.NewEndpointKey("pod2", "default", 5679),
 		Address: "1.2.3.4:5679",
 	}
 	endpoint2 := runtime.NewEndpoint(context.Background(), pod2, nil)

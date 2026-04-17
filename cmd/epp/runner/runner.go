@@ -550,10 +550,10 @@ func (r *Runner) parseConfigurationPhaseOne(ctx context.Context, opts *runserver
 }
 
 // Return a function that can be used in the EPP Handle to list pod names.
-func makePodListFunc(ds datastore.Datastore) func() []fwkplugin.EndPointKey {
-	return func() []fwkplugin.EndPointKey {
+func makePodListFunc(ds datastore.Datastore) func() []fwkplugin.EndpointKey {
+	return func() []fwkplugin.EndpointKey {
 		pods := ds.PodList(datastore.AllPodsPredicate)
-		names := make([]fwkplugin.EndPointKey, 0, len(pods))
+		names := make([]fwkplugin.EndpointKey, 0, len(pods))
 
 		for _, p := range pods {
 			names = append(names, p.GetMetadata().Key)

@@ -846,7 +846,7 @@ func TestSchedulerAttemptsTotal(t *testing.T) {
 					TargetEndpoints: []schedulingframework.Endpoint{
 						schedulingframework.NewEndpoint(
 							&fwkdl.EndpointMetadata{
-								Key:     fwkplugin.NewEndPointKey("pod-1", "ns-1", 8080),
+								Key:     fwkplugin.NewEndpointKey("pod-1", "ns-1", 8080),
 								PodName: "pod-1",
 								Port:    "8080",
 							},
@@ -870,7 +870,7 @@ func TestSchedulerAttemptsTotal(t *testing.T) {
 					TargetEndpoints: []schedulingframework.Endpoint{
 						schedulingframework.NewEndpoint(
 							&fwkdl.EndpointMetadata{
-								Key:     fwkplugin.NewEndPointKey("pod-1", "ns-1", 8080),
+								Key:     fwkplugin.NewEndpointKey("pod-1", "ns-1", 8080),
 								PodName: "pod-1",
 								Port:    "8080",
 							},
@@ -878,7 +878,7 @@ func TestSchedulerAttemptsTotal(t *testing.T) {
 						),
 						schedulingframework.NewEndpoint(
 							&fwkdl.EndpointMetadata{
-								Key:     fwkplugin.NewEndPointKey("pod-2", "ns-2", 9090),
+								Key:     fwkplugin.NewEndpointKey("pod-2", "ns-2", 9090),
 								PodName: "pod-2",
 								Port:    "9090",
 							},
@@ -902,7 +902,7 @@ func TestSchedulerAttemptsTotal(t *testing.T) {
 					TargetEndpoints: []schedulingframework.Endpoint{
 						schedulingframework.NewEndpoint(
 							&fwkdl.EndpointMetadata{
-								Key:     fwkplugin.NewEndPointKey("pod-1", "ns-1", 8080),
+								Key:     fwkplugin.NewEndpointKey("pod-1", "ns-1", 8080),
 								PodName: "pod-1",
 								Port:    "8080",
 							},
@@ -919,7 +919,7 @@ func TestSchedulerAttemptsTotal(t *testing.T) {
 					TargetEndpoints: []schedulingframework.Endpoint{
 						schedulingframework.NewEndpoint(
 							&fwkdl.EndpointMetadata{
-								Key:     fwkplugin.NewEndPointKey("pod-2", "ns-2", 9090),
+								Key:     fwkplugin.NewEndpointKey("pod-2", "ns-2", 9090),
 								PodName: "pod-2",
 								Port:    "9090",
 							},

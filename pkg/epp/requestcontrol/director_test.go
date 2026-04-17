@@ -283,7 +283,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 							Address:     "192.168.1.100",
 							Port:        "8000",
 							MetricsHost: "192.168.1.100:8000",
-							Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+							Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 						}, nil, nil),
 					},
 					&fwksched.ScoredEndpoint{
@@ -291,7 +291,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 							Address:     "192.168.2.100",
 							Port:        "8000",
 							MetricsHost: "192.168.2.100:8000",
-							Key:         fwkplugin.NewEndPointKey("pod2", "default", 8000),
+							Key:         fwkplugin.NewEndpointKey("pod2", "default", 8000),
 						}, nil, nil),
 					},
 					&fwksched.ScoredEndpoint{
@@ -299,7 +299,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 							Address:     "192.168.4.100",
 							Port:        "8000",
 							MetricsHost: "192.168.4.100:8000",
-							Key:         fwkplugin.NewEndPointKey("pod4", "default", 8000),
+							Key:         fwkplugin.NewEndpointKey("pod4", "default", 8000),
 						}, nil, nil),
 					},
 				},
@@ -339,7 +339,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 				ObjectiveKey:    objectiveName,
 				TargetModelName: model,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -367,7 +367,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 				ObjectiveKey:    objectiveName,
 				TargetModelName: model,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -403,7 +403,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 				ObjectiveKey:    model,
 				TargetModelName: modelRewritten,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -434,7 +434,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 			wantReqCtx: &handlers.RequestContext{
 				TargetModelName: model,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -471,7 +471,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 			wantReqCtx: &handlers.RequestContext{
 				TargetModelName: model,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -508,7 +508,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 			wantReqCtx: &handlers.RequestContext{
 				TargetModelName: model,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -579,7 +579,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 				ObjectiveKey:    objectiveName,
 				TargetModelName: model,
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -602,7 +602,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 				ObjectiveKey:    objectiveNameResolve,
 				TargetModelName: "resolved-target-model-A",
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -625,7 +625,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 				ObjectiveKey:    "food-review-1",
 				TargetModelName: "food-review-1",
 				TargetPod: &fwkdl.EndpointMetadata{
-					Key:         fwkplugin.NewEndPointKey("pod1", "default", 8000),
+					Key:         fwkplugin.NewEndpointKey("pod1", "default", 8000),
 					Address:     "192.168.1.100",
 					Port:        "8000",
 					MetricsHost: "192.168.1.100:8000",
@@ -1193,7 +1193,7 @@ func TestDirector_HandleResponseReceived(t *testing.T) {
 			Headers: map[string]string{"X-Test-Response-Header": "TestValue"},
 		},
 
-		TargetPod: &fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("test-pod-name", "namespace1", 0)},
+		TargetPod: &fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("test-pod-name", "namespace1", 0)},
 	}
 
 	director.HandleResponseHeader(ctx, reqCtx)
@@ -1227,7 +1227,7 @@ func TestDirector_HandleResponseBody(t *testing.T) {
 		Response: &handlers.Response{
 			Headers: map[string]string{"X-Test-Streaming-Header": "StreamValue"},
 		},
-		TargetPod: &fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("test-pod-name", "namespace1", 0)},
+		TargetPod: &fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("test-pod-name", "namespace1", 0)},
 	}
 
 	director.HandleResponseBody(ctx, reqCtx, false)

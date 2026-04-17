@@ -306,7 +306,7 @@ func (m *mockEndpointCandidates) callCount() int {
 func makeMockEndpoint(name, ip string) fwkdl.Endpoint {
 	return &backendmetrics.FakePodMetrics{
 		Metadata: &fwkdl.EndpointMetadata{
-			Key:     plugin.NewEndPointKey(name, "default", 8000),
+			Key:     plugin.NewEndpointKey(name, "default", 8000),
 			Address: ip,
 		},
 	}

@@ -102,7 +102,7 @@ func (m *mockPredictor) GetServerStatus(ctx context.Context) (*latencypredictor.
 
 func createTestEndpoint(name string, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int) fwksched.Endpoint {
 	return fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
-		Key: plugin.EndPointKey{
+		Key: plugin.EndpointKey{
 			NamespacedName: types.NamespacedName{
 				Name:      name,
 				Namespace: "default",
@@ -373,7 +373,7 @@ func TestSloContextStoreEviction(t *testing.T) {
 
 	requestID := "test-req-id"
 	endpointName := types.NamespacedName{Name: "test-model", Namespace: "default"}
-	endpointKey := plugin.EndPointKey{NamespacedName: endpointName}
+	endpointKey := plugin.EndpointKey{NamespacedName: endpointName}
 
 	req := &fwksched.InferenceRequest{
 		Headers: map[string]string{

@@ -32,8 +32,8 @@ func TestPrefixPluginScore(t *testing.T) {
 	plugin, err := New(context.Background())
 	assert.NoError(t, err)
 
-	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod1", "default", 0)}, nil, nil)
-	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod2", "default", 0)}, nil, nil)
+	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "default", 0)}, nil, nil)
+	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "default", 0)}, nil, nil)
 
 	// Set prefix match info on endpoints
 	endpoint1.Put(attrprefix.PrefixCacheMatchInfoKey, attrprefix.NewPrefixCacheMatchInfo(1, 2, 16))

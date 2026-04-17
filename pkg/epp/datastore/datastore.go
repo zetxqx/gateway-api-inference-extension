@@ -310,7 +310,7 @@ func (ds *datastore) podUpdateOrAddIfNotExist(ctx context.Context, pod *corev1.P
 		}
 		pods = append(pods,
 			&fwkdl.EndpointMetadata{
-				Key:         plugin.NewEndPointKey(pod.Name, pod.Namespace, port),
+				Key:         plugin.NewEndpointKey(pod.Name, pod.Namespace, port),
 				PodName:     pod.Name,
 				Address:     pod.Status.PodIP,
 				Port:        strconv.Itoa(port),
@@ -352,7 +352,7 @@ func (ds *datastore) podUpdateOrAddIfNotExist(ctx context.Context, pod *corev1.P
 			continue
 		}
 
-		key := plugin.NewEndPointKey(pod.Name, pod.Namespace, port)
+		key := plugin.NewEndpointKey(pod.Name, pod.Namespace, port)
 		if ep, ok := ds.pods.Load(key); ok {
 			ds.pods.Delete(key)
 			ds.epf.ReleaseEndpoint(ep.(fwkdl.Endpoint))
@@ -385,7 +385,7 @@ func (ds *datastore) podResyncAll(ctx context.Context, reader client.Reader) err
 
 	// Track active endpoints by their full name (including rank suffix).
 	// This ensures orphaned rank endpoints are removed when targetPorts shrinks.
-	activeEndpoints := sets.New[plugin.EndPointKey]()
+	activeEndpoints := sets.New[plugin.EndpointKey]()
 	for _, pod := range podList.Items {
 		if !podutil.IsPodReady(&pod) {
 			continue
@@ -393,7 +393,7 @@ func (ds *datastore) podResyncAll(ctx context.Context, reader client.Reader) err
 		namespacedName := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
 		// Calculate expected endpoint names based on current targetPorts.
 		for _, port := range ds.pool.TargetPorts {
-			activeEndpoints.Insert(plugin.NewEndPointKey(pod.Name, pod.Namespace, port))
+			activeEndpoints.Insert(plugin.NewEndpointKey(pod.Name, pod.Namespace, port))
 		}
 		if !ds.podUpdateOrAddIfNotExist(ctx, &pod, ds.pool) {
 			logger.V(logutil.DEFAULT).Info("Pod added", "name", namespacedName)

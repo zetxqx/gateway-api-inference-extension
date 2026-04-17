@@ -58,7 +58,7 @@ func (e *errSource) Poll(_ context.Context, _ fwkdl.Endpoint) (any, error) {
 
 func defaultEndpoint() fwkdl.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("pod-name", "default", 5678),
+		Key:     plugin.NewEndpointKey("pod-name", "default", 5678),
 		Address: "1.2.3.4:5678",
 	}
 	ms := fwkdl.NewEndpoint(meta, nil)

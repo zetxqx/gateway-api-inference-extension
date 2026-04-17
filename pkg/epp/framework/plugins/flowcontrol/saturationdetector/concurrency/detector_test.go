@@ -126,7 +126,7 @@ func TestConcurrencyDetectorFactory(t *testing.T) {
 			t.Parallel()
 
 			plugin, err := ConcurrencyDetectorFactory("test-concurrency-detector",
-				tc.configJSON, fwkplugin.NewEppHandle(t.Context(), func() []fwkplugin.EndPointKey { return nil }))
+				tc.configJSON, fwkplugin.NewEppHandle(t.Context(), func() []fwkplugin.EndpointKey { return nil }))
 			if tc.wantError {
 				require.Error(t, err, "Expected initialization to fail on invalid configuration")
 				require.Nil(t, plugin, "Plugin must be nil when initialization fails")
@@ -203,7 +203,7 @@ func TestDetector_Configuration(t *testing.T) {
 func TestDetector_TypedName(t *testing.T) {
 	t.Parallel()
 	plugin, err := ConcurrencyDetectorFactory("test-plugin", []byte(`{}`), fwkplugin.NewEppHandle(
-		t.Context(), func() []fwkplugin.EndPointKey { return nil }))
+		t.Context(), func() []fwkplugin.EndpointKey { return nil }))
 	require.NoError(t, err, "Plugin initialization should succeed")
 	require.Equal(t, "test-plugin", plugin.TypedName().Name)
 	require.Equal(t, "concurrency-detector", plugin.TypedName().Type)
@@ -589,7 +589,7 @@ func driveTokenLoad(_ context.Context, reg *localRegistry, _ *detector, endpoint
 }
 
 func fullEndpointName(name string) string {
-	key := fwkplugin.NewEndPointKey(name, "default", 8000)
+	key := fwkplugin.NewEndpointKey(name, "default", 8000)
 	return (&key).String()
 }
 
@@ -632,7 +632,7 @@ func (e *liveEndpoint) Clone() datalayer.AttributeMap   { return e }
 func newFakeEndpoint(reg *localRegistry, name string) datalayer.Endpoint {
 	id := fullEndpointName(name)
 	return &liveEndpoint{
-		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndPointKey(name, "default", 8000)},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, "default", 8000)},
 		reg:      reg,
 		id:       id,
 	}
@@ -648,7 +648,7 @@ type liveSchedulingEndpoint struct {
 
 func newStubSchedulingEndpoint(reg *localRegistry, name string) *liveSchedulingEndpoint {
 	return &liveSchedulingEndpoint{
-		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndPointKey(name, "default", 8000)},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, "default", 8000)},
 		reg:      reg,
 		id:       fullEndpointName(name),
 	}

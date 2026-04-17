@@ -74,8 +74,8 @@ func TestNoMetricsCollected(t *testing.T) {
 }
 
 func TestMetricsCollected(t *testing.T) {
-	podKey := plugin.NewEndPointKey(pod1NamespacedName.Name, pod1NamespacedName.Namespace, 8000)
-	metrics := map[plugin.EndPointKey]*fwkdl.Metrics{
+	podKey := plugin.NewEndpointKey(pod1NamespacedName.Name, pod1NamespacedName.Namespace, 8000)
+	metrics := map[plugin.EndpointKey]*fwkdl.Metrics{
 		podKey: pod1Metrics,
 	}
 	period := time.Millisecond

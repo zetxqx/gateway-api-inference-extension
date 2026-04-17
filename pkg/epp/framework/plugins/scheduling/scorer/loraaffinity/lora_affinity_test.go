@@ -39,7 +39,7 @@ func TestLoraAffinityScorer(t *testing.T) {
 			request: &fwksched.InferenceRequest{TargetModel: "active-model-1"},
 			endpoints: []fwksched.Endpoint{
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod1", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod1", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-1": 1},
 						WaitingModels:   map[string]int{},
@@ -55,7 +55,7 @@ func TestLoraAffinityScorer(t *testing.T) {
 			request: &fwksched.InferenceRequest{TargetModel: "active-model-1"},
 			endpoints: []fwksched.Endpoint{
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod1", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod1", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-2": 2},
 						WaitingModels:   map[string]int{"active-model-1": 1},
@@ -71,14 +71,14 @@ func TestLoraAffinityScorer(t *testing.T) {
 			request: &fwksched.InferenceRequest{TargetModel: "active-model-1"},
 			endpoints: []fwksched.Endpoint{
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod1", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod1", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-2": 2},
 						WaitingModels:   map[string]int{"active-model-3": 1},
 						MaxActiveModels: 2,
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod2", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod2", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{},
 						WaitingModels:   map[string]int{},
@@ -95,35 +95,35 @@ func TestLoraAffinityScorer(t *testing.T) {
 			request: &fwksched.InferenceRequest{TargetModel: "active-model-1"},
 			endpoints: []fwksched.Endpoint{
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod1", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod1", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-1": 1},
 						WaitingModels:   map[string]int{},
 						MaxActiveModels: 5,
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod2", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod2", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-2": 4},
 						WaitingModels:   map[string]int{"active-model-1": 1},
 						MaxActiveModels: 5,
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod3", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod3", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-2": 1},
 						WaitingModels:   map[string]int{},
 						MaxActiveModels: 2,
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod4", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod4", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-3": 1},
 						WaitingModels:   map[string]int{"active-model-1": 1},
 						MaxActiveModels: 2,
 					}, nil),
 				fwksched.NewEndpoint(
-					&fwkdl.EndpointMetadata{Key: plugin.NewEndPointKey("pod5", "default", 8000)},
+					&fwkdl.EndpointMetadata{Key: plugin.NewEndpointKey("pod5", "default", 8000)},
 					&fwkdl.Metrics{
 						ActiveModels:    map[string]int{"active-model-4": 1, "active-model-5": 1},
 						WaitingModels:   map[string]int{},

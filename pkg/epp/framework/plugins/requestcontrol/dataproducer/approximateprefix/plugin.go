@@ -110,7 +110,7 @@ func (p *prepareData) CleanUpInactivePods(ctx context.Context, handle plugin.Han
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			podNames := handle.EndPointList()
+			podNames := handle.EndpointList()
 			activePods := make(map[ServerID]struct{}, len(podNames))
 			for _, nsn := range podNames {
 				activePods[ServerID(nsn)] = struct{}{}

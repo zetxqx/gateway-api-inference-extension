@@ -35,8 +35,8 @@ type MetricsDataSource struct {
 	mu        sync.RWMutex
 	typedName plugin.TypedName
 	CallCount int64
-	metrics   map[plugin.EndPointKey]*fwkdl.Metrics
-	errors    map[plugin.EndPointKey]error
+	metrics   map[plugin.EndpointKey]*fwkdl.Metrics
+	errors    map[plugin.EndpointKey]error
 }
 
 func NewDataSource(typedName plugin.TypedName) *MetricsDataSource {
@@ -56,14 +56,14 @@ func (fds *MetricsDataSource) ExtractorType() reflect.Type {
 }
 
 // SetMetrics replaces the metrics map in a thread-safe manner.
-func (fds *MetricsDataSource) SetMetrics(metrics map[plugin.EndPointKey]*fwkdl.Metrics) {
+func (fds *MetricsDataSource) SetMetrics(metrics map[plugin.EndpointKey]*fwkdl.Metrics) {
 	fds.mu.Lock()
 	defer fds.mu.Unlock()
 	fds.metrics = metrics
 }
 
 // SetErrors replaces the errors map in a thread-safe manner.
-func (fds *MetricsDataSource) SetErrors(errors map[plugin.EndPointKey]error) {
+func (fds *MetricsDataSource) SetErrors(errors map[plugin.EndpointKey]error) {
 	fds.mu.Lock()
 	defer fds.mu.Unlock()
 	fds.errors = errors

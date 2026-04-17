@@ -41,7 +41,7 @@ func TestDatasource(t *testing.T) {
 
 	ctx := context.Background()
 	endpoint := fwkdl.NewEndpoint(&fwkdl.EndpointMetadata{
-		Key:     plugin.NewEndPointKey("pod1", "default", 8000),
+		Key:     plugin.NewEndpointKey("pod1", "default", 8000),
 		Address: "1.2.3.4:5678",
 	}, nil)
 	_, err = source.Poll(ctx, endpoint)

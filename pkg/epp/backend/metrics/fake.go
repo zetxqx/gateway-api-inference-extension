@@ -66,9 +66,9 @@ func (fpm *FakePodMetrics) UpdateMetrics(updated *MetricsState) {
 
 type FakePodMetricsClient struct {
 	errMu sync.RWMutex
-	Err   map[plugin.EndPointKey]error
+	Err   map[plugin.EndpointKey]error
 	resMu sync.RWMutex
-	Res   map[plugin.EndPointKey]*MetricsState
+	Res   map[plugin.EndpointKey]*MetricsState
 }
 
 func (f *FakePodMetricsClient) FetchMetrics(ctx context.Context, endPoint *fwkdl.EndpointMetadata, existing *MetricsState) (*MetricsState, error) {
@@ -88,13 +88,13 @@ func (f *FakePodMetricsClient) FetchMetrics(ctx context.Context, endPoint *fwkdl
 	return res.Clone(), nil
 }
 
-func (f *FakePodMetricsClient) SetRes(new map[plugin.EndPointKey]*MetricsState) {
+func (f *FakePodMetricsClient) SetRes(new map[plugin.EndpointKey]*MetricsState) {
 	f.resMu.Lock()
 	defer f.resMu.Unlock()
 	f.Res = new
 }
 
-func (f *FakePodMetricsClient) SetErr(new map[plugin.EndPointKey]error) {
+func (f *FakePodMetricsClient) SetErr(new map[plugin.EndpointKey]error) {
 	f.errMu.Lock()
 	defer f.errMu.Unlock()
 	f.Err = new

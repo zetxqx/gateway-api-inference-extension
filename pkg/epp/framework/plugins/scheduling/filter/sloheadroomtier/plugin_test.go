@@ -31,7 +31,7 @@ import (
 
 func makeEndpoint(name string, ttftHeadroom, tpotHeadroom float64, hasPrediction bool) framework.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		Key: fwkplugin.EndPointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
+		Key: fwkplugin.EndpointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
 	}
 	ep := framework.NewEndpoint(meta, &fwkdl.Metrics{}, fwkdl.NewAttributes())
 	if hasPrediction {

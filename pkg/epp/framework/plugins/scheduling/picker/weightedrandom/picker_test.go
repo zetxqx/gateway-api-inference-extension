@@ -34,11 +34,11 @@ func TestPickWeightedRandomPicker(t *testing.T) {
 		tolerance      = 0.05 // Verify within tolerance ±5%
 	)
 
-	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil)
-	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil)
-	endpoint3 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil)
-	endpoint4 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod4"}}}, nil, nil)
-	endpoint5 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod5"}}}, nil, nil)
+	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil)
+	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil)
+	endpoint3 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil)
+	endpoint4 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod4"}}}, nil, nil)
+	endpoint5 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod5"}}}, nil, nil)
 
 	// A-Res algorithm uses U^(1/w) transformation which introduces statistical variance
 	// beyond simple proportional sampling. Generous tolerance is required to prevent

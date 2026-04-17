@@ -47,7 +47,7 @@ func TestSchedulePlugins(t *testing.T) {
 	}
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.NewEndPointKey("pod1", "ns", 8000),
+		PickRes: fwkplugin.NewEndpointKey("pod1", "ns", 8000),
 	}
 
 	tests := []struct {
@@ -67,9 +67,9 @@ func TestSchedulePlugins(t *testing.T) {
 				WithScorers(NewWeightedScorer(tp1, 1), NewWeightedScorer(tp2, 1)).
 				WithPicker(pickerPlugin),
 			input: []fwksched.Endpoint{
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod1", "ns", 8000)}, nil, nil),
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod2", "ns", 8000)}, nil, nil),
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod3", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod3", "ns", 8000)}, nil, nil),
 			},
 			wantTargetEndpoint:  k8stypes.NamespacedName{Name: "pod1", Namespace: "ns"},
 			targetEndpointScore: 1.1,
@@ -83,9 +83,9 @@ func TestSchedulePlugins(t *testing.T) {
 				WithScorers(NewWeightedScorer(tp1, 60), NewWeightedScorer(tp2, 40)).
 				WithPicker(pickerPlugin),
 			input: []fwksched.Endpoint{
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod1", "ns", 8000)}, nil, nil),
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod2", "ns", 8000)}, nil, nil),
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod3", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod3", "ns", 8000)}, nil, nil),
 			},
 			wantTargetEndpoint:  k8stypes.NamespacedName{Name: "pod1", Namespace: "ns"},
 			targetEndpointScore: 50,
@@ -99,9 +99,9 @@ func TestSchedulePlugins(t *testing.T) {
 				WithScorers(NewWeightedScorer(tp1, 1), NewWeightedScorer(tp2, 1)).
 				WithPicker(pickerPlugin),
 			input: []fwksched.Endpoint{
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod1", "ns", 8000)}, nil, nil),
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod2", "ns", 8000)}, nil, nil),
-				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod3", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "ns", 8000)}, nil, nil),
+				fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod3", "ns", 8000)}, nil, nil),
 			},
 			numEndpointsToScore: 0,
 			err:                 true, // no available endpoints to server after filter all
@@ -139,7 +139,7 @@ func TestSchedulePlugins(t *testing.T) {
 			// Validate output
 			wantRes := &fwksched.ProfileRunResult{
 				TargetEndpoints: []fwksched.Endpoint{
-					fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey(test.wantTargetEndpoint.Name, test.wantTargetEndpoint.Namespace, 8000)}, nil, nil),
+					fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey(test.wantTargetEndpoint.Name, test.wantTargetEndpoint.Namespace, 8000)}, nil, nil),
 				},
 			}
 
@@ -192,7 +192,7 @@ type testPlugin struct {
 	FilterRes             []k8stypes.NamespacedName
 	PickCallCount         int
 	NumOfPickerCandidates int
-	PickRes               fwkplugin.EndPointKey
+	PickRes               fwkplugin.EndpointKey
 	WinnerEndpointScore   float64
 }
 
@@ -384,7 +384,7 @@ func TestRunWithOutOfRangeScores(t *testing.T) {
 	}
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.NewEndPointKey("pod1", "ns", 8000),
+		PickRes: fwkplugin.NewEndpointKey("pod1", "ns", 8000),
 	}
 
 	profile := NewSchedulerProfile().
@@ -393,7 +393,7 @@ func TestRunWithOutOfRangeScores(t *testing.T) {
 		WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndPointKey("pod1", "ns", 8000)}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "ns", 8000)}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{
@@ -435,7 +435,7 @@ func TestFilterExecutionOrder(t *testing.T) {
 
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+		PickRes: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
 	}
 
 	// Declare filters in order A, B, C.
@@ -444,8 +444,8 @@ func TestFilterExecutionOrder(t *testing.T) {
 		WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{
@@ -476,7 +476,7 @@ func TestFilterExecutionOrderViaAddPlugins(t *testing.T) {
 
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+		PickRes: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
 	}
 
 	// Use AddPlugins sequentially, as the config loader does.
@@ -489,7 +489,7 @@ func TestFilterExecutionOrderViaAddPlugins(t *testing.T) {
 	profile.WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{
@@ -531,7 +531,7 @@ func TestFilterChainReceivesPreviousOutput(t *testing.T) {
 
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+		PickRes: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
 	}
 
 	profile := NewSchedulerProfile().
@@ -539,9 +539,9 @@ func TestFilterChainReceivesPreviousOutput(t *testing.T) {
 		WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndPointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{

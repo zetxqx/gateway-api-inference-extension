@@ -313,38 +313,38 @@ func TestObjective(t *testing.T) {
 func TestMetrics(t *testing.T) {
 	tests := []struct {
 		name      string
-		metrics   map[plugin.EndPointKey]*fwkdl.Metrics
-		err       map[plugin.EndPointKey]error
+		metrics   map[plugin.EndpointKey]*fwkdl.Metrics
+		err       map[plugin.EndpointKey]error
 		storePods []*corev1.Pod
 		want      []*fwkdl.Metrics
 		predict   func(fwkdl.Endpoint) bool
 	}{
 		{
 			name: "Probing metrics success",
-			metrics: map[plugin.EndPointKey]*fwkdl.Metrics{
-				plugin.NewEndPointKey("pod1", "", 8000): pod1Metrics,
-				plugin.NewEndPointKey("pod2", "", 8000): pod2Metrics,
+			metrics: map[plugin.EndpointKey]*fwkdl.Metrics{
+				plugin.NewEndpointKey("pod1", "", 8000): pod1Metrics,
+				plugin.NewEndpointKey("pod2", "", 8000): pod2Metrics,
 			},
 			storePods: []*corev1.Pod{pod1, pod2},
 			want:      []*fwkdl.Metrics{pod1Metrics, pod2Metrics},
 		},
 		{
 			name: "Only pods in are probed",
-			metrics: map[plugin.EndPointKey]*fwkdl.Metrics{
-				plugin.NewEndPointKey("pod1", "", 8000): pod1Metrics,
-				plugin.NewEndPointKey("pod2", "", 8000): pod2Metrics,
+			metrics: map[plugin.EndpointKey]*fwkdl.Metrics{
+				plugin.NewEndpointKey("pod1", "", 8000): pod1Metrics,
+				plugin.NewEndpointKey("pod2", "", 8000): pod2Metrics,
 			},
 			storePods: []*corev1.Pod{pod1},
 			want:      []*fwkdl.Metrics{pod1Metrics},
 		},
 		{
 			name: "Probing metrics error",
-			err: map[plugin.EndPointKey]error{
-				plugin.NewEndPointKey("pod2", "", 8000): errors.New("injected error"),
+			err: map[plugin.EndpointKey]error{
+				plugin.NewEndpointKey("pod2", "", 8000): errors.New("injected error"),
 			},
-			metrics: map[plugin.EndPointKey]*fwkdl.Metrics{
-				plugin.NewEndPointKey("pod1", "", 8000): pod1Metrics,
-				plugin.NewEndPointKey("pod2", "", 8000): pod2Metrics,
+			metrics: map[plugin.EndpointKey]*fwkdl.Metrics{
+				plugin.NewEndpointKey("pod1", "", 8000): pod1Metrics,
+				plugin.NewEndpointKey("pod2", "", 8000): pod2Metrics,
 			},
 			storePods: []*corev1.Pod{pod1, pod2},
 			want: []*fwkdl.Metrics{pod1Metrics,
@@ -612,7 +612,7 @@ func TestEndpointMetadata(t *testing.T) {
 			existingPods: []*corev1.Pod{},
 			wantEndpointMetas: []*fwkdl.EndpointMetadata{
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePool.Spec.TargetPorts[0].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePool.Spec.TargetPorts[0].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolTargetPort,
@@ -630,7 +630,7 @@ func TestEndpointMetadata(t *testing.T) {
 			existingPods: []*corev1.Pod{},
 			wantEndpointMetas: []*fwkdl.EndpointMetadata{
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort0,
@@ -638,7 +638,7 @@ func TestEndpointMetadata(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort1,
@@ -656,7 +656,7 @@ func TestEndpointMetadata(t *testing.T) {
 			existingPods: []*corev1.Pod{pod1},
 			wantEndpointMetas: []*fwkdl.EndpointMetadata{
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort0,
@@ -664,7 +664,7 @@ func TestEndpointMetadata(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort1,
@@ -672,7 +672,7 @@ func TestEndpointMetadata(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				{
-					Key:         plugin.NewEndPointKey(pod2.Name, pod2.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
+					Key:         plugin.NewEndpointKey(pod2.Name, pod2.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
 					PodName:     pod2.Name,
 					Address:     pod2.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort0,
@@ -680,7 +680,7 @@ func TestEndpointMetadata(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				{
-					Key:         plugin.NewEndPointKey(pod2.Name, pod2.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
+					Key:         plugin.NewEndpointKey(pod2.Name, pod2.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
 					PodName:     pod2.Name,
 					Address:     pod2.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort1,
@@ -698,7 +698,7 @@ func TestEndpointMetadata(t *testing.T) {
 			existingPods: []*corev1.Pod{pod1, pod2},
 			wantEndpointMetas: []*fwkdl.EndpointMetadata{
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[0].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort0,
@@ -706,7 +706,7 @@ func TestEndpointMetadata(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				{
-					Key:         plugin.NewEndPointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
+					Key:         plugin.NewEndpointKey(pod1.Name, pod1.Namespace, int(inferencePoolMultiTarget.Spec.TargetPorts[1].Number)),
 					PodName:     pod1.Name,
 					Address:     pod1.Status.PodIP,
 					Port:        inferencePoolMultiTargetPort1,

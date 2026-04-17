@@ -102,7 +102,7 @@ func TestRuntimePollingDispatch(t *testing.T) {
 			t.Cleanup(cancel)
 
 			endpointMeta := &fwkdl.EndpointMetadata{
-				Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+				Key:         plugin.NewEndpointKey("test-pod", "test-ns", 8000),
 				MetricsHost: srv.Listener.Addr().String(),
 				Port:        "8000",
 			}
@@ -154,7 +154,7 @@ func TestRuntimePollingMultipleExtractors(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		Key:         plugin.NewEndpointKey("test-pod", "test-ns", 8000),
 		MetricsHost: srv.Listener.Addr().String(),
 		Port:        "8000",
 	}
@@ -203,7 +203,7 @@ func TestRuntimePollingEndpointLifecycle(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		Key:         plugin.NewEndpointKey("test-pod", "test-ns", 8000),
 		MetricsHost: srv.Listener.Addr().String(),
 		Port:        "8000",
 	}
@@ -257,7 +257,7 @@ func TestRuntimePollingWithoutExtractors(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		Key:         plugin.NewEndpointKey("test-pod", "test-ns", 8000),
 		MetricsHost: srv.Listener.Addr().String(),
 		Port:        "8000",
 	}
@@ -296,7 +296,7 @@ func TestRuntimePollingHTTPError(t *testing.T) {
 	t.Cleanup(cancel)
 
 	endpointMeta := &fwkdl.EndpointMetadata{
-		Key:         plugin.NewEndPointKey("test-pod", "test-ns", 8000),
+		Key:         plugin.NewEndpointKey("test-pod", "test-ns", 8000),
 		MetricsHost: srv.Listener.Addr().String(),
 		Port:        "8000",
 	}

@@ -33,8 +33,8 @@ func (h *testHandle) Context() context.Context {
 	return h.ctx
 }
 
-func (h *testHandle) EndPointList() []plugin.EndPointKey {
-	return []plugin.EndPointKey{}
+func (h *testHandle) EndpointList() []plugin.EndpointKey {
+	return []plugin.EndpointKey{}
 }
 
 type testHandlePlugins struct {
