@@ -197,33 +197,24 @@ func convertToInferenceRequestBody(payload []byte) (*fwkrh.InferenceRequestBody,
 		if tokenized == nil {
 			return nil, errors.New("missing tokenized input")
 		}
+		inputIDs := tokenized.GetInputIds()
+		copiedTokenIDsInt := make([]uint32, len(inputIDs))
+		copy(copiedTokenIDsInt, inputIDs)
 		body = &fwkrh.InferenceRequestBody{
 			Completions: &fwkrh.CompletionsRequest{
-				Prompt: fwkrh.Prompt{Raw: tokenized.GetOriginalText()},
+				Prompt: fwkrh.Prompt{TokenIDs: copiedTokenIDsInt},
 			},
-			Payload:         fwkrh.PayloadProto{Message: pbReq},
-			TokenizedPrompt: convertTokenizedPrompt(tokenized, pbReq.GetMmInputs()),
+			Payload: fwkrh.PayloadProto{Message: pbReq},
+			TokenizedPrompt: &fwkrh.TokenizedPrompt{
+				TokenIDs:           copiedTokenIDsInt,
+				MultiModalFeatures: convertMultiModalFeatures(pbReq.GetMmInputs()),
+			},
 		}
 	default:
 		return nil, errors.New("not supported request inputType")
 	}
 	body.Stream = pbReq.GetStream()
 	return body, nil
-}
-
-func convertTokenizedPrompt(tokenized *pb.TokenizedInput, mmInputs *pb.MultimodalInputs) *fwkrh.TokenizedPrompt {
-	if tokenized == nil {
-		return nil
-	}
-
-	inputIDs := tokenized.GetInputIds()
-	copiedTokenIDs := make([]uint32, len(inputIDs))
-	copy(copiedTokenIDs, inputIDs)
-
-	return &fwkrh.TokenizedPrompt{
-		TokenIDs:           copiedTokenIDs,
-		MultiModalFeatures: convertMultiModalFeatures(mmInputs),
-	}
 }
 
 func convertMultiModalFeatures(mmInputs *pb.MultimodalInputs) []fwkrh.MultiModalFeature {
@@ -298,13 +289,9 @@ func convertEmbedToInferenceRequestBody(payload []byte) (*fwkrh.InferenceRequest
 	}
 	var body *fwkrh.InferenceRequestBody
 	if pbReq.Tokenized != nil {
-		var tokenIDs []int
-		if pbReq.GetTokenized().InputIds != nil {
-			tokenIDs = make([]int, len(pbReq.GetTokenized().InputIds))
-			for i, v := range pbReq.GetTokenized().InputIds {
-				tokenIDs[i] = int(v)
-			}
-		}
+		inputIds := pbReq.GetTokenized().InputIds
+		tokenIDs := make([]uint32, len(inputIds))
+		copy(tokenIDs, inputIds)
 		body = &fwkrh.InferenceRequestBody{
 			Embeddings: &fwkrh.EmbeddingsRequest{
 				Input: fwkrh.EmbeddingsInput{

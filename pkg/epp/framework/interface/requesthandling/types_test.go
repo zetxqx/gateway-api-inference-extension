@@ -184,7 +184,12 @@ func TestPrompt_UnmarshalJSON(t *testing.T) {
 		{
 			name:  "array of integers prompt",
 			input: `[1,2,3]`,
-			want:  Prompt{TokenIDs: []int{1, 2, 3}},
+			want:  Prompt{TokenIDs: []uint32{1, 2, 3}},
+		},
+		{
+			name:    "array of floats prompt is rejected",
+			input:   `[1.5,2.7]`,
+			wantErr: true,
 		},
 
 		{
@@ -239,7 +244,12 @@ func TestEmbeddingsInput_UnmarshalJSON(t *testing.T) {
 		{
 			name:  "array of integers input",
 			input: `[1,2,3]`,
-			want:  EmbeddingsInput{TokenIDs: []int{1, 2, 3}},
+			want:  EmbeddingsInput{TokenIDs: []uint32{1, 2, 3}},
+		},
+		{
+			name:    "array of floats input is rejected",
+			input:   `[1.5,2.7]`,
+			wantErr: true,
 		},
 
 		{
@@ -279,7 +289,7 @@ func TestInferenceRequestBody_InputTokenCountHint(t *testing.T) {
 			name: "completions with token IDs returns count",
 			body: &InferenceRequestBody{
 				Completions: &CompletionsRequest{
-					Prompt: Prompt{TokenIDs: []int{1, 2, 3}},
+					Prompt: Prompt{TokenIDs: []uint32{1, 2, 3}},
 				},
 			},
 			wantHint: 3,
@@ -297,7 +307,7 @@ func TestInferenceRequestBody_InputTokenCountHint(t *testing.T) {
 			name: "embeddings with token IDs returns count",
 			body: &InferenceRequestBody{
 				Embeddings: &EmbeddingsRequest{
-					Input: EmbeddingsInput{TokenIDs: []int{1, 2, 3, 4}},
+					Input: EmbeddingsInput{TokenIDs: []uint32{1, 2, 3, 4}},
 				},
 			},
 			wantHint: 4,

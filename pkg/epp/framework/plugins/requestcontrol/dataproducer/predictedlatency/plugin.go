@@ -29,6 +29,7 @@ import (
 
 	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/apimachinery/pkg/types"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -279,17 +280,10 @@ func newPredictedLatencyContext(request *framework.InferenceRequest) *predictedL
 	if request.Body != nil {
 		promptText = request.Body.PromptText()
 	}
-	inputTokenCount := -1
-	if request.Body != nil {
-		inputTokenCount = request.Body.InputTokenCountHint()
-	}
-	if inputTokenCount < 0 {
-		inputTokenCount = len(strings.Fields(promptText))
-	}
 	return &predictedLatencyCtx{
 		schedulingRequest:             *request,
 		promptText:                    promptText,
-		inputTokenCount:               inputTokenCount,
+		inputTokenCount:               len(strings.Fields(promptText)),
 		lastSeenMetrics:               make(map[string]*fwkdl.Metrics),
 		prefixCacheScoresForEndpoints: make(map[string]float64),
 		predictionsForScheduling:      make(map[string]endpointPredictionResult),

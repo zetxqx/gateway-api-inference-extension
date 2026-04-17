@@ -181,12 +181,12 @@ func (r *InferenceRequestBody) CacheSalt() string {
 type Prompt struct {
 	Raw      string
 	Strings  []string
-	TokenIDs []int
+	TokenIDs []uint32
 }
 
 type arrayInputResult struct {
 	Strings  []string
-	TokenIDs []int
+	TokenIDs []uint32
 }
 
 func parseArrayInput(v []any, errorPrefix string) (arrayInputResult, error) {
@@ -205,15 +205,18 @@ func parseArrayInput(v []any, errorPrefix string) (arrayInputResult, error) {
 		}
 		return arrayInputResult{Strings: strings}, nil
 	case float64:
-		ints := make([]int, len(v))
+		uint32s := make([]uint32, len(v))
 		for i, val := range v {
 			flt, ok := val.(float64)
 			if !ok {
 				return arrayInputResult{}, fmt.Errorf("%s: mixed types in array", errorPrefix)
 			}
-			ints[i] = int(flt)
+			if flt != float64(uint32(flt)) {
+				return arrayInputResult{}, fmt.Errorf("%s: floating-point number %f is not a valid token ID", errorPrefix, flt)
+			}
+			uint32s[i] = uint32(flt)
 		}
-		return arrayInputResult{TokenIDs: ints}, nil
+		return arrayInputResult{TokenIDs: uint32s}, nil
 	default:
 		return arrayInputResult{}, fmt.Errorf("%s: unsupported array element type", errorPrefix)
 	}
@@ -361,7 +364,7 @@ func (c *ConversationsRequest) String() string {
 type EmbeddingsInput struct {
 	Raw      string
 	Strings  []string
-	TokenIDs []int
+	TokenIDs []uint32
 }
 
 func (e *EmbeddingsInput) UnmarshalJSON(data []byte) error {

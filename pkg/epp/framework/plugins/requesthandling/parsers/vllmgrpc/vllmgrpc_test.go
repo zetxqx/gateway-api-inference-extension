@@ -112,7 +112,6 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			name: "Valid Tokenized Request",
 			reqMsg: &pb.GenerateRequest{
@@ -127,7 +126,7 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			want: &fwkrh.InferenceRequestBody{
 				Completions: &fwkrh.CompletionsRequest{
 					Prompt: fwkrh.Prompt{
-						TokenIDs: []int{1, 2, 3},
+						TokenIDs: []uint32{11, 12, 13},
 					},
 				},
 				Payload: fwkrh.PayloadProto{
@@ -164,7 +163,7 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			want: &fwkrh.InferenceRequestBody{
 				Completions: &fwkrh.CompletionsRequest{
-					Prompt: fwkrh.Prompt{Raw: "Describe image"},
+					Prompt: fwkrh.Prompt{TokenIDs: []uint32{101, 102, 103, 104, 105}},
 				},
 				Payload: fwkrh.PayloadProto{
 					Message: &pb.GenerateRequest{
@@ -212,7 +211,7 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			want: &fwkrh.InferenceRequestBody{
 				Completions: &fwkrh.CompletionsRequest{
-					Prompt: fwkrh.Prompt{Raw: "Two images"},
+					Prompt: fwkrh.Prompt{TokenIDs: []uint32{201, 202, 203, 204}},
 				},
 				Payload: fwkrh.PayloadProto{
 					Message: &pb.GenerateRequest{
@@ -240,7 +239,6 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 				},
 			},
 		},
-
 		{
 			name:          "Malformed gRPC payload (too short)",
 			malformedData: []byte{0, 0, 0},
@@ -291,7 +289,7 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			want: &fwkrh.InferenceRequestBody{
 				Embeddings: &fwkrh.EmbeddingsRequest{
 					Input: fwkrh.EmbeddingsInput{
-						TokenIDs: []int{4, 5, 6},
+						TokenIDs: []uint32{4, 5, 6},
 					},
 				},
 				Payload: fwkrh.PayloadProto{
@@ -305,7 +303,6 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			},
 		},
 	}
-
 	parser := NewVllmGRPCParser()
 	ctx := context.Background()
 
