@@ -34,6 +34,11 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/requestcontrol/dataproducer/inflightload"
 )
 
+const (
+	defaultNamespace = "default"
+	defaultPort      = 8000
+)
+
 // localRegistry is a thread-safe storage for simulated endpoint load.
 type localRegistry struct {
 	mu     sync.RWMutex
@@ -193,7 +198,8 @@ func TestDetector_Configuration(t *testing.T) {
 				newStubSchedulingEndpoint(reg, cleanEndpoint),
 			})
 			require.Len(t, kept, 1, "Filter should drop the overloaded endpoint")
-			require.Equal(t, cleanEndpoint, kept[0].GetMetadata().GetKey().NamespacedName().Name,
+			expectedKey := fwkplugin.NewEndpointKey(cleanEndpoint, defaultNamespace, defaultPort)
+			require.Equal(t, expectedKey, kept[0].GetMetadata().Key,
 				"Filter should retain the clean fallback endpoint")
 		})
 	})
@@ -541,8 +547,8 @@ func TestDetector_ConcurrencyStress(t *testing.T) {
 // --- Test Helpers & Mocks ---
 
 func simulatePreRequest(_ context.Context, reg *localRegistry, req *schedulingtypes.InferenceRequest, result *schedulingtypes.SchedulingResult) {
-	endpointName := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().Key.NamespacedName().Name
-	id := fullEndpointName(endpointName)
+	endpointKey := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().Key
+	id := endpointKey.String()
 	reg.update(id, func(load *attrconcurrency.InFlightLoad) {
 		load.Requests++
 		if req != nil {
@@ -589,7 +595,7 @@ func driveTokenLoad(_ context.Context, reg *localRegistry, _ *detector, endpoint
 }
 
 func fullEndpointName(name string) string {
-	key := fwkplugin.NewEndpointKey(name, "default", 8000)
+	key := fwkplugin.NewEndpointKey(name, defaultNamespace, defaultPort)
 	return (&key).String()
 }
 
@@ -632,7 +638,7 @@ func (e *liveEndpoint) Clone() datalayer.AttributeMap   { return e }
 func newFakeEndpoint(reg *localRegistry, name string) datalayer.Endpoint {
 	id := fullEndpointName(name)
 	return &liveEndpoint{
-		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, "default", 8000)},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, defaultNamespace, defaultPort)},
 		reg:      reg,
 		id:       id,
 	}
@@ -648,7 +654,7 @@ type liveSchedulingEndpoint struct {
 
 func newStubSchedulingEndpoint(reg *localRegistry, name string) *liveSchedulingEndpoint {
 	return &liveSchedulingEndpoint{
-		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, "default", 8000)},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, defaultNamespace, defaultPort)},
 		reg:      reg,
 		id:       fullEndpointName(name),
 	}

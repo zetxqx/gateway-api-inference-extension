@@ -45,16 +45,16 @@ func (s *PredictedLatency) PrepareRequestData(ctx context.Context, request *sche
 			prefixCacheInfo := prefixCacheInfoRaw.(*attrprefix.PrefixCacheMatchInfo)
 			prefixCacheScore = float64(prefixCacheInfo.MatchBlocks()) / float64(prefixCacheInfo.TotalBlocks())
 			if !math.IsNaN(prefixCacheScore) {
-				logger.V(logutil.DEBUG).Info("Found prefix cache score in pod attribute", "pod", endpoint.GetMetadata().GetKey().NamespacedName().Name, "score", prefixCacheScore)
+				logger.V(logutil.DEBUG).Info("Found prefix cache score in endpoint attribute", "endpoint", endpoint.GetMetadata().GetKey().String(), "score", prefixCacheScore)
 			} else {
 				prefixCacheScore = 0.0
-				logger.V(logutil.DEBUG).Info("Prefix cache score is NaN, defaulting to 0", "pod", endpoint.GetMetadata().GetKey().NamespacedName().Name)
+				logger.V(logutil.DEBUG).Info("Prefix cache score is NaN, defaulting to 0", "endpoint", endpoint.GetMetadata().GetKey().String())
 			}
 		} else {
-			logger.V(logutil.DEBUG).Info("No prefix cache score found in pod attribute, defaulting to 0", "pod", endpoint.GetMetadata().GetKey().NamespacedName().Name)
+			logger.V(logutil.DEBUG).Info("No prefix cache score found in endpoint attribute, defaulting to 0", "endpoint", endpoint.GetMetadata().GetKey().String())
 			prefixCacheScore = 0.0
 		}
-		predictedLatencyCtx.prefixCacheScoresForEndpoints[endpoint.GetMetadata().GetKey().NamespacedName().Name] = prefixCacheScore
+		predictedLatencyCtx.prefixCacheScoresForEndpoints[endpoint.GetMetadata().GetKey().String()] = prefixCacheScore
 	}
 	if !s.config.PredictInPrepareData {
 		logger.V(logutil.DEBUG).Info("PredictInPrepareData disabled, skipping predictions")
@@ -83,7 +83,7 @@ func (s *PredictedLatency) PrepareRequestData(ctx context.Context, request *sche
 				)
 				pred.Endpoint.Put(attrlatency.LatencyPredictionInfoKey, latencyInfo)
 				logger.V(logutil.DEBUG).Info("Stored latency prediction in endpoint",
-					"pod", pred.Endpoint.GetMetadata().GetKey().NamespacedName().Name,
+					"endpoint", pred.Endpoint.GetMetadata().GetKey().String(),
 					"ttft", pred.TTFT,
 					"tpot", pred.TPOT,
 					"ttftValid", pred.TTFTValid,

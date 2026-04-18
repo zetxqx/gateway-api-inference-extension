@@ -414,12 +414,12 @@ func TestPods(t *testing.T) {
 		name         string
 		op           func(ctx context.Context, ds Datastore)
 		existingPods []*corev1.Pod
-		wantPods     []*corev1.Pod
+		wantKeys     []plugin.EndpointKey
 	}{
 		{
 			name:         "Add new pod, no existing pods, should add",
 			existingPods: []*corev1.Pod{},
-			wantPods:     []*corev1.Pod{pod1},
+			wantKeys:     []plugin.EndpointKey{plugin.NewEndpointKey("pod1", "", 8000)},
 			op: func(ctx context.Context, ds Datastore) {
 				ds.PodUpdateOrAddIfNotExist(ctx, pod1)
 			},
@@ -427,7 +427,7 @@ func TestPods(t *testing.T) {
 		{
 			name:         "Add new pod, with existing pods, should add",
 			existingPods: []*corev1.Pod{pod1},
-			wantPods:     []*corev1.Pod{pod1, pod2},
+			wantKeys:     []plugin.EndpointKey{plugin.NewEndpointKey("pod1", "", 8000), plugin.NewEndpointKey("pod2", "", 8000)},
 			op: func(ctx context.Context, ds Datastore) {
 				ds.PodUpdateOrAddIfNotExist(ctx, pod2)
 			},
@@ -435,7 +435,7 @@ func TestPods(t *testing.T) {
 		{
 			name:         "Delete the pod",
 			existingPods: []*corev1.Pod{pod1, pod2},
-			wantPods:     []*corev1.Pod{pod1},
+			wantKeys:     []plugin.EndpointKey{plugin.NewEndpointKey("pod1", "", 8000)},
 			op: func(ctx context.Context, ds Datastore) {
 				ds.PodDelete(pod2.Name)
 			},
@@ -443,7 +443,7 @@ func TestPods(t *testing.T) {
 		{
 			name:         "Delete the pod that doesn't exist",
 			existingPods: []*corev1.Pod{pod1},
-			wantPods:     []*corev1.Pod{pod1},
+			wantKeys:     []plugin.EndpointKey{plugin.NewEndpointKey("pod1", "", 8000)},
 			op: func(ctx context.Context, ds Datastore) {
 				ds.PodDelete(pod2.Name)
 			},
@@ -468,13 +468,12 @@ func TestPods(t *testing.T) {
 				}
 
 				test.op(ctx, ds)
-				var gotPods []*corev1.Pod
+				var gotKeys []plugin.EndpointKey
 				for _, pm := range ds.PodList(AllPodsPredicate) {
-					pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pm.GetMetadata().PodName, Namespace: pm.GetMetadata().GetKey().NamespacedName().Namespace}, Status: corev1.PodStatus{PodIP: pm.GetMetadata().GetIPAddress()}}
-					gotPods = append(gotPods, pod)
+					gotKeys = append(gotKeys, pm.GetMetadata().GetKey())
 				}
-				if !cmp.Equal(gotPods, test.wantPods, cmpopts.SortSlices(func(a, b *corev1.Pod) bool { return a.Name < b.Name })) {
-					t.Errorf("got (%v) != want (%v);", gotPods, test.wantPods)
+				if diff := cmp.Diff(test.wantKeys, gotKeys, cmpopts.EquateComparable(plugin.EndpointKey{}), cmpopts.SortSlices(func(a, b plugin.EndpointKey) bool { return a.String() < b.String() })); diff != "" {
+					t.Errorf("Unexpected keys diff (-want +got):\n%s", diff)
 				}
 			})
 		}

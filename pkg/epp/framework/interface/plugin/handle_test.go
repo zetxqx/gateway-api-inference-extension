@@ -19,15 +19,24 @@ package plugin
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestEndPointKey(t *testing.T) {
 	t.Run("NewEndPointKey creates correct key", func(t *testing.T) {
 		key := NewEndpointKey("foo", "bar", 8080)
-		assert.Equal(t, "foo", key.NamespacedName().Name)
-		assert.Equal(t, "bar", key.NamespacedName().Namespace)
-		assert.Equal(t, 8080, key.Port())
+		expected := EndpointKey{
+			namespacedName: types.NamespacedName{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			port: 8080,
+		}
+		if diff := cmp.Diff(expected, key, cmp.AllowUnexported(EndpointKey{})); diff != "" {
+			t.Errorf("NewEndpointKey() mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("String returns correct representation", func(t *testing.T) {
