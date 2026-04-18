@@ -32,18 +32,25 @@ import (
 
 func TestSchedulePlugins(t *testing.T) {
 	tp1 := &testPlugin{
-		TypeRes:   "test1",
-		ScoreRes:  0.3,
-		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}, {Name: "pod2"}, {Name: "pod3"}},
+		TypeRes:  "test1",
+		ScoreRes: 0.3,
+		FilterRes: []fwkplugin.EndpointKey{
+			fwkplugin.NewEndpointKey("pod1", "ns", 8000),
+			fwkplugin.NewEndpointKey("pod2", "ns", 8000),
+			fwkplugin.NewEndpointKey("pod3", "ns", 8000),
+		},
 	}
 	tp2 := &testPlugin{
-		TypeRes:   "test2",
-		ScoreRes:  0.8,
-		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}, {Name: "pod2"}},
+		TypeRes:  "test2",
+		ScoreRes: 0.8,
+		FilterRes: []fwkplugin.EndpointKey{
+			fwkplugin.NewEndpointKey("pod1", "ns", 8000),
+			fwkplugin.NewEndpointKey("pod2", "ns", 8000),
+		},
 	}
 	tp_filterAll := &testPlugin{
 		TypeRes:   "filter all",
-		FilterRes: []k8stypes.NamespacedName{},
+		FilterRes: []fwkplugin.EndpointKey{},
 	}
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
@@ -189,7 +196,7 @@ type testPlugin struct {
 	NumOfScoredEndpoints  int
 	ScoreRes              float64
 	FilterCallCount       int
-	FilterRes             []k8stypes.NamespacedName
+	FilterRes             []fwkplugin.EndpointKey
 	PickCallCount         int
 	NumOfPickerCandidates int
 	PickRes               fwkplugin.EndpointKey
@@ -374,13 +381,13 @@ func TestRunWithOutOfRangeScores(t *testing.T) {
 	negativeScorer := &testPlugin{
 		TypeRes:   "negative",
 		ScoreRes:  -0.5,
-		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}},
+		FilterRes: []fwkplugin.EndpointKey{fwkplugin.NewEndpointKey("pod1", "ns", 8000)},
 	}
 	// Scorer that returns score > 1
 	overScorer := &testPlugin{
 		TypeRes:   "over",
 		ScoreRes:  1.5,
-		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}},
+		FilterRes: []fwkplugin.EndpointKey{fwkplugin.NewEndpointKey("pod1", "ns", 8000)},
 	}
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
@@ -514,13 +521,16 @@ func TestFilterExecutionOrderViaAddPlugins(t *testing.T) {
 func TestFilterChainReceivesPreviousOutput(t *testing.T) {
 	// First filter keeps pod1 and pod2 (removes pod3).
 	filter1 := &testPlugin{
-		TypeRes:   "filter1",
-		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}, {Name: "pod2"}},
+		TypeRes: "filter1",
+		FilterRes: []fwkplugin.EndpointKey{
+			fwkplugin.NewEndpointKey("pod1", "", 0),
+			fwkplugin.NewEndpointKey("pod2", "", 0),
+		},
 	}
 	// Second filter keeps only pod1 (removes pod2).
 	filter2 := &testPlugin{
 		TypeRes:   "filter2",
-		FilterRes: []k8stypes.NamespacedName{{Name: "pod1"}},
+		FilterRes: []fwkplugin.EndpointKey{fwkplugin.NewEndpointKey("pod1", "", 0)},
 	}
 	// Third filter is a pass-through that records what it received.
 	receivedCount := 0
@@ -603,12 +613,11 @@ func (p *filterOnlyPlugin) Filter(_ context.Context, _ *fwksched.CycleState, _ *
 	return endpoints
 }
 
-func findEndpoints(endpoints []fwksched.Endpoint, names ...k8stypes.NamespacedName) []fwksched.Endpoint {
+func findEndpoints(endpoints []fwksched.Endpoint, keys ...fwkplugin.EndpointKey) []fwksched.Endpoint {
 	res := []fwksched.Endpoint{}
 	for _, endpoint := range endpoints {
-		for _, name := range names {
-			key := endpoint.GetMetadata().GetKey()
-			if key.NamespacedName().Name == name.Name {
+		for _, key := range keys {
+			if endpoint.GetMetadata().GetKey() == key {
 				res = append(res, endpoint)
 			}
 		}

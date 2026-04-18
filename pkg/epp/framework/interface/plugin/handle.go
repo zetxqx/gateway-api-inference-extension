@@ -129,14 +129,9 @@ type EndpointKey struct {
 	port           int
 }
 
-// NamespacedName returns the namespaced name of the endpoint.
-func (k EndpointKey) NamespacedName() types.NamespacedName {
-	return k.namespacedName
-}
-
-// Port returns the port of the endpoint.
-func (k EndpointKey) Port() int {
-	return k.port
+// Namespace returns the namespace of the endpoint.
+func (k EndpointKey) Namespace() string {
+	return k.namespacedName.Namespace
 }
 
 // String returns the string representation of the EndpointKey in the format "namespace/name:port".

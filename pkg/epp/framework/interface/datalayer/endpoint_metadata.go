@@ -50,7 +50,7 @@ func (p *EndpointMetadata) Clone() *EndpointMetadata {
 	clonedLabels := make(map[string]string, len(p.Labels))
 	maps.Copy(clonedLabels, p.Labels)
 	return &EndpointMetadata{
-		Key:         plugin.NewEndpointKey(p.Key.NamespacedName().Name, p.Key.NamespacedName().Namespace, p.Key.Port()),
+		Key:         p.Key,
 		PodName:     p.PodName,
 		Address:     p.Address,
 		Port:        p.Port,
