@@ -43,10 +43,9 @@ const (
 )
 
 // Helper functions
-
 func createTestSchedulingResult(metadata *fwkdl.EndpointMetadata) *schedulingtypes.SchedulingResult {
 
-	mockPod := createTestEndpoint(metadata.GetNamespacedName().Name, kvUsage, runningRequests, waitingQueue)
+	mockPod := createTestEndpoint(metadata.GetKey(), kvUsage, runningRequests, waitingQueue)
 
 	return &schedulingtypes.SchedulingResult{
 		PrimaryProfileName: "default",
@@ -185,7 +184,7 @@ func TestPredictedLatency_PreRequest_Success(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
 
@@ -218,7 +217,7 @@ func TestPredictedLatency_PreRequest_AddsToQueue(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
 
@@ -244,7 +243,7 @@ func TestPredictedLatency_PreRequest_QueueAlreadyExists(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request1 := createTestInferenceRequest("test-id-1", 100, 50)
 	request2 := createTestInferenceRequest("test-id-2", 100, 50)
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -274,7 +273,7 @@ func TestPredictedLatency_ResponseHeader_NilPredictor(t *testing.T) {
 	router.latencypredictor = nil
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 
@@ -314,7 +313,7 @@ func TestPredictedLatency_ResponseHeader_NoContext(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 
@@ -330,7 +329,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_NilPredictor(t *testing.T) 
 	router.latencypredictor = nil
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 
@@ -350,7 +349,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FirstToken(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -407,7 +406,7 @@ func TestPredictedLatency_NonStreamingMode_ResponseBody_FirstToken(t *testing.T)
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{} // EndOfStream is false
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -436,7 +435,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_SubsequentTokens(t *testing
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -485,7 +484,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_QueueNotFound(t 
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true}
 
@@ -510,7 +509,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_NoContext(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 
@@ -527,7 +526,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_Success(t *testi
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true}
 
@@ -562,7 +561,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NilPredictor(t *
 	router.latencypredictor = nil
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true}
 
@@ -603,7 +602,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NoContext(t *tes
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true}
 
@@ -617,7 +616,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_WithMetrics(t *t
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true}
 
@@ -650,7 +649,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken_NoSLOs(t *testin
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test-id", 0, 0) // No SLOs
 	response := &requestcontrol.Response{EndOfStream: true}
 
@@ -680,7 +679,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_FinalToken(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true} // True
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -713,7 +712,7 @@ func TestPredictedLatency_StreamingMode_ResponseBody_SingleChunk(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true} // True
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -746,7 +745,7 @@ func TestPredictedLatency_NonStreamingMode_ResponseBody_FinalToken(t *testing.T)
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true} // True
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -823,7 +822,7 @@ func TestPredictedLatency_ResponseBody_NoOrphanDecrement_WhenPreRequestSkipped(t
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("orphan-test", 100, 50)
 	response := &requestcontrol.Response{EndOfStream: true}
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -876,7 +875,7 @@ func TestPredictedLatency_CheckPredictor_NilPredictor(t *testing.T) {
 	router := createTestRouter()
 	router.latencypredictor = nil
 	logger := logr.Discard()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 
 	result := router.checkPredictor(logger, endpoint.GetMetadata())
 
@@ -888,7 +887,7 @@ func TestPredictedLatency_CheckPredictor_Success(t *testing.T) {
 	mockPredictor := new(mockPredictor)
 	router.latencypredictor = mockPredictor
 	logger := logr.Discard()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 
 	result := router.checkPredictor(logger, endpoint.GetMetadata())
 
@@ -937,8 +936,8 @@ func TestPredictedLatencyContext_PredictionData(t *testing.T) {
 	ctx.predictionsForScheduling = make(map[string]endpointPredictionResult)
 
 	// Set prediction data
-	ctx.predictionsForScheduling["pod1"] = endpointPredictionResult{Endpoint: createTestEndpoint("pod1", 0, 0, 0), TTFT: 80.0, TPOT: 25.0}
-	ctx.predictionsForScheduling["pod2"] = endpointPredictionResult{Endpoint: createTestEndpoint("pod2", 0, 0, 0), TPOT: 30.0, TTFT: 85.0}
+	ctx.predictionsForScheduling["pod1"] = endpointPredictionResult{Endpoint: createTestEndpoint(defaultEndpointKey("pod1"), 0, 0, 0), TTFT: 80.0, TPOT: 25.0}
+	ctx.predictionsForScheduling["pod2"] = endpointPredictionResult{Endpoint: createTestEndpoint(defaultEndpointKey("pod2"), 0, 0, 0), TPOT: 30.0, TTFT: 85.0}
 
 	assert.Len(t, ctx.predictionsForScheduling, 2)
 	assert.Equal(t, 80.0, ctx.predictionsForScheduling["pod1"].TTFT)
@@ -995,7 +994,7 @@ func TestPredictedLatency_MultipleRequests_SamePod(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 
 	request1 := createTestInferenceRequest("test-id-1", 100, 50)
 	request2 := createTestInferenceRequest("test-id-2", 100, 50)
@@ -1027,7 +1026,7 @@ func TestPredictedLatency_RequestLifecycle_ResponseEndOfStream(t *testing.T) {
 	router.latencypredictor = mockPredictor
 
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	request := createTestInferenceRequest("test", 100, 50)
 	response := &requestcontrol.Response{}
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
@@ -1078,8 +1077,8 @@ func TestPredictedLatency_MultipleRequests_DifferentPods(t *testing.T) {
 
 	ctx := context.Background()
 
-	endpoint1 := createTestEndpoint("test-pod-1", 1, 1, 1)
-	endpoint2 := createTestEndpoint("test-pod-2", 1, 1, 1)
+	endpoint1 := createTestEndpoint(defaultEndpointKey("test-pod-1"), 1, 1, 1)
+	endpoint2 := createTestEndpoint(defaultEndpointKey("test-pod-2"), 1, 1, 1)
 
 	request1 := createTestInferenceRequest("test-id-1", 100, 50)
 	request2 := createTestInferenceRequest("test-id-2", 100, 50)
@@ -1163,7 +1162,7 @@ func TestPredictedLatencyContext_SLOValidation(t *testing.T) {
 func BenchmarkPredictedLatency_PreRequest(b *testing.B) {
 	router := createTestRouter()
 	ctx := context.Background()
-	endpoint := createTestEndpoint("test-pod", 1, 1, 1)
+	endpoint := createTestEndpoint(defaultEndpointKey("test-pod"), 1, 1, 1)
 	schedulingResult := createTestSchedulingResult(endpoint.GetMetadata())
 
 	b.ResetTimer()

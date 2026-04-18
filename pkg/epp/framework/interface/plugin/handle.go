@@ -125,22 +125,32 @@ func PluginByType[P Plugin](handlePlugins HandlePlugins, name string) (P, error)
 
 // EndpointKey is a key for an endpoint.
 type EndpointKey struct {
-	NamespacedName types.NamespacedName
-	Port           int
+	namespacedName types.NamespacedName
+	port           int
+}
+
+// NamespacedName returns the namespaced name of the endpoint.
+func (k EndpointKey) NamespacedName() types.NamespacedName {
+	return k.namespacedName
+}
+
+// Port returns the port of the endpoint.
+func (k EndpointKey) Port() int {
+	return k.port
 }
 
 // String returns the string representation of the EndpointKey in the format "namespace/name:port".
 func (k EndpointKey) String() string {
-	return fmt.Sprintf("%s:%d", k.NamespacedName.String(), k.Port)
+	return fmt.Sprintf("%s:%d", k.namespacedName.String(), k.port)
 }
 
-// NewEndpointKey creates a new EndPointKey with the given name, namespace, and port.
+// NewEndpointKey creates a new EndpointKey with the given name, namespace, and port.
 func NewEndpointKey(name, namespace string, port int) EndpointKey {
 	return EndpointKey{
-		NamespacedName: types.NamespacedName{
+		namespacedName: types.NamespacedName{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Port: port,
+		port: port,
 	}
 }

@@ -193,7 +193,7 @@ func TestDetector_Configuration(t *testing.T) {
 				newStubSchedulingEndpoint(reg, cleanEndpoint),
 			})
 			require.Len(t, kept, 1, "Filter should drop the overloaded endpoint")
-			require.Equal(t, cleanEndpoint, kept[0].GetMetadata().GetNamespacedName().Name,
+			require.Equal(t, cleanEndpoint, kept[0].GetMetadata().GetKey().NamespacedName().Name,
 				"Filter should retain the clean fallback endpoint")
 		})
 	})
@@ -541,7 +541,7 @@ func TestDetector_ConcurrencyStress(t *testing.T) {
 // --- Test Helpers & Mocks ---
 
 func simulatePreRequest(_ context.Context, reg *localRegistry, req *schedulingtypes.InferenceRequest, result *schedulingtypes.SchedulingResult) {
-	endpointName := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().Key.NamespacedName.Name
+	endpointName := result.ProfileResults[result.PrimaryProfileName].TargetEndpoints[0].GetMetadata().Key.NamespacedName().Name
 	id := fullEndpointName(endpointName)
 	reg.update(id, func(load *attrconcurrency.InFlightLoad) {
 		load.Requests++

@@ -48,7 +48,7 @@ func TestPrepareRequestData_CancelledContextDoesNotPublish(t *testing.T) {
 	pl := NewPredictedLatency(cfg, nil)
 
 	request := createTestInferenceRequest("cancel-test", 0, 0)
-	endpoint := createTestEndpoint("pod-a", 0.1, 0, 0)
+	endpoint := createTestEndpoint(defaultEndpointKey("pod-a"), 0.1, 0, 0)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before the plugin runs
@@ -68,7 +68,7 @@ func TestPrepareRequestData_LiveContextPublishes(t *testing.T) {
 	pl := NewPredictedLatency(cfg, nil)
 
 	request := createTestInferenceRequest("live-test", 0, 0)
-	endpoint := createTestEndpoint("pod-a", 0.1, 0, 0)
+	endpoint := createTestEndpoint(defaultEndpointKey("pod-a"), 0.1, 0, 0)
 
 	err := pl.PrepareRequestData(context.Background(), request, []fwksched.Endpoint{endpoint})
 	assert.NoError(t, err)

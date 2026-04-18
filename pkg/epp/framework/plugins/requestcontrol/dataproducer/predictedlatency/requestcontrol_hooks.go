@@ -232,9 +232,9 @@ func (t *PredictedLatency) checkPredictor(logger logr.Logger, metadata *fwkdl.En
 // processPreRequestForLatencyPrediction looks up the stored prediction for the target endpoint.
 func processPreRequestForLatencyPrediction(ctx context.Context, predictedLatencyCtx *predictedLatencyCtx) {
 	logger := log.FromContext(ctx)
-	targetName := predictedLatencyCtx.targetMetadata.GetNamespacedName().Name
+	targetName := predictedLatencyCtx.targetMetadata.GetKey().NamespacedName().Name
 	if m := predictedLatencyCtx.prefillTargetMetadata; m != nil {
-		targetName = m.GetNamespacedName().Name
+		targetName = m.GetKey().NamespacedName().Name
 	}
 	if storedPred, ok := predictedLatencyCtx.predictionsForScheduling[targetName]; ok {
 		logger.V(logutil.DEBUG).Info("PreRequest TTFT from stored prediction", "value_ms", storedPred.TTFT, "endpoint", targetName)
@@ -266,10 +266,10 @@ func processFirstTokenForLatencyPrediction(
 	if prefillTargetMetadata := predictedLatencyCtx.prefillTargetMetadata; prefillTargetMetadata != nil {
 		prefillMetrics, err := getLatestMetricsForProfile(predictedLatencyCtx, Experimental_DefaultPrefillProfile)
 		if err == nil {
-			prefillPrefixCacheScore := predictedLatencyCtx.prefixCacheScoresForEndpoints[prefillTargetMetadata.GetNamespacedName().Name]
+			prefillPrefixCacheScore := predictedLatencyCtx.prefixCacheScoresForEndpoints[prefillTargetMetadata.GetKey().NamespacedName().Name]
 			logger.V(logutil.DEBUG).Info("Recording prefill TTFT training data",
 				"ttft_ms", predictedLatencyCtx.ttft,
-				"prefillPod", prefillTargetMetadata.GetNamespacedName().Name,
+				"prefillPod", prefillTargetMetadata.GetKey().NamespacedName().Name,
 				"prefixCacheScore", prefillPrefixCacheScore)
 			recordTTFTTrainingData(ctx, predictor, endpointRoleLabel, predictedLatencyCtx, prefillMetrics, prefillTargetMetadata, now, prefillPrefixCacheScore)
 		}
@@ -280,7 +280,7 @@ func processFirstTokenForLatencyPrediction(
 			return
 		}
 		targetEndpointMetadata := predictedLatencyCtx.targetMetadata
-		prefixCacheScore := predictedLatencyCtx.prefixCacheScoresForEndpoints[targetEndpointMetadata.GetNamespacedName().Name]
+		prefixCacheScore := predictedLatencyCtx.prefixCacheScoresForEndpoints[targetEndpointMetadata.GetKey().NamespacedName().Name]
 		logger.V(logutil.DEBUG).Info("Recording TTFT training data", "ttft_ms", predictedLatencyCtx.ttft, "predicted_ttft_ms", predictedLatencyCtx.predictedTTFT, "prefixCacheScore", prefixCacheScore)
 		recordTTFTTrainingData(ctx, predictor, endpointRoleLabel, predictedLatencyCtx, m, targetEndpointMetadata, now, prefixCacheScore)
 	}
@@ -304,7 +304,7 @@ func initializeSampler(ctx context.Context, predictedLatencyCtx *predictedLatenc
 
 func predictFirstTPOT(ctx context.Context, predictedLatencyCtx *predictedLatencyCtx) {
 	logger := log.FromContext(ctx)
-	targetName := predictedLatencyCtx.targetMetadata.GetNamespacedName().Name
+	targetName := predictedLatencyCtx.targetMetadata.GetKey().NamespacedName().Name
 	if storedPred, ok := predictedLatencyCtx.predictionsForScheduling[targetName]; ok {
 		logger.V(logutil.DEBUG).Info("first TPOT from stored prediction", "value_ms", storedPred.TPOT)
 		predictedLatencyCtx.predictedTPOTObservations = append(predictedLatencyCtx.predictedTPOTObservations, storedPred.TPOT)

@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -30,9 +29,7 @@ import (
 
 func createTestEndpointWithLabels(name string, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int, labels map[string]string) fwksched.Endpoint {
 	return fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
-		Key: plugin.EndpointKey{
-			NamespacedName: types.NamespacedName{Name: name, Namespace: "default"},
-		},
+		Key:    plugin.NewEndpointKey(name, "default", 0),
 		Labels: labels,
 	}, &fwkdl.Metrics{
 		KVCacheUsagePercent: kvCacheUsage,
@@ -218,8 +215,10 @@ func TestUpdateRequestContextWithPredictions(t *testing.T) {
 		predictionsForScheduling: make(map[string]endpointPredictionResult),
 	}
 
-	ep1 := createTestEndpoint("pod1", 0.5, 5, 0)
-	ep2 := createTestEndpoint("pod2", 0.3, 3, 0)
+	endpointKey1 := defaultEndpointKey("pod1")
+	endpointKey2 := defaultEndpointKey("pod2")
+	ep1 := createTestEndpoint(endpointKey1, 0.5, 5, 0)
+	ep2 := createTestEndpoint(endpointKey2, 0.3, 3, 0)
 
 	predictions := []endpointPredictionResult{
 		{Endpoint: ep1, TTFT: 50, TPOT: 20, IsValid: true},
@@ -229,6 +228,6 @@ func TestUpdateRequestContextWithPredictions(t *testing.T) {
 	pl.updateRequestContextWithPredictions(ctx, predictions)
 
 	assert.Len(t, ctx.predictionsForScheduling, 2)
-	assert.Equal(t, 50.0, ctx.predictionsForScheduling["pod1"].TTFT)
-	assert.Equal(t, 80.0, ctx.predictionsForScheduling["pod2"].TTFT)
+	assert.Equal(t, 50.0, ctx.predictionsForScheduling[endpointKey1.String()].TTFT)
+	assert.Equal(t, 80.0, ctx.predictionsForScheduling[endpointKey2.String()].TTFT)
 }

@@ -435,7 +435,7 @@ func TestFilterExecutionOrder(t *testing.T) {
 
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+		PickRes: fwkplugin.NewEndpointKey("pod1", "", 0),
 	}
 
 	// Declare filters in order A, B, C.
@@ -444,8 +444,8 @@ func TestFilterExecutionOrder(t *testing.T) {
 		WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "", 0)}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "", 0)}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{
@@ -476,7 +476,7 @@ func TestFilterExecutionOrderViaAddPlugins(t *testing.T) {
 
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+		PickRes: fwkplugin.NewEndpointKey("pod1", "", 0),
 	}
 
 	// Use AddPlugins sequentially, as the config loader does.
@@ -489,7 +489,7 @@ func TestFilterExecutionOrderViaAddPlugins(t *testing.T) {
 	profile.WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "", 0)}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{
@@ -531,7 +531,7 @@ func TestFilterChainReceivesPreviousOutput(t *testing.T) {
 
 	pickerPlugin := &testPlugin{
 		TypeRes: "picker",
-		PickRes: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}},
+		PickRes: fwkplugin.NewEndpointKey("pod1", "", 0),
 	}
 
 	profile := NewSchedulerProfile().
@@ -539,9 +539,9 @@ func TestFilterChainReceivesPreviousOutput(t *testing.T) {
 		WithPicker(pickerPlugin)
 
 	input := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "", 0)}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "", 0)}, nil, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod3", "", 0)}, nil, nil),
 	}
 
 	request := &fwksched.InferenceRequest{
@@ -607,7 +607,8 @@ func findEndpoints(endpoints []fwksched.Endpoint, names ...k8stypes.NamespacedNa
 	res := []fwksched.Endpoint{}
 	for _, endpoint := range endpoints {
 		for _, name := range names {
-			if endpoint.GetMetadata().GetNamespacedName().Name == name.Name {
+			key := endpoint.GetMetadata().GetKey()
+			if key.NamespacedName().Name == name.Name {
 				res = append(res, endpoint)
 			}
 		}

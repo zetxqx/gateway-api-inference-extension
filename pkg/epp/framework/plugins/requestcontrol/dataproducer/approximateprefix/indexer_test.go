@@ -22,12 +22,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
 
 func TestIndexer_AddAndGet(t *testing.T) {
 	pod := server{
-		ServerID:       ServerID{NamespacedName: types.NamespacedName{Namespace: "default", Name: "server1"}},
+		ServerID:       ServerID(plugin.NewEndpointKey("server1", "default", 0)),
 		NumOfGPUBlocks: 2,
 	}
 	i := newIndexer(context.Background(), 3).(*indexer) // Initialize with an lruSize greater than server.numOfGPUBlocks to verify server-defined limits take precedence.
@@ -58,8 +58,8 @@ func TestIndexer_RemovePodAndEviction(t *testing.T) {
 
 	i := newIndexer(context.Background(), indexerSize).(*indexer)
 
-	server1 := server{ServerID: ServerID{NamespacedName: types.NamespacedName{Namespace: "default", Name: "server1"}}}
-	server2 := server{ServerID: ServerID{NamespacedName: types.NamespacedName{Namespace: "default", Name: "server2"}}}
+	server1 := server{ServerID: ServerID(plugin.NewEndpointKey("server1", "default", 0))}
+	server2 := server{ServerID: ServerID(plugin.NewEndpointKey("server2", "default", 0))}
 
 	// Add indexerSize hashes to both servers
 	hashes := make([]blockHash, 0, indexerSize)
@@ -117,7 +117,7 @@ func TestIndexer_ConcurrentAddRemovePod(t *testing.T) {
 	lruSize := 10
 	for iter := range 100 {
 		i := newIndexer(context.Background(), lruSize).(*indexer)
-		pod := server{ServerID: ServerID{NamespacedName: types.NamespacedName{Namespace: "default", Name: "pod1"}}}
+		pod := server{ServerID: ServerID(plugin.NewEndpointKey("pod1", "default", 0))}
 
 		var wg sync.WaitGroup
 		wg.Add(2)

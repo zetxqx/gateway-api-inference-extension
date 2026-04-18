@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -34,7 +33,7 @@ import (
 // (prefixMatch out of 100 total blocks) and predicted TTFT.
 func makeEndpoint(name string, prefixMatch int, ttft float64) framework.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		Key: fwkplugin.EndpointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
+		Key: fwkplugin.NewEndpointKey(name, "default", 0),
 	}
 	ep := framework.NewEndpoint(meta, &fwkdl.Metrics{}, fwkdl.NewAttributes())
 	if prefixMatch >= 0 {

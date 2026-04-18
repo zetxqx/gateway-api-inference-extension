@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"maps"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
 
@@ -51,13 +50,7 @@ func (p *EndpointMetadata) Clone() *EndpointMetadata {
 	clonedLabels := make(map[string]string, len(p.Labels))
 	maps.Copy(clonedLabels, p.Labels)
 	return &EndpointMetadata{
-		Key: plugin.EndpointKey{
-			NamespacedName: types.NamespacedName{
-				Name:      p.Key.NamespacedName.Name,
-				Namespace: p.Key.NamespacedName.Namespace,
-			},
-			Port: p.Key.Port,
-		},
+		Key:         plugin.NewEndpointKey(p.Key.NamespacedName().Name, p.Key.NamespacedName().Namespace, p.Key.Port()),
 		PodName:     p.PodName,
 		Address:     p.Address,
 		Port:        p.Port,
@@ -66,9 +59,9 @@ func (p *EndpointMetadata) Clone() *EndpointMetadata {
 	}
 }
 
-// GetNamespacedName gets the namespace name of the Endpoint.
-func (e *EndpointMetadata) GetNamespacedName() types.NamespacedName {
-	return e.Key.NamespacedName
+// GetKey returns the key of the Endpoint.
+func (e *EndpointMetadata) GetKey() plugin.EndpointKey {
+	return e.Key
 }
 
 // GetIPAddress returns the Endpoint's IP address.

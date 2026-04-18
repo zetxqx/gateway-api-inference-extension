@@ -810,7 +810,7 @@ func TestDirector_HandleRequest(t *testing.T) {
 					assert.Equal(t, test.wantReqCtx.ObjectiveKey, returnedReqCtx.ObjectiveKey, "reqCtx.Model mismatch")
 					assert.Equal(t, test.wantReqCtx.TargetModelName, returnedReqCtx.TargetModelName,
 						"reqCtx.ResolvedTargetModel mismatch")
-					if diff := cmp.Diff(test.wantReqCtx.TargetPod, returnedReqCtx.TargetPod, cmpopts.EquateEmpty()); diff != "" {
+					if diff := cmp.Diff(test.wantReqCtx.TargetPod, returnedReqCtx.TargetPod, cmpopts.EquateEmpty(), cmpopts.EquateComparable(fwkplugin.EndpointKey{})); diff != "" {
 						t.Errorf("reqCtx.TargetPod mismatch (-want +got):\n%s", diff)
 					}
 					assert.Equal(t, test.wantReqCtx.TargetEndpoint, returnedReqCtx.TargetEndpoint, "reqCtx.TargetEndpoint mismatch")
@@ -1292,14 +1292,14 @@ func (p *testResponseStreaming) TypedName() fwkplugin.TypedName {
 
 func (p *testResponseReceived) ResponseHeader(_ context.Context, _ *fwksched.InferenceRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
 	p.lastRespOnResponse = response
-	p.lastTargetPodOnResponse = targetPod.GetNamespacedName().String()
+	p.lastTargetPodOnResponse = targetPod.GetKey().String()
 }
 
 func (p *testResponseStreaming) ResponseBody(_ context.Context, _ *fwksched.InferenceRequest, response *fwk.Response, targetPod *fwkdl.EndpointMetadata) {
 	p.respsOnStreaming = append(p.respsOnStreaming, response)
-	p.targetPodsOnStreaming = append(p.targetPodsOnStreaming, targetPod.GetNamespacedName().String())
+	p.targetPodsOnStreaming = append(p.targetPodsOnStreaming, targetPod.GetKey().String())
 
 	// Maintain legacy fields for compatibility
 	p.lastRespOnStreaming = response
-	p.lastTargetPodOnStreaming = targetPod.GetNamespacedName().String()
+	p.lastTargetPodOnStreaming = targetPod.GetKey().String()
 }

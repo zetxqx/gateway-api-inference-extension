@@ -42,9 +42,9 @@ func TestTokenLoadScorer(t *testing.T) {
 	pod3NN := types.NamespacedName{Namespace: "default", Name: "pod3"}
 
 	endpoints := []fwksched.Endpoint{
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: pod1NN}}, &fwkdl.Metrics{}, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: pod2NN}}, &fwkdl.Metrics{}, nil),
-		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: pod3NN}}, &fwkdl.Metrics{}, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey(pod1NN.Name, pod1NN.Namespace, 0)}, &fwkdl.Metrics{}, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey(pod2NN.Name, pod2NN.Namespace, 0)}, &fwkdl.Metrics{}, nil),
+		fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey(pod3NN.Name, pod3NN.Namespace, 0)}, &fwkdl.Metrics{}, nil),
 	}
 
 	// pod1: 0 tokens (default)

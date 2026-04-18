@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -209,7 +208,7 @@ func TestInFlightLoadProducer_ConcurrencyStress(t *testing.T) {
 // --- Helpers ---
 
 func fullEndpointName(name string) string {
-	return fwkplugin.EndpointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}}.String()
+	return fwkplugin.NewEndpointKey(name, "default", 0).String()
 }
 
 func makeSchedulingResult(endpointName string) *schedulingtypes.SchedulingResult {
@@ -231,7 +230,7 @@ type stubSchedulingEndpoint struct {
 
 func newStubSchedulingEndpoint(name string) *stubSchedulingEndpoint {
 	return &stubSchedulingEndpoint{
-		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}}},
+		metadata: &datalayer.EndpointMetadata{Key: fwkplugin.NewEndpointKey(name, "default", 0)},
 		attr:     datalayer.NewAttributes(),
 	}
 }

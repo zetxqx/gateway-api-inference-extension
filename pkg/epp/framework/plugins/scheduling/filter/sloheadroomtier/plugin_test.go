@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -29,9 +28,14 @@ import (
 	attrlatency "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/plugins/datalayer/attribute/latency"
 )
 
+const (
+	defaultNamespace = "default"
+	defaultPort      = 80
+)
+
 func makeEndpoint(name string, ttftHeadroom, tpotHeadroom float64, hasPrediction bool) framework.Endpoint {
 	meta := &fwkdl.EndpointMetadata{
-		Key: fwkplugin.EndpointKey{NamespacedName: types.NamespacedName{Name: name, Namespace: "default"}},
+		Key: fwkplugin.NewEndpointKey(name, defaultNamespace, defaultPort),
 	}
 	ep := framework.NewEndpoint(meta, &fwkdl.Metrics{}, fwkdl.NewAttributes())
 	if hasPrediction {
@@ -39,6 +43,10 @@ func makeEndpoint(name string, ttftHeadroom, tpotHeadroom float64, hasPrediction
 			ttftHeadroom >= 0, tpotHeadroom >= 0, ttftHeadroom, tpotHeadroom, 100, 10, 0))
 	}
 	return ep
+}
+
+func defaultEndPointKey(name string) fwkplugin.EndpointKey {
+	return fwkplugin.NewEndpointKey(name, defaultNamespace, defaultPort)
 }
 
 func TestFilter_SingleEndpoint(t *testing.T) {
@@ -87,7 +95,7 @@ func TestFilter_BothTiers_SelectPositive(t *testing.T) {
 	}
 	result := p.Filter(context.Background(), nil, nil, endpoints)
 	assert.Equal(t, 2, len(result), "should select positive tier")
-	assert.Equal(t, "pos1", result[0].GetMetadata().Key.NamespacedName.Name)
+	assert.Equal(t, defaultEndPointKey("pos1"), result[0].GetMetadata().GetKey())
 }
 
 func TestFilter_BothTiers_EpsilonExploreNeg(t *testing.T) {
@@ -98,7 +106,7 @@ func TestFilter_BothTiers_EpsilonExploreNeg(t *testing.T) {
 	}
 	result := p.Filter(context.Background(), nil, nil, endpoints)
 	assert.Equal(t, 1, len(result), "should select negative tier")
-	assert.Equal(t, "neg1", result[0].GetMetadata().Key.NamespacedName.Name)
+	assert.Equal(t, defaultEndPointKey("neg1"), result[0].GetMetadata().GetKey())
 }
 
 func TestFilter_NoPredictionGoesToNegative(t *testing.T) {
@@ -110,7 +118,7 @@ func TestFilter_NoPredictionGoesToNegative(t *testing.T) {
 	result := p.Filter(context.Background(), nil, nil, endpoints)
 	// nopred goes to negative, epsilon selects negative
 	assert.Equal(t, 1, len(result))
-	assert.Equal(t, "nopred", result[0].GetMetadata().Key.NamespacedName.Name)
+	assert.Equal(t, defaultEndPointKey("nopred"), result[0].GetMetadata().GetKey())
 }
 
 // Note: Deficit bucketing tests are in the slo-deficit-bucket-filter package.

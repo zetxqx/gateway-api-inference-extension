@@ -25,9 +25,9 @@ import (
 func TestEndPointKey(t *testing.T) {
 	t.Run("NewEndPointKey creates correct key", func(t *testing.T) {
 		key := NewEndpointKey("foo", "bar", 8080)
-		assert.Equal(t, "foo", key.NamespacedName.Name)
-		assert.Equal(t, "bar", key.NamespacedName.Namespace)
-		assert.Equal(t, 8080, key.Port)
+		assert.Equal(t, "foo", key.NamespacedName().Name)
+		assert.Equal(t, "bar", key.NamespacedName().Namespace)
+		assert.Equal(t, 8080, key.Port())
 	})
 
 	t.Run("String returns correct representation", func(t *testing.T) {

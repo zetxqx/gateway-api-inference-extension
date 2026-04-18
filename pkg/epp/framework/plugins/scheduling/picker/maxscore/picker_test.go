@@ -22,7 +22,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	fwkdl "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/datalayer"
 	fwkplugin "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
@@ -30,9 +29,9 @@ import (
 )
 
 func TestPickMaxScorePicker(t *testing.T) {
-	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod1"}}}, nil, nil)
-	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod2"}}}, nil, nil)
-	endpoint3 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.EndpointKey{NamespacedName: k8stypes.NamespacedName{Name: "pod3"}}}, nil, nil)
+	endpoint1 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod1", "", 0)}, nil, nil)
+	endpoint2 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod2", "", 0)}, nil, nil)
+	endpoint3 := fwksched.NewEndpoint(&fwkdl.EndpointMetadata{Key: fwkplugin.NewEndpointKey("pod3", "", 0)}, nil, nil)
 
 	tests := []struct {
 		name               string

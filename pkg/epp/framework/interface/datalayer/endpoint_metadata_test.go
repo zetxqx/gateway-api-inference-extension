@@ -20,10 +20,10 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
 
@@ -59,7 +59,7 @@ var (
 func TestEndpointMetadataClone(t *testing.T) {
 	clone := expected.Clone()
 	assert.NotSame(t, expected, clone)
-	if diff := cmp.Diff(expected, clone); diff != "" {
+	if diff := cmp.Diff(expected, clone, cmpopts.EquateComparable(plugin.EndpointKey{})); diff != "" {
 		t.Errorf("Unexpected output (-want +got): %v", diff)
 	}
 
@@ -69,13 +69,7 @@ func TestEndpointMetadataClone(t *testing.T) {
 
 func TestEndpointMetadataString(t *testing.T) {
 	endpointMetadata := EndpointMetadata{
-		Key: plugin.EndpointKey{
-			NamespacedName: types.NamespacedName{
-				Name:      pod.Name,
-				Namespace: pod.Namespace,
-			},
-			Port: 8000,
-		},
+		Key:         plugin.NewEndpointKey(pod.Name, pod.Namespace, 8000),
 		PodName:     pod.Name,
 		Address:     pod.Status.PodIP,
 		Port:        "8000",

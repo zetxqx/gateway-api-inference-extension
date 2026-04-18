@@ -47,7 +47,7 @@ func TestLoraAffinityScorer(t *testing.T) {
 					}, nil),
 			},
 			expectedScoresEndpoint: map[string]float64{
-				"pod1": 1.0,
+				"default/pod1:8000": 1.0,
 			},
 		},
 		{
@@ -63,7 +63,7 @@ func TestLoraAffinityScorer(t *testing.T) {
 					}, nil),
 			},
 			expectedScoresEndpoint: map[string]float64{
-				"pod1": 0.6,
+				"default/pod1:8000": 0.6,
 			},
 		},
 		{
@@ -86,8 +86,8 @@ func TestLoraAffinityScorer(t *testing.T) {
 					}, nil),
 			},
 			expectedScoresEndpoint: map[string]float64{
-				"pod1": 0.0,
-				"pod2": 0.0,
+				"default/pod1:8000": 0.0,
+				"default/pod2:8000": 0.0,
 			},
 		},
 		{
@@ -131,11 +131,11 @@ func TestLoraAffinityScorer(t *testing.T) {
 					}, nil),
 			},
 			expectedScoresEndpoint: map[string]float64{
-				"pod1": 1.0,
-				"pod2": 0.8,
-				"pod3": 0.8,
-				"pod4": 0.6,
-				"pod5": 0.0,
+				"default/pod1:8000": 1.0,
+				"default/pod2:8000": 0.8,
+				"default/pod3:8000": 0.8,
+				"default/pod4:8000": 0.6,
+				"default/pod5:8000": 0.0,
 			},
 		},
 		{
@@ -152,12 +152,12 @@ func TestLoraAffinityScorer(t *testing.T) {
 			scores := scorer.Score(context.Background(), fwksched.NewCycleState(), test.request, test.endpoints)
 
 			for _, endpoint := range test.endpoints {
-				podName := endpoint.GetMetadata().GetNamespacedName().Name
-				expectedScore, ok := test.expectedScoresEndpoint[podName]
+				endpointKey := endpoint.GetMetadata().GetKey().String()
+				expectedScore, ok := test.expectedScoresEndpoint[endpointKey]
 				if !ok {
-					t.Fatalf("Expected score not found for endpoint %s in test %s", podName, test.name)
+					t.Fatalf("Expected score not found for endpoint %s in test %s", endpointKey, test.name)
 				}
-				assert.InDelta(t, expectedScore, scores[endpoint], 0.0001, "Endpoint %s should have score %f", podName, expectedScore)
+				assert.InDelta(t, expectedScore, scores[endpoint], 0.0001, "Endpoint %s should have score %f", endpointKey, expectedScore)
 			}
 			assert.Len(t, scores, len(test.expectedScoresEndpoint), "Number of scored endpoints should match expected")
 		})

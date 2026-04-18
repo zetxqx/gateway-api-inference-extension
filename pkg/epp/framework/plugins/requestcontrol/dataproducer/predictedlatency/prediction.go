@@ -58,7 +58,7 @@ func (s *PredictedLatency) generatePredictions(ctx context.Context, predictedLat
 		logger.V(logutil.TRACE).Info("Candidate pod for scheduling", "endpoint", endpoint.GetMetadata().String(), "metrics", endpoint.GetMetrics().String())
 
 		// Get prefix cache score for the pod
-		prefixCacheScore := predictedLatencyCtx.prefixCacheScoresForEndpoints[endpoint.GetMetadata().GetNamespacedName().Name]
+		prefixCacheScore := predictedLatencyCtx.prefixCacheScoresForEndpoints[endpoint.GetMetadata().GetKey().String()]
 
 		logger.V(logutil.DEBUG).Info("Prefix cache score for pod", "pod", endpoint.GetMetadata().String(), "prefixCacheScore", prefixCacheScore)
 
@@ -128,7 +128,7 @@ func (s *PredictedLatency) updateRequestContextWithPredictions(predictedLatencyC
 	predMap := make(map[string]endpointPredictionResult, len(predictions))
 	for _, pred := range predictions {
 		if pred.Endpoint != nil && pred.Endpoint.GetMetadata() != nil {
-			predMap[pred.Endpoint.GetMetadata().GetNamespacedName().Name] = pred
+			predMap[pred.Endpoint.GetMetadata().GetKey().String()] = pred
 		}
 	}
 	predictedLatencyCtx.predictionsForScheduling = predMap

@@ -35,6 +35,11 @@ import (
 	"sigs.k8s.io/gateway-api-inference-extension/test/utils"
 )
 
+const (
+	defaultNamespace = "default"
+	defaultPort      = 8000
+)
+
 // mockPredictor implements PredictorInterface for testing
 type mockPredictor struct {
 	predictions map[string]*latencypredictor.PredictionResponse
@@ -100,14 +105,14 @@ func (m *mockPredictor) GetServerStatus(ctx context.Context) (*latencypredictor.
 	return &latencypredictor.ServerStatusResponse{}, nil
 }
 
-func createTestEndpoint(name string, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int) fwksched.Endpoint {
+func defaultEndpointKey(name string) plugin.EndpointKey {
+	return plugin.NewEndpointKey(name, defaultNamespace, defaultPort)
+}
+
+func createTestEndpoint(endpointKey plugin.EndpointKey, kvCacheUsage float64, runningRequestsSize, waitingQueueSize int) fwksched.Endpoint {
 	return fwksched.NewEndpoint(&fwkdl.EndpointMetadata{
-		Key: plugin.EndpointKey{
-			NamespacedName: types.NamespacedName{
-				Name:      name,
-				Namespace: "default",
-			},
-		}},
+		Key: endpointKey,
+	},
 		&fwkdl.Metrics{
 			KVCacheUsagePercent: kvCacheUsage,
 			RunningRequestsSize: runningRequestsSize,
@@ -215,7 +220,7 @@ func TestPredictedLatency_GetPodRunningRequestCount(t *testing.T) {
 			predictor := &mockPredictor{}
 			cfg := DefaultConfig
 			router := NewPredictedLatency(cfg, predictor)
-			pod := createTestEndpoint("test-pod", 0.5, 2, 1)
+			pod := createTestEndpoint(defaultEndpointKey("test-pod"), 0.5, 2, 1)
 
 			tt.setupRequests(router, pod)
 
@@ -265,7 +270,7 @@ func TestPredictedLatency_GetPodMinTPOTSLO(t *testing.T) {
 			predictor := &mockPredictor{}
 			cfg := DefaultConfig
 			router := NewPredictedLatency(cfg, predictor)
-			pod := createTestEndpoint("test-pod", 0.5, 2, 1)
+			pod := createTestEndpoint(defaultEndpointKey("test-pod"), 0.5, 2, 1)
 
 			tt.setupRequests(router, pod)
 
@@ -373,7 +378,7 @@ func TestSloContextStoreEviction(t *testing.T) {
 
 	requestID := "test-req-id"
 	endpointName := types.NamespacedName{Name: "test-model", Namespace: "default"}
-	endpointKey := plugin.EndpointKey{NamespacedName: endpointName}
+	endpointKey := plugin.NewEndpointKey(endpointName.Name, endpointName.Namespace, 0)
 
 	req := &fwksched.InferenceRequest{
 		Headers: map[string]string{

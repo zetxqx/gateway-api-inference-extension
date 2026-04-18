@@ -24,7 +24,7 @@ import (
 	"net/url"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/plugin"
 )
 
 // Client is an interface for retrieving the data from an endpoint URL.
@@ -32,12 +32,12 @@ type Client interface {
 	Get(ctx context.Context, target *url.URL, ep Addressable, parser func(io.Reader) (any, error)) (any, error)
 }
 
-// Addressable supports getting an IP address and a namespaced name.
+// Addressable supports getting an IP address and a key.
 type Addressable interface {
 	GetIPAddress() string
 	GetPort() string
 	GetMetricsHost() string
-	GetNamespacedName() types.NamespacedName
+	GetKey() plugin.EndpointKey
 }
 
 const (
@@ -81,14 +81,14 @@ func (cl *client) Get(ctx context.Context, target *url.URL, ep Addressable,
 	}
 	resp, err := defaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch data from %s: %w", ep.GetNamespacedName(), err)
+		return nil, fmt.Errorf("failed to fetch data from %s: %w", ep.GetKey(), err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from %s: %v", ep.GetNamespacedName(), resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code from %s: %v", ep.GetKey(), resp.StatusCode)
 	}
 
 	return parser(resp.Body)

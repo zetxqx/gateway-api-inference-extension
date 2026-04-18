@@ -470,7 +470,7 @@ func TestPods(t *testing.T) {
 				test.op(ctx, ds)
 				var gotPods []*corev1.Pod
 				for _, pm := range ds.PodList(AllPodsPredicate) {
-					pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pm.GetMetadata().PodName, Namespace: pm.GetMetadata().GetNamespacedName().Namespace}, Status: corev1.PodStatus{PodIP: pm.GetMetadata().GetIPAddress()}}
+					pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: pm.GetMetadata().PodName, Namespace: pm.GetMetadata().GetKey().NamespacedName().Namespace}, Status: corev1.PodStatus{PodIP: pm.GetMetadata().GetIPAddress()}}
 					gotPods = append(gotPods, pod)
 				}
 				if !cmp.Equal(gotPods, test.wantPods, cmpopts.SortSlices(func(a, b *corev1.Pod) bool { return a.Name < b.Name })) {
@@ -744,7 +744,7 @@ func TestEndpointMetadata(t *testing.T) {
 				for _, pm := range ds.PodList(AllPodsPredicate) {
 					gotMetadata = append(gotMetadata, pm.GetMetadata())
 				}
-				if diff := cmp.Diff(test.wantEndpointMetas, gotMetadata, cmpopts.SortSlices(func(a, b *fwkdl.EndpointMetadata) bool { return a.Key.String() < b.Key.String() })); diff != "" {
+				if diff := cmp.Diff(test.wantEndpointMetas, gotMetadata, cmpopts.EquateComparable(plugin.EndpointKey{}), cmpopts.SortSlices(func(a, b *fwkdl.EndpointMetadata) bool { return a.Key.String() < b.Key.String() })); diff != "" {
 					t.Errorf("ConvertTo() mismatch (-want +got):\n%s", diff)
 				}
 			})

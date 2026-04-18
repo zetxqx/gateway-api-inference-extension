@@ -167,7 +167,7 @@ func (r *Runtime) NewEndpoint(ctx context.Context, endpointMetadata *fwkdl.Endpo
 	// The code could be simpler and also would benefit from using RLock mutex for concurrent access
 	// (no change expected) instead of using sync.Map (avoid use of Range just to count, more idiomatic code, etc.).
 	logger, _ := logr.FromContext(ctx)
-	logger = logger.WithValues("endpoint", endpointMetadata.GetNamespacedName())
+	logger = logger.WithValues("endpoint", endpointMetadata.GetKey())
 
 	var pollers []fwkdl.PollingDataSource
 	r.pollers.Range(func(_, val any) bool {

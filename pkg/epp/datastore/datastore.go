@@ -115,7 +115,7 @@ type datastore struct {
 	objectives map[string]*v1alpha2.InferenceObjective
 	// modelRewrites store for InferenceModelRewrite objects.
 	modelRewrites *modelRewriteStore
-	// key: types.NamespacedName, value: fwkdl.Endpoint
+	// key: plugin.EndpoinKey, value: fwkdl.Endpoint
 	pods *sync.Map
 	// modelServerMetricsPort metrics port from EPP command line argument
 	// used only if there is only one inference engine per pod
