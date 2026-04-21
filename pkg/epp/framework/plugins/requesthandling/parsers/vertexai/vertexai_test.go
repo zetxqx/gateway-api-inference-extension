@@ -45,7 +45,10 @@ func TestParseRequest_ChatCompletions(t *testing.T) {
 		t.Fatalf("Failed to create gRPC frame: %v", err)
 	}
 
-	headers := map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"}
+	headers := map[string]string{
+		":path":        "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions",
+		"content-type": "application/grpc",
+	}
 
 	res, err := parser.ParseRequest(context.Background(), body, headers)
 	if err != nil {
@@ -99,21 +102,21 @@ func TestParseRequest_Errors(t *testing.T) {
 		{
 			name:              "Unsupported gRPC path",
 			body:              []byte{},
-			headers:           map[string]string{":path": "/unsupported/path"},
+			headers:           map[string]string{":path": "/unsupported/path", "content-type": "application/grpc"},
 			expectedErr:       "unsupported gRPC path",
 			wantBypassOnError: true,
 		},
 		{
 			name:              "Invalid gRPC frame",
 			body:              []byte{0, 0, 0, 0}, // Too short
-			headers:           map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
-			expectedErr:       "parsing gRPC frame for ChatCompletions",
+			headers:           map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions", "content-type": "application/grpc"},
+			expectedErr:       "invalid character",
 			wantBypassOnError: false,
 		},
 		{
 			name:              "Invalid proto message",
 			body:              []byte{0, 0, 0, 0, 1, 0xFF}, // Valid header, invalid payload
-			headers:           map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
+			headers:           map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions", "content-type": "application/grpc"},
 			expectedErr:       "unmarshaling ChatCompletionsRequest",
 			wantBypassOnError: false,
 		},
@@ -173,21 +176,21 @@ func TestParseResponse(t *testing.T) {
 		{
 			name:          "Valid JSON response",
 			body:          validBody,
-			headers:       nil,
+			headers:       map[string]string{"content-type": "application/grpc"},
 			expectedErr:   "",
 			expectedUsage: &fwkrh.Usage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30},
 		},
 		{
 			name:          "Invalid gRPC frame",
 			body:          []byte{0, 0, 0, 0},
-			headers:       nil,
-			expectedErr:   "parsing gRPC frame for response",
+			headers:       map[string]string{"content-type": "application/grpc"},
+			expectedErr:   "invalid character",
 			expectedUsage: nil,
 		},
 		{
 			name:          "Invalid proto message",
 			body:          invalidProtoBody,
-			headers:       nil,
+			headers:       map[string]string{"content-type": "application/grpc"},
 			expectedErr:   "unmarshaling HttpBody response",
 			expectedUsage: nil,
 		},
@@ -224,6 +227,57 @@ func TestParseResponse(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseRequest_Fallback(t *testing.T) {
+	parser := NewVertexAIParser()
+	
+	jsonPayload := []byte(`{"messages":[{"role":"user","content":"Hello"}],"stream":true}`)
+	
+	headers := map[string]string{
+		":path":        "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions",
+		"content-type": "application/json",
+	}
+
+	res, err := parser.ParseRequest(context.Background(), jsonPayload, headers)
+	if err != nil {
+		t.Fatalf("ParseRequest failed: %v", err)
+	}
+	req := res.Body
+
+	if req.ChatCompletions == nil {
+		t.Fatal("Expected ChatCompletions to be populated")
+	}
+	if req.ChatCompletions.Messages[0].Content.Raw != "Hello" {
+		t.Errorf("Expected prompt 'Hello', got %v", req.ChatCompletions.Messages[0].Content.Raw)
+	}
+	if !req.Stream {
+		t.Error("Expected Stream to be true")
+	}
+}
+
+func TestParseResponse_Fallback(t *testing.T) {
+	parser := NewVertexAIParser()
+
+	jsonPayload := []byte(`{"object":"chat.completion","usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`)
+	
+	headers := map[string]string{
+		"content-type": "application/json",
+	}
+
+	resp, err := parser.ParseResponse(context.Background(), jsonPayload, headers, false)
+	if err != nil {
+		t.Fatalf("ParseResponse failed: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Expected non-nil response")
+	}
+	if resp.Usage == nil {
+		t.Fatal("Expected Usage to be populated")
+	}
+	if resp.Usage.PromptTokens != 10 {
+		t.Errorf("Expected prompt tokens 10, got %d", resp.Usage.PromptTokens)
 	}
 }
 

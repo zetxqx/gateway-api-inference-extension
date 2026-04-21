@@ -45,7 +45,8 @@ var _ fwkrh.Parser = &VertexAIParser{}
 
 // VertexAIParser implements the fwkrh.Parser interface for Vertex AI gRPC API
 type VertexAIParser struct {
-	typedName fwkplugin.TypedName
+	typedName    fwkplugin.TypedName
+	openAIParser *openai.OpenAIParser
 }
 
 // NewVertexAIParser creates a new VertexAIParser.
@@ -55,6 +56,7 @@ func NewVertexAIParser() *VertexAIParser {
 			Type: VertexAIParserType,
 			Name: VertexAIParserType,
 		},
+		openAIParser: openai.NewOpenAIParser(),
 	}
 }
 
@@ -84,7 +86,7 @@ var supportedVertexAIPaths = []string{
 func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.ParseRequestResult, error) {
 	logger := log.FromContext(ctx)
 	path := headers[parsers.MethodPathKey]
-	
+
 	supported := false
 	for _, suffix := range supportedVertexAIPaths {
 		if strings.HasSuffix(path, suffix) {
@@ -92,55 +94,73 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 			break
 		}
 	}
-	
+
 	if !supported {
 		return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
 	}
 
-	switch {
-	case strings.HasSuffix(path, chatCompletionsMethod):
-		parsedPayload, _, err := parsers.ParseGrpcPayload(body)
-		if err != nil {
-			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("parsing gRPC frame for ChatCompletions: %w", err)
+	var contentType string
+	for k, v := range headers {
+		if strings.ToLower(k) == "content-type" {
+			contentType = v
+			break
 		}
-
-		req := &aiplatformpb.ChatCompletionsRequest{}
-		if err := proto.Unmarshal(parsedPayload, req); err != nil {
-			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("unmarshaling ChatCompletionsRequest: %w", err)
-		}
-
-		httpBody := req.GetHttpBody()
-		if httpBody == nil {
-			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("ChatCompletionsRequest has no HttpBody")
-		}
-		jsonBytes := httpBody.GetData()
-
-		// Use OpenAI parser to parse the JSON payload
-		openAIParser := openai.NewOpenAIParser()
-		// Clone headers and set path to /v1/chat/completions to make OpenAI parser recognize it
-		headersCopy := make(map[string]string)
-		for k, v := range headers {
-			headersCopy[k] = v
-		}
-		headersCopy[":path"] = "/v1/chat/completions"
-		parseResult, err := openAIParser.ParseRequest(ctx, jsonBytes, headersCopy)
-		if err != nil {
-			return &fwkrh.ParseRequestResult{BypassOnError: parseResult != nil && parseResult.BypassOnError}, fmt.Errorf("parsing ChatCompletionsRequest: %w", err)
-		}
-		
-		inferenceRequestBody := parseResult.Body
-		inferenceRequestBody.Payload = fwkrh.PayloadProto{Message: req}
-		if inferenceRequestBody.ChatCompletions != nil {
-			logger.V(logutil.DEBUG).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions.Messages)
-		} else {
-			logger.V(logutil.DEBUG).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions)
-		}
-		return &fwkrh.ParseRequestResult{Body: inferenceRequestBody}, nil
-
-	default:
-		// Bypass if it is an unsupported path.
-		return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
 	}
+	isGrpc := strings.HasPrefix(contentType, "application/grpc")
+
+	if isGrpc {
+		parsedPayload, _, err := parsers.ParseGrpcPayload(body)
+		if err == nil {
+			switch {
+			case strings.HasSuffix(path, chatCompletionsMethod):
+				req := &aiplatformpb.ChatCompletionsRequest{}
+				if err := proto.Unmarshal(parsedPayload, req); err != nil {
+					return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("unmarshaling ChatCompletionsRequest: %w", err)
+				}
+
+				httpBody := req.GetHttpBody()
+				if httpBody == nil {
+					return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("ChatCompletionsRequest has no HttpBody")
+				}
+				jsonBytes := httpBody.GetData()
+
+				// Use OpenAI parser to parse the JSON payload
+				// Clone headers and set path to /v1/chat/completions to make OpenAI parser recognize it
+				headersCopy := make(map[string]string)
+				for k, v := range headers {
+					headersCopy[k] = v
+				}
+				headersCopy[":path"] = "/v1/chat/completions"
+				parseResult, err := p.openAIParser.ParseRequest(ctx, jsonBytes, headersCopy)
+				if err != nil {
+					return &fwkrh.ParseRequestResult{BypassOnError: parseResult != nil && parseResult.BypassOnError}, fmt.Errorf("parsing ChatCompletionsRequest: %w", err)
+				}
+
+				inferenceRequestBody := parseResult.Body
+				inferenceRequestBody.Payload = fwkrh.PayloadProto{Message: req}
+				if inferenceRequestBody.ChatCompletions != nil {
+					logger.V(logutil.DEFAULT).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions.Messages)
+				} else {
+					logger.V(logutil.DEFAULT).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions)
+				}
+				return &fwkrh.ParseRequestResult{Body: inferenceRequestBody}, nil
+
+			default:
+				return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
+			}
+		}
+		logger.V(logutil.DEFAULT).Info("Failed to parse gRPC payload, falling back to OpenAI parser", "error", err)
+	}
+
+	// Fallback to OpenAI parser
+	headersCopy := make(map[string]string)
+	for k, v := range headers {
+		headersCopy[k] = v
+	}
+	if strings.HasSuffix(path, chatCompletionsMethod) {
+		headersCopy[":path"] = "/v1/chat/completions"
+	}
+	return p.openAIParser.ParseRequest(ctx, body, headersCopy)
 }
 
 // ParseResponse parses the response body and returns a ParsedResponse
@@ -149,18 +169,28 @@ func (p *VertexAIParser) ParseResponse(ctx context.Context, body []byte, headers
 		return nil, nil
 	}
 
-	parsedPayload, _, err := parsers.ParseGrpcPayload(body)
-	if err != nil {
-		return nil, fmt.Errorf("parsing gRPC frame for response: %w", err)
+	var contentType string
+	for k, v := range headers {
+		if strings.ToLower(k) == "content-type" {
+			contentType = v
+			break
+		}
+	}
+	isGrpc := strings.HasPrefix(contentType, "application/grpc")
+
+	if isGrpc {
+		parsedPayload, _, err := parsers.ParseGrpcPayload(body)
+		if err == nil {
+			respMsg := &httpbody.HttpBody{}
+			if err := proto.Unmarshal(parsedPayload, respMsg); err != nil {
+				return nil, fmt.Errorf("unmarshaling HttpBody response: %w", err)
+			}
+			jsonBytes := respMsg.GetData()
+
+			return p.openAIParser.ParseResponse(ctx, jsonBytes, headers, false)
+		}
 	}
 
-	respMsg := &httpbody.HttpBody{}
-	if err := proto.Unmarshal(parsedPayload, respMsg); err != nil {
-		return nil, fmt.Errorf("unmarshaling HttpBody response: %w", err)
-	}
-	jsonBytes := respMsg.GetData()
-
-	// Delegate to OpenAI parser for response as well
-	openAIParser := openai.NewOpenAIParser()
-	return openAIParser.ParseResponse(ctx, jsonBytes, headers, false)
+	// Fallback to OpenAI parser
+	return p.openAIParser.ParseResponse(ctx, body, headers, false)
 }
