@@ -113,5 +113,6 @@ func (p *Plugin) Score(ctx context.Context, _ *framework.CycleState, _ *framewor
 			logger.V(logutil.DEFAULT).Error(nil, "PrefixCacheMatchInfo has unexpected type, assigning score 0", "endpoint", endpoint)
 		}
 	}
+	logger.V(logutil.DEFAULT).Info("Scored endpoints", "scores", scores)
 	return scores
 }

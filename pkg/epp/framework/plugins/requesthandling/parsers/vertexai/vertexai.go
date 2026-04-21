@@ -87,18 +87,6 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 	logger := log.FromContext(ctx)
 	path := headers[parsers.MethodPathKey]
 
-	supported := false
-	for _, suffix := range supportedVertexAIPaths {
-		if strings.HasSuffix(path, suffix) {
-			supported = true
-			break
-		}
-	}
-
-	if !supported {
-		return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
-	}
-
 	var contentType string
 	for k, v := range headers {
 		if strings.ToLower(k) == "content-type" {
@@ -109,6 +97,17 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 	isGrpc := strings.HasPrefix(contentType, "application/grpc")
 
 	if isGrpc {
+		supported := false
+		for _, suffix := range supportedVertexAIPaths {
+			if strings.HasSuffix(path, suffix) {
+				supported = true
+				break
+			}
+		}
+
+		if !supported {
+			return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
+		}
 		parsedPayload, _, err := parsers.ParseGrpcPayload(body)
 		if err == nil {
 			switch {
@@ -160,6 +159,7 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 	if strings.HasSuffix(path, chatCompletionsMethod) {
 		headersCopy[":path"] = "/v1/chat/completions"
 	}
+	logger.V(logutil.DEFAULT).Info("Delegating to OpenAI parser", "path", path)
 	return p.openAIParser.ParseRequest(ctx, body, headersCopy)
 }
 

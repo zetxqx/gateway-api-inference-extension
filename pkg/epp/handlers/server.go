@@ -327,21 +327,10 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 						}
 						reqCtx.TargetEndpoint = endpoint.GetIPAddress() + ":" + endpoint.GetPort()
 						
-						bodyResp := &extProcPb.ProcessingResponse{
-							Response: &extProcPb.ProcessingResponse_RequestBody{
-								RequestBody: &extProcPb.BodyResponse{
-									Response: &extProcPb.CommonResponse{
-										ClearRouteCache: true,
-										HeaderMutation: &extProcPb.HeaderMutation{
-											SetHeaders: s.generateHeaders(ctx, reqCtx),
-										},
-									},
-								},
-							},
-							DynamicMetadata: s.generateMetadata(reqCtx.TargetEndpoint),
-						}
+						reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
+						reqCtx.reqBodyResp = envoy.GenerateRequestBodyResponses(reqCtx.Request.RawBody)
 						
-						if err := srv.Send(bodyResp); err != nil {
+						if err := reqCtx.updateStateAndSendIfNeeded(srv, logger); err != nil {
 							return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
 						}
 						
