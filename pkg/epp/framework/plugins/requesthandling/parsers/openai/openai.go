@@ -91,20 +91,23 @@ func (p *OpenAIParser) WithName(name string) *OpenAIParser {
 }
 
 // ParseRequest parses the request body and headers and returns a map representation.
-func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.InferenceRequestBody, error) {
+func (p *OpenAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.ParseRequestResult, error) {
 	bodyMap := make(map[string]any)
 	if err := json.Unmarshal(body, &bodyMap); err != nil {
-		return nil, fmt.Errorf("error unmarshaling request bodyMap: %w", err)
+		return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("error unmarshaling request bodyMap: %w", err)
 	}
 	extractedBody, err := extractRequestBody(body, headers)
 	if err != nil {
-		return nil, err
+		if strings.HasPrefix(err.Error(), "unsupported API endpoint") {
+			return &fwkrh.ParseRequestResult{BypassOnError: true}, err
+		}
+		return &fwkrh.ParseRequestResult{BypassOnError: false}, err
 	}
 	extractedBody.Payload = fwkrh.PayloadMap(bodyMap)
 	if stream, ok := bodyMap["stream"].(bool); ok && stream {
 		extractedBody.Stream = true
 	}
-	return extractedBody, nil
+	return &fwkrh.ParseRequestResult{Body: extractedBody}, nil
 }
 
 // ParseResponse extracts usage metadata from the provider's response.
@@ -187,10 +190,31 @@ func determineAPITypeFromPath(path string) string {
 	return completionsAPI
 }
 
+var supportedOpenAIPaths = []string{
+	"/conversations",
+	"/responses",
+	"/chat/completions",
+	"/completions",
+	"/embeddings",
+}
+
 // extractRequestBody extracts the LLMRequestBody from the given request body map using path-based detection.
 func extractRequestBody(rawBody []byte, headers map[string]string) (*fwkrh.InferenceRequestBody, error) {
 	// Determine API type from request path
 	path := getRequestPath(headers)
+	
+	supported := false
+	for _, suffix := range supportedOpenAIPaths {
+		if strings.HasSuffix(path, suffix) {
+			supported = true
+			break
+		}
+	}
+	
+	if !supported {
+		return nil, fmt.Errorf("unsupported API endpoint: %s", path)
+	}
+
 	apiType := determineAPITypeFromPath(path)
 
 	switch apiType {

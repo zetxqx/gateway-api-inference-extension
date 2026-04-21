@@ -76,26 +76,42 @@ func (p *VertexAIParser) WithName(name string) *VertexAIParser {
 	return p
 }
 
+var supportedVertexAIPaths = []string{
+	chatCompletionsMethod,
+}
+
 // ParseRequest parses the gRPC request body and headers and returns an InferenceRequestBody.
-func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.InferenceRequestBody, error) {
+func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.ParseRequestResult, error) {
 	logger := log.FromContext(ctx)
 	path := headers[parsers.MethodPathKey]
+	
+	supported := false
+	for _, suffix := range supportedVertexAIPaths {
+		if strings.HasSuffix(path, suffix) {
+			supported = true
+			break
+		}
+	}
+	
+	if !supported {
+		return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
+	}
 
 	switch {
 	case strings.HasSuffix(path, chatCompletionsMethod):
 		parsedPayload, _, err := parsers.ParseGrpcPayload(body)
 		if err != nil {
-			return nil, fmt.Errorf("parsing gRPC frame for ChatCompletions: %w", err)
+			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("parsing gRPC frame for ChatCompletions: %w", err)
 		}
 
 		req := &aiplatformpb.ChatCompletionsRequest{}
 		if err := proto.Unmarshal(parsedPayload, req); err != nil {
-			return nil, fmt.Errorf("unmarshaling ChatCompletionsRequest: %w", err)
+			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("unmarshaling ChatCompletionsRequest: %w", err)
 		}
 
 		httpBody := req.GetHttpBody()
 		if httpBody == nil {
-			return nil, fmt.Errorf("ChatCompletionsRequest has no HttpBody")
+			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("ChatCompletionsRequest has no HttpBody")
 		}
 		jsonBytes := httpBody.GetData()
 
@@ -107,20 +123,23 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 			headersCopy[k] = v
 		}
 		headersCopy[":path"] = "/v1/chat/completions"
-		inferenceRequestBody, err := openAIParser.ParseRequest(ctx, jsonBytes, headersCopy)
+		parseResult, err := openAIParser.ParseRequest(ctx, jsonBytes, headersCopy)
 		if err != nil {
-			return nil, fmt.Errorf("parsing ChatCompletionsRequest: %w", err)
+			return &fwkrh.ParseRequestResult{BypassOnError: parseResult != nil && parseResult.BypassOnError}, fmt.Errorf("parsing ChatCompletionsRequest: %w", err)
 		}
+		
+		inferenceRequestBody := parseResult.Body
 		inferenceRequestBody.Payload = fwkrh.PayloadProto{Message: req}
 		if inferenceRequestBody.ChatCompletions != nil {
 			logger.V(logutil.DEBUG).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions.Messages)
 		} else {
 			logger.V(logutil.DEBUG).Info("Parsed ChatCompletionsRequest", "body", inferenceRequestBody.ChatCompletions)
 		}
-		return inferenceRequestBody, nil
+		return &fwkrh.ParseRequestResult{Body: inferenceRequestBody}, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported gRPC path: %s", path)
+		// Bypass if it is an unsupported path.
+		return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", path)
 	}
 }
 

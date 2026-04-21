@@ -47,10 +47,11 @@ func TestParseRequest_ChatCompletions(t *testing.T) {
 
 	headers := map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"}
 
-	req, err := parser.ParseRequest(context.Background(), body, headers)
+	res, err := parser.ParseRequest(context.Background(), body, headers)
 	if err != nil {
 		t.Fatalf("ParseRequest failed: %v", err)
 	}
+	req := res.Body
 
 	if req.ChatCompletions == nil {
 		t.Fatal("Expected ChatCompletions to be populated")
@@ -89,36 +90,46 @@ func TestParseRequest_Errors(t *testing.T) {
 	parser := NewVertexAIParser()
 
 	tests := []struct {
-		name        string
-		body        []byte
-		headers     map[string]string
-		expectedErr string
+		name              string
+		body              []byte
+		headers           map[string]string
+		expectedErr       string
+		wantBypassOnError bool
 	}{
 		{
-			name:        "Unsupported gRPC path",
-			body:        []byte{},
-			headers:     map[string]string{":path": "/unsupported/path"},
-			expectedErr: "unsupported gRPC path",
+			name:              "Unsupported gRPC path",
+			body:              []byte{},
+			headers:           map[string]string{":path": "/unsupported/path"},
+			expectedErr:       "unsupported gRPC path",
+			wantBypassOnError: true,
 		},
 		{
-			name:        "Invalid gRPC frame",
-			body:        []byte{0, 0, 0, 0}, // Too short
-			headers:     map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
-			expectedErr: "parsing gRPC frame for ChatCompletions",
+			name:              "Invalid gRPC frame",
+			body:              []byte{0, 0, 0, 0}, // Too short
+			headers:           map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
+			expectedErr:       "parsing gRPC frame for ChatCompletions",
+			wantBypassOnError: false,
 		},
 		{
-			name:        "Invalid proto message",
-			body:        []byte{0, 0, 0, 0, 1, 0xFF}, // Valid header, invalid payload
-			headers:     map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
-			expectedErr: "unmarshaling ChatCompletionsRequest",
+			name:              "Invalid proto message",
+			body:              []byte{0, 0, 0, 0, 1, 0xFF}, // Valid header, invalid payload
+			headers:           map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
+			expectedErr:       "unmarshaling ChatCompletionsRequest",
+			wantBypassOnError: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parser.ParseRequest(context.Background(), tc.body, tc.headers)
+			res, err := parser.ParseRequest(context.Background(), tc.body, tc.headers)
 			if err == nil {
 				t.Fatal("Expected error, got nil")
+			}
+			if res == nil {
+				t.Fatal("ParseRequest() returned nil result on error")
+			}
+			if res.BypassOnError != tc.wantBypassOnError {
+				t.Errorf("ParseRequest() BypassOnError = %v, want %v", res.BypassOnError, tc.wantBypassOnError)
 			}
 			if !strings.Contains(err.Error(), tc.expectedErr) {
 				t.Errorf("Expected error containing %q, got %v", tc.expectedErr, err)

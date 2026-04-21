@@ -316,14 +316,46 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				reqCtx.RequestSize = len(body)
 				body = []byte{}
 
-				inferenceRequestBody, parseErr := s.parser.ParseRequest(ctx, reqCtx.Request.RawBody, reqCtx.Request.Headers)
+				parseResult, parseErr := s.parser.ParseRequest(ctx, reqCtx.Request.RawBody, reqCtx.Request.Headers)
 				if parseErr != nil {
+					if parseResult != nil && parseResult.BypassOnError {
+						logger.Error(parseErr, "Error parsing request, falling back to random pod")
+						endpoint := s.director.GetRandomEndpoint()
+						if endpoint == nil {
+							err = errcommon.Error{Code: errcommon.BadRequest, Msg: "failed to parse request and no random pod available"}
+							break
+						}
+						reqCtx.TargetEndpoint = endpoint.GetIPAddress() + ":" + endpoint.GetPort()
+						
+						bodyResp := &extProcPb.ProcessingResponse{
+							Response: &extProcPb.ProcessingResponse_RequestBody{
+								RequestBody: &extProcPb.BodyResponse{
+									Response: &extProcPb.CommonResponse{
+										ClearRouteCache: true,
+										HeaderMutation: &extProcPb.HeaderMutation{
+											SetHeaders: s.generateHeaders(ctx, reqCtx),
+										},
+									},
+								},
+							},
+							DynamicMetadata: s.generateMetadata(reqCtx.TargetEndpoint),
+						}
+						
+						if err := srv.Send(bodyResp); err != nil {
+							return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
+						}
+						
+						reqCtx.ResponseComplete = true // Mark as complete to avoid defer hooks
+						return nil // Bypass rest of processing by exiting
+					}
+					
+					// Do NOT bypass if BypassOnError is false or parseResult is nil.
 					err = errcommon.Error{Code: errcommon.BadRequest, Msg: parseErr.Error()}
 					logger.Error(err, "Error parsing request")
 					break
 				}
 
-				reqCtx, err = s.director.HandleRequest(ctx, reqCtx, inferenceRequestBody)
+				reqCtx, err = s.director.HandleRequest(ctx, reqCtx, parseResult.Body)
 				if err != nil {
 					logger.Error(err, "Error handling request")
 					break

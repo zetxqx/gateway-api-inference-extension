@@ -77,7 +77,7 @@ func (p *VllmGRPCParser) SupportedAppProtocols() []v1.AppProtocol {
 }
 
 // ParseRequest parses the gRPC request body and headers and returns an LLMRequestBody.
-func (p *VllmGRPCParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.InferenceRequestBody, error) {
+func (p *VllmGRPCParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.ParseRequestResult, error) {
 	logger := log.FromContext(ctx)
 
 	path := headers[methodPathKey]
@@ -85,19 +85,20 @@ func (p *VllmGRPCParser) ParseRequest(ctx context.Context, body []byte, headers 
 	case vllmEmbedPath:
 		extractedBody, err := convertEmbedToInferenceRequestBody(body)
 		if err != nil {
-			return nil, fmt.Errorf("parsing gRPC payload for Embed: %w", err)
+			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("parsing gRPC payload for Embed: %w", err)
 		}
 		logger.V(logutil.TRACE).Info("parsed EmbedRequest")
-		return extractedBody, nil
+		return &fwkrh.ParseRequestResult{Body: extractedBody}, nil
 	case vllmGeneratePath:
 		extractedBody, err := convertToInferenceRequestBody(body)
 		if err != nil {
-			return nil, fmt.Errorf("parsing gRPC payload for Generate: %w", err)
+			return &fwkrh.ParseRequestResult{BypassOnError: false}, fmt.Errorf("parsing gRPC payload for Generate: %w", err)
 		}
 		logger.V(logutil.TRACE).Info("parsed GenerateRequest")
-		return extractedBody, nil
+		return &fwkrh.ParseRequestResult{Body: extractedBody}, nil
 	default:
-		return nil, fmt.Errorf("unsupported gRPC path: %s", headers[":path"])
+		// Bypass if it is an unsupported path.
+		return &fwkrh.ParseRequestResult{BypassOnError: true}, fmt.Errorf("unsupported gRPC path: %s", headers[":path"])
 	}
 }
 
