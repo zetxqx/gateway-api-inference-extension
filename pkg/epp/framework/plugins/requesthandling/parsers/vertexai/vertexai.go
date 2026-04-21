@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
+	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/proto"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -124,7 +125,7 @@ func (p *VertexAIParser) ParseRequest(ctx context.Context, body []byte, headers 
 }
 
 // ParseResponse parses the response body and returns a ParsedResponse
-func (p *VertexAIParser) ParseResponse(ctx context.Context, body []byte, headers map[string]string, isStreaming bool) (*fwkrh.ParsedResponse, error) {
+func (p *VertexAIParser) ParseResponse(ctx context.Context, body []byte, headers map[string]string, _ bool) (*fwkrh.ParsedResponse, error) {
 	if len(body) == 0 {
 		return nil, nil
 	}
@@ -134,7 +135,13 @@ func (p *VertexAIParser) ParseResponse(ctx context.Context, body []byte, headers
 		return nil, fmt.Errorf("parsing gRPC frame for response: %w", err)
 	}
 
+	respMsg := &httpbody.HttpBody{}
+	if err := proto.Unmarshal(parsedPayload, respMsg); err != nil {
+		return nil, fmt.Errorf("unmarshaling HttpBody response: %w", err)
+	}
+	jsonBytes := respMsg.GetData()
+
 	// Delegate to OpenAI parser for response as well
 	openAIParser := openai.NewOpenAIParser()
-	return openAIParser.ParseResponse(ctx, parsedPayload, headers, isStreaming)
+	return openAIParser.ParseResponse(ctx, jsonBytes, headers, false)
 }

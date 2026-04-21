@@ -19,11 +19,13 @@ package vertexai
 import (
 	"context"
 	"encoding/binary"
+	"strings"
 	"testing"
 
 	"cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/proto"
+	v1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	fwkrh "sigs.k8s.io/gateway-api-inference-extension/pkg/epp/framework/interface/requesthandling"
 )
 
@@ -77,6 +79,175 @@ func createGrpcFrame(msg proto.Message) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	header := make([]byte, 5)
+	header[0] = 0 // uncompressed
+	binary.BigEndian.PutUint32(header[1:], uint32(len(payload)))
+	return append(header, payload...), nil
+}
+
+func TestParseRequest_Errors(t *testing.T) {
+	parser := NewVertexAIParser()
+
+	tests := []struct {
+		name        string
+		body        []byte
+		headers     map[string]string
+		expectedErr string
+	}{
+		{
+			name:        "Unsupported gRPC path",
+			body:        []byte{},
+			headers:     map[string]string{":path": "/unsupported/path"},
+			expectedErr: "unsupported gRPC path",
+		},
+		{
+			name:        "Invalid gRPC frame",
+			body:        []byte{0, 0, 0, 0}, // Too short
+			headers:     map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
+			expectedErr: "parsing gRPC frame for ChatCompletions",
+		},
+		{
+			name:        "Invalid proto message",
+			body:        []byte{0, 0, 0, 0, 1, 0xFF}, // Valid header, invalid payload
+			headers:     map[string]string{":path": "/google.cloud.aiplatform.v1beta1.PredictionService/ChatCompletions"},
+			expectedErr: "unmarshaling ChatCompletionsRequest",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parser.ParseRequest(context.Background(), tc.body, tc.headers)
+			if err == nil {
+				t.Fatal("Expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.expectedErr) {
+				t.Errorf("Expected error containing %q, got %v", tc.expectedErr, err)
+			}
+		})
+	}
+}
+
+func TestParseResponse(t *testing.T) {
+	parser := NewVertexAIParser()
+
+	jsonPayload := []byte(`{"object":"chat.completion","usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`)
+	httpBody := &httpbody.HttpBody{
+		Data: jsonPayload,
+	}
+	httpBodyBytes, err := proto.Marshal(httpBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal HttpBody: %v", err)
+	}
+	validBody, err := createGrpcFrameRaw(httpBodyBytes)
+	if err != nil {
+		t.Fatalf("Failed to create gRPC frame: %v", err)
+	}
+
+	invalidProtoBody, _ := createGrpcFrameRaw([]byte{0xFF})
+
+	tests := []struct {
+		name          string
+		body          []byte
+		headers       map[string]string
+		expectedErr   string
+		expectedUsage *fwkrh.Usage
+	}{
+		{
+			name:          "Empty body",
+			body:          []byte{},
+			headers:       nil,
+			expectedErr:   "",
+			expectedUsage: nil,
+		},
+		{
+			name:          "Valid JSON response",
+			body:          validBody,
+			headers:       nil,
+			expectedErr:   "",
+			expectedUsage: &fwkrh.Usage{PromptTokens: 10, CompletionTokens: 20, TotalTokens: 30},
+		},
+		{
+			name:          "Invalid gRPC frame",
+			body:          []byte{0, 0, 0, 0},
+			headers:       nil,
+			expectedErr:   "parsing gRPC frame for response",
+			expectedUsage: nil,
+		},
+		{
+			name:          "Invalid proto message",
+			body:          invalidProtoBody,
+			headers:       nil,
+			expectedErr:   "unmarshaling HttpBody response",
+			expectedUsage: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := parser.ParseResponse(context.Background(), tc.body, tc.headers, false)
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Fatal("Expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Errorf("Expected error containing %q, got %v", tc.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseResponse failed: %v", err)
+			}
+			if tc.expectedUsage == nil {
+				if resp != nil {
+					t.Errorf("Expected nil response, got %v", resp)
+				}
+			} else {
+				if resp == nil {
+					t.Fatal("Expected non-nil response")
+				}
+				if resp.Usage == nil {
+					t.Fatal("Expected Usage to be populated")
+				}
+				if resp.Usage.PromptTokens != tc.expectedUsage.PromptTokens {
+					t.Errorf("Expected prompt tokens %d, got %d", tc.expectedUsage.PromptTokens, resp.Usage.PromptTokens)
+				}
+			}
+		})
+	}
+}
+
+func TestVertexAIParser_Metadata(t *testing.T) {
+	parser := NewVertexAIParser()
+
+	typedName := parser.TypedName()
+	if typedName.Type != VertexAIParserType {
+		t.Errorf("Expected type %s, got %s", VertexAIParserType, typedName.Type)
+	}
+	if typedName.Name != VertexAIParserType {
+		t.Errorf("Expected name %s, got %s", VertexAIParserType, typedName.Name)
+	}
+
+	protocols := parser.SupportedAppProtocols()
+	if len(protocols) != 1 || protocols[0] != v1.AppProtocolH2C {
+		t.Errorf("Expected protocols [h2c], got %v", protocols)
+	}
+}
+
+func TestVertexAIParserPluginFactory(t *testing.T) {
+	plugin, err := VertexAIParserPluginFactory("test-parser", nil, nil)
+	if err != nil {
+		t.Fatalf("VertexAIParserPluginFactory failed: %v", err)
+	}
+	parser, ok := plugin.(*VertexAIParser)
+	if !ok {
+		t.Fatal("Expected plugin to be of type *VertexAIParser")
+	}
+	if parser.TypedName().Name != "test-parser" {
+		t.Errorf("Expected name 'test-parser', got %s", parser.TypedName().Name)
+	}
+}
+
+func createGrpcFrameRaw(payload []byte) ([]byte, error) {
 	header := make([]byte, 5)
 	header[0] = 0 // uncompressed
 	binary.BigEndian.PutUint32(header[1:], uint32(len(payload)))

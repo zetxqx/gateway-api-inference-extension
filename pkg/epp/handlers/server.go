@@ -351,7 +351,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		case *extProcPb.ProcessingRequest_ResponseHeaders:
 			for _, header := range v.ResponseHeaders.Headers.GetHeaders() {
 				value := string(header.RawValue)
-				loggerTrace.Info("header", "key", header.Key, "value", value)
+				logger.Info("header", "key", header.Key, "value", value)
 				if header.Key == "status" && value != "200" {
 					reqCtx.ResponseStatusCode = errcommon.ModelServerError
 				} else if header.Key == "content-type" && strings.Contains(value, "text/event-stream") {
@@ -535,7 +535,7 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 		if err := srv.Send(r.respTrailerResp); err != nil {
 			return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
 		} else {
-			logger.V(logutil.DEBUG).Info("EPP sent trailer back to proxy")
+			logger.V(logutil.DEFAULT).Info("EPP sent trailer back to proxy")
 		}
 	}
 	return nil
