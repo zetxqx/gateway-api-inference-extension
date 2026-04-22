@@ -26,8 +26,8 @@ import (
 // Parser defines the interface for parsing payload(requests and responses).
 type Parser interface {
 	fwkplugin.Plugin
-	// ParseRequest parses the request body and headers and returns a map representation.
-	ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*InferenceRequestBody, error)
+	// ParseRequest parses the request body and headers and returns the parsed result.
+	ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*ParseResult, error)
 
 	// ParseResponse parses the response payload.
 	// For streaming responses , this method is invoked multiple times (once per chunk),
@@ -39,6 +39,14 @@ type Parser interface {
 	// SupportedAppProtocols returns the list of supported protocols.
 	// Returning an empty list means it supports all protocols.
 	SupportedAppProtocols() []v1.AppProtocol
+}
+
+// ParseResult contains the result of parsing the request.
+type ParseResult struct {
+	// Body contains the parsed inference request body.
+	Body *InferenceRequestBody
+	// Skip indicates whether to skip the remaining processing phases.
+	Skip bool
 }
 
 type ParsedResponse struct {

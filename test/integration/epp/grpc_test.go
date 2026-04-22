@@ -136,19 +136,16 @@ func TestFullDuplexStreamed_GRPC_KubeInferenceObjectiveRequest(t *testing.T) {
 			},
 			wantResponses: ExpectReject(
 				envoyTypePb.StatusCode_BadRequest,
-				"inference error: BadRequest - parsing gRPC payload for Generate: not able to parse payload",
+				"inference error: BadRequest - invalid or unsupported gRPC payload",
 			),
 		},
 		{
-			name:     "unsupported gRPC method",
+			name:     "unsupported gRPC method bypass",
 			requests: integration.ReqGRPCLLM(logger, "test2", "", "unsupportedMethod"),
 			pods: []podState{
 				P(0, 0, 0.2, "foo", "bar"),
 			},
-			wantResponses: ExpectReject(
-				envoyTypePb.StatusCode_BadRequest,
-				"inference error: BadRequest - unsupported gRPC path: unsupportedMethod",
-			),
+			wantResponses: ExpectGRPCRouteTo("192.168.1.1:8000", "test2", "unsupportedMethod"),
 		},
 		{
 			name: "split body across chunks",

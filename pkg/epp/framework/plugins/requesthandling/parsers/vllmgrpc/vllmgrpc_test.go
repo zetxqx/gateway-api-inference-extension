@@ -89,6 +89,7 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 		headers       map[string]string
 		malformedData []byte
 		wantErr       bool
+		wantSkip      bool
 		want          *fwkrh.InferenceRequestBody
 	}{
 		{
@@ -242,16 +243,19 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 		{
 			name:          "Malformed gRPC payload (too short)",
 			malformedData: []byte{0, 0, 0},
+			headers:       map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			wantErr:       true,
 		},
 		{
 			name:          "Compressed payload (unsupported)",
 			malformedData: []byte{1, 0, 0, 0, 0}, // Flag 1 = compressed
+			headers:       map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			wantErr:       true,
 		},
 		{
 			name:    "Nil Input Request",
 			reqMsg:  &pb.GenerateRequest{},
+			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			wantErr: true,
 		},
 		{
@@ -302,6 +306,18 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:     "Unsupported Path skip",
+			reqMsg:   &pb.GenerateRequest{Input: &pb.GenerateRequest_Text{Text: "hello"}},
+			headers:  map[string]string{":path": "/unsupported/path"},
+			wantSkip: true,
+		},
+		{
+			name:    "Embed Request missing tokenized input",
+			reqMsg:  &pb.EmbedRequest{},
+			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Embed"},
+			wantErr: true,
+		},
 	}
 	parser := NewVllmGRPCParser()
 	ctx := context.Background()
@@ -325,7 +341,11 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 				return
 			}
 
-			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+			if got.Skip != tt.wantSkip {
+				t.Errorf("got.Skip = %v, want %v", got.Skip, tt.wantSkip)
+			}
+
+			if diff := cmp.Diff(tt.want, got.Body, protocmp.Transform()); diff != "" {
 				t.Errorf("ParseRequest() mismatch (-want +got):\n%s", diff)
 			}
 		})
