@@ -500,6 +500,7 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 		})
 	}
 
+<<<<<<< HEAD
 	// Handle skip — send response with fallback routing to Envoy.
 	if r.RequestState == RequestSkipped {
 		if r.reqHeaderResp != nil {
@@ -515,6 +516,14 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 					return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
 				}
 			}
+=======
+	// Handle skip — send HeadersResponse with fallback routing to Envoy.
+	if r.RequestState == RequestSkipped {
+		loggerTrace.Info("Sending HeadersResponse for skipped request")
+		if err := srv.Send(r.reqHeaderResp); err != nil {
+			logger.Error(err, "error sending response")
+			return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
+>>>>>>> 49394ebf (add parser skip request logic)
 		}
 		return nil
 	}
