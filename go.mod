@@ -41,6 +41,7 @@ require (
 )
 
 require (
+	cloud.google.com/go/aiplatform v1.120.0
 	github.com/go-logr/stdr v1.2.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/google/cel-go v0.28.0
@@ -48,12 +49,14 @@ require (
 	github.com/spf13/pflag v1.0.10
 	go.opentelemetry.io/otel/trace v1.43.0
 	golang.org/x/time v0.15.0
+	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9
 	sigs.k8s.io/kustomize/api v0.21.1
 	sigs.k8s.io/kustomize/kyaml v0.21.1
 )
 
 require (
 	cel.dev/expr v0.25.1 // indirect
+	cloud.google.com/go/longrunning v0.8.0 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
@@ -133,7 +136,7 @@ require (
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/tools v0.42.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
+	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
