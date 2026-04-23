@@ -316,14 +316,35 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 				reqCtx.RequestSize = len(body)
 				body = []byte{}
 
-				inferenceRequestBody, parseErr := s.parser.ParseRequest(ctx, reqCtx.Request.RawBody, reqCtx.Request.Headers)
+				parseResult, parseErr := s.parser.ParseRequest(ctx, reqCtx.Request.RawBody, reqCtx.Request.Headers)
 				if parseErr != nil {
+					if parseResult != nil && parseResult.BypassOnError {
+						logger.Error(parseErr, "Error parsing request, falling back to random pod")
+						endpoint := s.director.GetRandomEndpoint()
+						if endpoint == nil {
+							err = errcommon.Error{Code: errcommon.BadRequest, Msg: "failed to parse request and no random pod available"}
+							break
+						}
+						reqCtx.TargetEndpoint = endpoint.GetIPAddress() + ":" + endpoint.GetPort()
+						
+						reqCtx.reqHeaderResp = s.generateRequestHeaderResponse(ctx, reqCtx)
+						reqCtx.reqBodyResp = envoy.GenerateRequestBodyResponses(reqCtx.Request.RawBody)
+						
+						if err := reqCtx.updateStateAndSendIfNeeded(srv, logger); err != nil {
+							return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
+						}
+						
+						reqCtx.ResponseComplete = true // Mark as complete to avoid defer hooks
+						return nil // Bypass rest of processing by exiting
+					}
+					
+					// Do NOT bypass if BypassOnError is false or parseResult is nil.
 					err = errcommon.Error{Code: errcommon.BadRequest, Msg: parseErr.Error()}
 					logger.Error(err, "Error parsing request")
 					break
 				}
 
-				reqCtx, err = s.director.HandleRequest(ctx, reqCtx, inferenceRequestBody)
+				reqCtx, err = s.director.HandleRequest(ctx, reqCtx, parseResult.Body)
 				if err != nil {
 					logger.Error(err, "Error handling request")
 					break
@@ -351,7 +372,7 @@ func (s *StreamingServer) Process(srv extProcPb.ExternalProcessor_ProcessServer)
 		case *extProcPb.ProcessingRequest_ResponseHeaders:
 			for _, header := range v.ResponseHeaders.Headers.GetHeaders() {
 				value := string(header.RawValue)
-				loggerTrace.Info("header", "key", header.Key, "value", value)
+				logger.Info("header", "key", header.Key, "value", value)
 				if header.Key == "status" && value != "200" {
 					reqCtx.ResponseStatusCode = errcommon.ModelServerError
 				} else if header.Key == "content-type" && strings.Contains(value, "text/event-stream") {
@@ -535,7 +556,7 @@ func (r *RequestContext) updateStateAndSendIfNeeded(srv extProcPb.ExternalProces
 		if err := srv.Send(r.respTrailerResp); err != nil {
 			return status.Errorf(codes.Unknown, "failed to send response back to Envoy: %v", err)
 		} else {
-			logger.V(logutil.DEBUG).Info("EPP sent trailer back to proxy")
+			logger.V(logutil.DEFAULT).Info("EPP sent trailer back to proxy")
 		}
 	}
 	return nil

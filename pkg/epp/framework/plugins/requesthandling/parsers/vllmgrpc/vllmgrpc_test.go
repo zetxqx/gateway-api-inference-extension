@@ -84,12 +84,13 @@ func TestVllmGRPCParser_PluginLifecycle(t *testing.T) {
 
 func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 	tests := []struct {
-		name          string
-		reqMsg        proto.Message
-		headers       map[string]string
-		malformedData []byte
-		wantErr       bool
-		want          *fwkrh.InferenceRequestBody
+		name              string
+		reqMsg            proto.Message
+		headers           map[string]string
+		malformedData     []byte
+		wantErr           bool
+		want              *fwkrh.InferenceRequestBody
+		wantBypassOnError bool
 	}{
 		{
 			name: "Valid Text Request",
@@ -241,16 +242,19 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 		},
 		{
 			name:          "Malformed gRPC payload (too short)",
+			headers:       map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			malformedData: []byte{0, 0, 0},
 			wantErr:       true,
 		},
 		{
 			name:          "Compressed payload (unsupported)",
+			headers:       map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			malformedData: []byte{1, 0, 0, 0, 0}, // Flag 1 = compressed
 			wantErr:       true,
 		},
 		{
 			name:    "Nil Input Request",
+			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
 			reqMsg:  &pb.GenerateRequest{},
 			wantErr: true,
 		},
@@ -302,6 +306,24 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:    "unsupported path, expect bypass",
+			headers: map[string]string{":path": "/unsupported/path"},
+			reqMsg: &pb.GenerateRequest{
+				Input: &pb.GenerateRequest_Text{
+					Text: "Hello world",
+				},
+			},
+			wantErr:           true,
+			wantBypassOnError: true,
+		},
+		{
+			name:    "supported path but invalid body, expect no bypass",
+			headers: map[string]string{":path": "/vllm.grpc.engine.VllmEngine/Generate"},
+			malformedData: []byte{0, 0, 0, 0, 1, 0xFF}, // Valid header, invalid payload
+			wantErr:           true,
+			wantBypassOnError: false,
+		},
 	}
 	parser := NewVllmGRPCParser()
 	ctx := context.Background()
@@ -322,10 +344,16 @@ func TestVllmGRPCParser_ParseRequest(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if got == nil {
+					t.Fatal("ParseRequest() returned nil result on error")
+				}
+				if got.BypassOnError != tt.wantBypassOnError {
+					t.Errorf("ParseRequest() BypassOnError = %v, want %v", got.BypassOnError, tt.wantBypassOnError)
+				}
 				return
 			}
 
-			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+			if diff := cmp.Diff(tt.want, got.Body, protocmp.Transform()); diff != "" {
 				t.Errorf("ParseRequest() mismatch (-want +got):\n%s", diff)
 			}
 		})

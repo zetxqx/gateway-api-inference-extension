@@ -58,6 +58,11 @@ func (s *StreamingServer) HandleResponseBody(ctx context.Context, reqCtx *Reques
 		if reqCtx.Usage.PromptTokenDetails != nil {
 			metrics.RecordPromptCachedTokens(reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.Usage.PromptTokenDetails.CachedTokens)
 		}
+		if reqCtx.Usage.PromptTokenDetails != nil {
+			logger.V(logutil.DEFAULT).Info("parsing response usage is", "prompt_tokens", reqCtx.Usage.PromptTokens, "completion_tokens", reqCtx.Usage.CompletionTokens, "cached_tokens", reqCtx.Usage.PromptTokenDetails.CachedTokens)
+		} else {
+			logger.V(logutil.DEFAULT).Info("parsing response usage is", "prompt_tokens", reqCtx.Usage.PromptTokens, "completion_tokens", reqCtx.Usage.CompletionTokens)
+		}
 	}
 	if endOfStream {
 		metrics.RecordNormalizedTimePerOutputToken(ctx, reqCtx.IncomingModelName, reqCtx.TargetModelName, reqCtx.RequestReceivedTimestamp, reqCtx.ResponseCompleteTimestamp, reqCtx.Usage.CompletionTokens)

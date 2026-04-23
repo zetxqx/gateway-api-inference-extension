@@ -66,9 +66,11 @@ func (p *PassthroughParser) WithName(name string) *PassthroughParser {
 }
 
 // ParseRequest converts the request to RawPayload.
-func (p *PassthroughParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.InferenceRequestBody, error) {
-	return &fwkrh.InferenceRequestBody{
-		Payload: fwkrh.RawPayload(body),
+func (p *PassthroughParser) ParseRequest(ctx context.Context, body []byte, headers map[string]string) (*fwkrh.ParseRequestResult, error) {
+	return &fwkrh.ParseRequestResult{
+		Body: &fwkrh.InferenceRequestBody{
+			Payload: fwkrh.RawPayload(body),
+		},
 	}, nil
 }
 

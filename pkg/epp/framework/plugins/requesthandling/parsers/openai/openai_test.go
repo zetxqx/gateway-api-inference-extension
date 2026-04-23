@@ -45,11 +45,12 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 	parser := NewOpenAIParser()
 
 	tests := []struct {
-		name    string
-		headers map[string]string
-		body    map[string]any
-		want    *fwkrh.InferenceRequestBody
-		wantErr bool
+		name              string
+		headers           map[string]string
+		body              map[string]any
+		want              *fwkrh.InferenceRequestBody
+		wantErr           bool
+		wantBypassOnError bool
 	}{
 		{
 			name:    "completions request body",
@@ -792,6 +793,25 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:    "unsupported path, expect bypass",
+			headers: map[string]string{":path": "/v1/foo"},
+			body: map[string]any{
+				"model": "test",
+			},
+			wantErr:           true,
+			wantBypassOnError: true,
+		},
+		{
+			name:    "supported path but invalid body, expect no bypass",
+			headers: map[string]string{":path": "/v1/chat/completions"},
+			body: map[string]any{
+				"model": "test",
+				// missing messages
+			},
+			wantErr:           true,
+			wantBypassOnError: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -806,10 +826,16 @@ func TestOpenAIParser_ParseRequest(t *testing.T) {
 			}
 
 			if tt.wantErr {
+				if got == nil {
+					t.Fatal("ParseRequest() returned nil result on error")
+				}
+				if got.BypassOnError != tt.wantBypassOnError {
+					t.Errorf("ParseRequest() BypassOnError = %v, want %v", got.BypassOnError, tt.wantBypassOnError)
+				}
 				return
 			}
 
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got.Body); diff != "" {
 				t.Errorf("ParseRequest() mismatch (-want +got):\n%s", diff)
 			}
 		})
