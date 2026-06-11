@@ -69,3 +69,22 @@ spec:
     - path:
         type: PathPrefix
         value: /inferencepool-app-protocol-default
+---
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: testepp
+  namespace: inference-conformance-app-backend
+spec:
+  default:
+    checkIntervalSec: 2
+    config:
+      httpHealthCheck:
+        port: 3000
+        requestPath: /health
+      type: HTTP
+    timeoutSec: 2
+  targetRef:
+    group: "inference.networking.k8s.io"
+    kind: InferencePool
+    name: appprotocol-h2c-inference-pool
